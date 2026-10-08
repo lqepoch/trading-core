@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 2,
+  "datasetId": "qqq-sip-2026-10-08-finite-v2",
+  "source": {
+    "provider": "alpaca",
+    "feed": "sip",
+    "entitlement": "unknown",
+    "numericEncoding": "NUMERIC_ENCODING_DECIMAL_TOKEN"
+  },
+  "symbols": [
+    "QQQ"
+  ],
+  "timeRange": {
+    "startInclusive": "2026-10-08T14:30:00.100Z",
+    "endExclusive": "2026-10-08T14:31:00Z"
+  },
+  "sourceTimestampMissingRows": "0",
+  "rowCount": "1",
+  "object": {
+    "objectName": "qqq-sip-2026-10-08.parquet",
+    "objectId": "local-test:qqq-sip-2026-10-08",
+    "sizeBytes": "4096",
+    "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "parquetSchemaSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "parquetFooterRows": "1",
+    "transport": "local_test"
+  },
+  "storageVerification": {
+    "readbackSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "verifiedBeforePublish": true
+  },
+  "completionEvidence": {
+    "diagnosticStream": {
+      "sourceInstanceId": "local-sip-test-session-1",
+      "generation": "1",
+      "observedLastSequence": "9",
+      "localPolicyCutoff": "2026-10-08T14:31:00Z",
+      "observedMaxSourceTimestamp": "2026-10-08T14:31:05.000000001Z",
+      "diagnosticPolicySha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "diagnosticReceiptSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  }
+}

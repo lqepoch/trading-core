@@ -28,6 +28,8 @@ pub enum DatasetManifestError {
     InvalidHash,
     #[error("dataset completion evidence is incomplete or inconsistent")]
     InvalidCompletion,
+    #[error("dataset storage verification is incomplete or inconsistent")]
+    InvalidStorageVerification,
 }
 
 /// Transport used for the immutable Parquet object referenced by a manifest.
@@ -117,102 +119,18 @@ impl DatasetManifestV1 {
         if self.schema_version != DATASET_MANIFEST_SCHEMA_VERSION {
             return Err(DatasetManifestError::UnsupportedVersion);
         }
-        if !stable_identity(&self.dataset_id, 256) {
-            return Err(DatasetManifestError::InvalidDatasetId);
-        }
-        self.source
-            .validate_for_dataset_manifest()
-            .map_err(|_| DatasetManifestError::InvalidSource)?;
+        validate_dataset_manifest_fields(
+            &self.dataset_id,
+            &self.source,
+            &self.symbols,
+            self.time_range.as_ref(),
+            self.source_timestamp_missing_rows,
+            self.row_count,
+            &self.object,
+        )?;
 
-        if self.symbols.is_empty()
-            || self
-                .symbols
-                .iter()
-                .any(|symbol| !valid_identifier(symbol, 256))
-            || self.symbols.windows(2).any(|pair| pair[0] >= pair[1])
-        {
-            return Err(DatasetManifestError::InvalidSymbols);
-        }
-
-        if self.row_count == 0 || self.source_timestamp_missing_rows > self.row_count {
-            return Err(DatasetManifestError::InvalidRowCount);
-        }
-        match (&self.time_range, self.source_timestamp_missing_rows) {
-            (Some(range), missing) if missing < self.row_count => {
-                if range.start_inclusive >= range.end_exclusive {
-                    return Err(DatasetManifestError::InvalidTimeRange);
-                }
-            }
-            (None, missing) if missing == self.row_count => {}
-            _ => return Err(DatasetManifestError::InvalidTimeRange),
-        }
-
-        if !valid_object_name(&self.object.object_name)
-            || self.object.size_bytes == 0
-            || self.object.parquet_footer_rows != self.row_count
-        {
-            return Err(DatasetManifestError::InvalidObject);
-        }
-        if !valid_sha256(&self.object.content_sha256)
-            || !valid_sha256(&self.object.parquet_schema_sha256)
-            || !valid_sha256(&self.completion.readback_sha256)
-        {
+        if !valid_sha256(&self.completion.readback_sha256) {
             return Err(DatasetManifestError::InvalidHash);
-        }
-
-        let raw_messagepack_schema_sha256 = crate::parquet_schema::trusted_schema_fingerprint(
-            crate::parquet_schema::MARKET_RAW_FRAME_PARQUET_SCHEMA_ID,
-        )
-        .map_err(|_| DatasetManifestError::InvalidObject)?;
-        let raw_json_schema_sha256 = crate::parquet_schema::trusted_schema_fingerprint(
-            crate::parquet_schema::MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_ID,
-        )
-        .map_err(|_| DatasetManifestError::InvalidObject)?;
-        let source_is_raw_bytes = self.source.numeric_encoding.is_raw_bytes();
-        let object_raw_schema_matches_encoding = match self.source.numeric_encoding {
-            crate::NumericEncodingV1::RawMessagePackBytes => {
-                self.object.parquet_schema_sha256 == raw_messagepack_schema_sha256
-            }
-            crate::NumericEncodingV1::RawJsonBytes => {
-                self.object.parquet_schema_sha256 == raw_json_schema_sha256
-            }
-            _ => {
-                self.object.parquet_schema_sha256 != raw_messagepack_schema_sha256
-                    && self.object.parquet_schema_sha256 != raw_json_schema_sha256
-            }
-        };
-        if !object_raw_schema_matches_encoding {
-            return Err(DatasetManifestError::InvalidSource);
-        }
-        if source_is_raw_bytes
-            && (self.time_range.is_some() || self.source_timestamp_missing_rows != self.row_count)
-        {
-            return Err(DatasetManifestError::InvalidTimeRange);
-        }
-
-        let object_id = self
-            .object
-            .object_id
-            .as_deref()
-            .filter(|value| valid_identifier(value, 512));
-        let object_identity_matches_transport = match (self.object.transport, object_id) {
-            (DatasetTransportV1::RcloneGoogleDrive, Some(value)) => {
-                !value.starts_with("local-test:")
-            }
-            (DatasetTransportV1::LocalTest, Some(value)) => {
-                value.strip_prefix("local-test:").is_some_and(|tail| {
-                    !tail.is_empty()
-                        && !tail.contains("..")
-                        && tail.bytes().all(|byte| {
-                            byte.is_ascii_alphanumeric()
-                                || matches!(byte, b'_' | b'.' | b':' | b'-')
-                        })
-                })
-            }
-            (_, None) => false,
-        };
-        if !object_identity_matches_transport {
-            return Err(DatasetManifestError::InvalidObject);
         }
 
         if !self.completion.input_eof
@@ -226,14 +144,114 @@ impl DatasetManifestV1 {
     }
 }
 
-fn valid_sha256(value: &str) -> bool {
+/// Validate dataset identity, source, symbol, coverage, and immutable object fields shared by
+/// manifest versions. Version-specific completion and storage verification remain separate.
+pub(crate) fn validate_dataset_manifest_fields(
+    dataset_id: &str,
+    source: &MarketDataSourceV1,
+    symbols: &[String],
+    time_range: Option<&DatasetTimeRangeV1>,
+    source_timestamp_missing_rows: u64,
+    row_count: u64,
+    object: &DatasetObjectV1,
+) -> Result<(), DatasetManifestError> {
+    if !stable_identity(dataset_id, 256) {
+        return Err(DatasetManifestError::InvalidDatasetId);
+    }
+    source
+        .validate_for_dataset_manifest()
+        .map_err(|_| DatasetManifestError::InvalidSource)?;
+
+    if symbols.is_empty()
+        || symbols.iter().any(|symbol| !valid_identifier(symbol, 256))
+        || symbols.windows(2).any(|pair| pair[0] >= pair[1])
+    {
+        return Err(DatasetManifestError::InvalidSymbols);
+    }
+
+    if row_count == 0 || source_timestamp_missing_rows > row_count {
+        return Err(DatasetManifestError::InvalidRowCount);
+    }
+    match (time_range, source_timestamp_missing_rows) {
+        (Some(range), missing) if missing < row_count => {
+            if range.start_inclusive >= range.end_exclusive {
+                return Err(DatasetManifestError::InvalidTimeRange);
+            }
+        }
+        (None, missing) if missing == row_count => {}
+        _ => return Err(DatasetManifestError::InvalidTimeRange),
+    }
+
+    if !valid_object_name(&object.object_name)
+        || object.size_bytes == 0
+        || object.parquet_footer_rows != row_count
+    {
+        return Err(DatasetManifestError::InvalidObject);
+    }
+    if !valid_sha256(&object.content_sha256) || !valid_sha256(&object.parquet_schema_sha256) {
+        return Err(DatasetManifestError::InvalidHash);
+    }
+
+    let raw_messagepack_schema_sha256 = crate::parquet_schema::trusted_schema_fingerprint(
+        crate::parquet_schema::MARKET_RAW_FRAME_PARQUET_SCHEMA_ID,
+    )
+    .map_err(|_| DatasetManifestError::InvalidObject)?;
+    let raw_json_schema_sha256 = crate::parquet_schema::trusted_schema_fingerprint(
+        crate::parquet_schema::MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_ID,
+    )
+    .map_err(|_| DatasetManifestError::InvalidObject)?;
+    let source_is_raw_bytes = source.numeric_encoding.is_raw_bytes();
+    let object_raw_schema_matches_encoding = match source.numeric_encoding {
+        crate::NumericEncodingV1::RawMessagePackBytes => {
+            object.parquet_schema_sha256 == raw_messagepack_schema_sha256
+        }
+        crate::NumericEncodingV1::RawJsonBytes => {
+            object.parquet_schema_sha256 == raw_json_schema_sha256
+        }
+        _ => {
+            object.parquet_schema_sha256 != raw_messagepack_schema_sha256
+                && object.parquet_schema_sha256 != raw_json_schema_sha256
+        }
+    };
+    if !object_raw_schema_matches_encoding {
+        return Err(DatasetManifestError::InvalidSource);
+    }
+    if source_is_raw_bytes && (time_range.is_some() || source_timestamp_missing_rows != row_count) {
+        return Err(DatasetManifestError::InvalidTimeRange);
+    }
+
+    let object_id = object
+        .object_id
+        .as_deref()
+        .filter(|value| valid_identifier(value, 512));
+    let object_identity_matches_transport = match (object.transport, object_id) {
+        (DatasetTransportV1::RcloneGoogleDrive, Some(value)) => !value.starts_with("local-test:"),
+        (DatasetTransportV1::LocalTest, Some(value)) => {
+            value.strip_prefix("local-test:").is_some_and(|tail| {
+                !tail.is_empty()
+                    && !tail.contains("..")
+                    && tail.bytes().all(|byte| {
+                        byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b':' | b'-')
+                    })
+            })
+        }
+        (_, None) => false,
+    };
+    if !object_identity_matches_transport {
+        return Err(DatasetManifestError::InvalidObject);
+    }
+
+    Ok(())
+}
+
+pub(crate) fn valid_sha256(value: &str) -> bool {
     value.len() == 64
         && value
             .bytes()
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-fn valid_object_name(value: &str) -> bool {
+pub(crate) fn valid_object_name(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 512
         && value != "."
@@ -243,7 +261,7 @@ fn valid_object_name(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b'-'))
 }
 
-fn stable_identity(value: &str, max_bytes: usize) -> bool {
+pub(crate) fn stable_identity(value: &str, max_bytes: usize) -> bool {
     let mut bytes = value.bytes();
     bytes
         .next()

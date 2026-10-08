@@ -24,6 +24,7 @@ protoc \
   --include_imports \
   lqepoch/market/v1/market.proto \
   lqepoch/dataset/v1/manifest.proto \
+  lqepoch/dataset/v2/manifest.proto \
   lqepoch/prediction/v1/prediction.proto
 
 protoc --proto_path=proto --proto_path=/usr/include \
@@ -38,6 +39,10 @@ protoc --proto_path=proto --proto_path=/usr/include \
   --encode=lqepoch.dataset.v1.DatasetManifestV1 \
   lqepoch/dataset/v1/manifest.proto \
   < proto/fixtures/dataset-manifest-v1.textproto > "$scratch/dataset-manifest.pb"
+protoc --proto_path=proto --proto_path=/usr/include \
+  --encode=lqepoch.dataset.v2.DatasetManifestV2 \
+  lqepoch/dataset/v2/manifest.proto \
+  < proto/fixtures/dataset-manifest-v2.textproto > "$scratch/dataset-manifest-v2.pb"
 protoc --proto_path=proto --proto_path=/usr/include \
   --encode=lqepoch.prediction.v1.PredictionEnvelopeV1 \
   lqepoch/prediction/v1/prediction.proto \

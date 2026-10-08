@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package lqepoch.dataset.v2;
+
+import "google/protobuf/timestamp.proto";
+import "lqepoch/market/v1/market.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lqepoch.dataset.v2";
+
+// Source-time coverage remains a half-open interval and never substitutes receive time.
+message DatasetTimeRangeV2 {
+  google.protobuf.Timestamp start_inclusive = 1;
+  google.protobuf.Timestamp end_exclusive = 2;
+}
+
+message DatasetObjectV2 {
+  string object_name = 1;
+  optional string object_id = 2;
+  uint64 size_bytes = 3;
+  string content_sha256 = 4;
+  string parquet_schema_sha256 = 5;
+  uint64 parquet_footer_rows = 6;
+  string transport = 7;
+}
+
+// This proves readback of the stored object only; it says nothing about source completeness.
+message DatasetStorageVerificationV2 {
+  string readback_sha256 = 1;
+  bool verified_before_publish = 2;
+}
+
+enum FiniteBatchSourceKindV2 {
+  FINITE_BATCH_SOURCE_KIND_UNSPECIFIED = 0;
+  FINITE_BATCH_SOURCE_KIND_SYNTHETIC_REPLAY = 1;
+  FINITE_BATCH_SOURCE_KIND_HISTORICAL_PAGED = 2;
+  FINITE_BATCH_SOURCE_KIND_HISTORICAL_NON_PAGED = 3;
+  FINITE_BATCH_SOURCE_KIND_LOCAL_ARCHIVE = 4;
+}
+
+// A seal binds processing to a finite immutable input. It does not attest to provider truth or
+// guarantee that a provider exposed every historical record for the requested interval.
+message FiniteBatchCompletionV2 {
+  FiniteBatchSourceKindV2 source_kind = 1;
+  string input_identity = 2;
+  string input_sha256 = 3;
+  uint64 input_size_bytes = 4;
+  uint64 input_record_count = 5;
+  uint64 consumed_record_count = 6;
+  string reviewed_policy_sha256 = 7;
+  string seal_receipt_sha256 = 8;
+  google.protobuf.Timestamp data_cutoff_exclusive = 9;
+  google.protobuf.Timestamp sealed_at = 10;
+  google.protobuf.Timestamp completed_at = 11;
+  optional uint64 page_count = 12;
+  optional bool pages_exhausted = 13;
+  optional string page_set_sha256 = 14;
+}
+
+// This is an untrusted observation until a fixed composition-root verifier checks the receipt.
+// Generation is scoped by subscription_instance_id and is not globally unique across restarts.
+message ProviderWatermarkCompletionV2 {
+  string provider = 1;
+  string feed = 2;
+  string subscription_instance_id = 3;
+  uint64 generation = 4;
+  uint64 first_sequence = 5;
+  uint64 last_sequence = 6;
+  uint64 sequence_count = 7;
+  string continuity_receipt_sha256 = 8;
+  google.protobuf.Timestamp complete_up_to_exclusive = 9;
+  uint64 allowed_lateness_ns = 10;
+  string reviewed_policy_sha256 = 11;
+  string source_receipt_sha256 = 12;
+}
+
+// Local stream diagnostics can support tests/inspection, never provider-completeness admission.
+message DiagnosticStreamCompletionV2 {
+  string source_instance_id = 1;
+  uint64 generation = 2;
+  uint64 observed_last_sequence = 3;
+  google.protobuf.Timestamp local_policy_cutoff = 4;
+  optional google.protobuf.Timestamp observed_max_source_timestamp = 5;
+  string diagnostic_policy_sha256 = 6;
+  string diagnostic_receipt_sha256 = 7;
+}
+
+message DatasetCompletionEvidenceV2 {
+  oneof evidence {
+    FiniteBatchCompletionV2 finite_batch = 1;
+    ProviderWatermarkCompletionV2 provider_watermark = 2;
+    DiagnosticStreamCompletionV2 diagnostic_stream = 3;
+  }
+}
+
+// Version 2 separates object readback from input/stream completion evidence. A manifest hash
+// must cover the complete serialized message; this schema does not include a self-hash field.
+message DatasetManifestV2 {
+  uint32 schema_version = 1;
+  string dataset_id = 2;
+  lqepoch.market.v1.MarketDataSourceV1 source = 3;
+  repeated string symbols = 4;
+  optional DatasetTimeRangeV2 time_range = 5;
+  uint64 source_timestamp_missing_rows = 6;
+  uint64 row_count = 7;
+  DatasetObjectV2 object = 8;
+  DatasetStorageVerificationV2 storage_verification = 9;
+  DatasetCompletionEvidenceV2 completion_evidence = 10;
+}
