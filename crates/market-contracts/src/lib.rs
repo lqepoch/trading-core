@@ -54,9 +54,10 @@ pub use raw_frame::{
 };
 pub use raw_frame_v2::{
     MARKET_RAW_FRAME_SCHEMA_VERSION_V2, MAX_RAW_CAPTURE_CHUNK_BYTES_V2,
-    MAX_RAW_CAPTURE_CHUNK_FRAMES_V2, MarketEventParquetRowV3, RawFrameCaptureInstanceIdV2,
-    RawFrameReferenceV3, RawFrameStorageRecordV2, RawJsonFrameStorageRecordV2,
-    validate_json_capture_chunk_v2, validate_messagepack_capture_chunk_v2,
+    MAX_RAW_CAPTURE_CHUNK_FRAMES_V2, MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES_V2,
+    MarketEventParquetRowV3, RawFrameCaptureInstanceIdV2, RawFrameReferenceV3,
+    RawFrameStorageRecordV2, RawJsonFrameStorageRecordV2, validate_json_capture_chunk_v2,
+    validate_messagepack_capture_chunk_v2,
 };
 pub use v1::{
     ConnectionState, ControlEventEnvelopeV1, DecimalString, EntitlementState, EventMetadataV1,

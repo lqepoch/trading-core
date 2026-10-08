@@ -2,6 +2,8 @@
 
 These helpers validate row identity and raw/event correlation. They do not prove provider
 entitlement, input durability, historical completeness, or research qualification.
+For normalized event admission, use the Rust validator as the authority for complete domain
+semantics, including OCC candidates and event-specific numeric rules.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ MAX_RAW_FRAME_BYTES = 1024 * 1024
 MAX_RAW_FRAME_EVENT_COUNT = 512
 MAX_RAW_CAPTURE_CHUNK_FRAMES = 1024
 MAX_RAW_CAPTURE_CHUNK_BYTES = 16 * 1024 * 1024
+MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES = 16 * 1024 * 1024
 MAX_RAW_FRAME_SYMBOLS_JSON_BYTES = MAX_RAW_FRAME_EVENT_COUNT * (2 * 256 + 3) + 1
 
 _CAPTURE_INSTANCE_ID = re.compile(r"[0-9a-f]{12}4[0-9a-f]{3}[89ab][0-9a-f]{15}\Z")
@@ -65,6 +68,12 @@ def validate_capture_instance_id_v2(value: object) -> str:
 
 def validate_raw_frame_row_v2(row: Mapping[str, object], schema_id: str) -> None:
     """Validate one exact MessagePack or JSON raw-frame Parquet row."""
+    _validate_raw_frame_row_v2_with_symbols(row, schema_id)
+
+
+def _validate_raw_frame_row_v2_with_symbols(
+    row: Mapping[str, object], schema_id: str
+) -> list[str]:
     if schema_id not in {MARKET_RAW_FRAME_V2_SCHEMA_ID, MARKET_RAW_JSON_FRAME_V2_SCHEMA_ID}:
         raise ValueError("raw-frame v2 validator requires a trusted raw-frame v2 schema ID")
     _require_exact_row_fields(row, schema_id)
@@ -103,13 +112,14 @@ def validate_raw_frame_row_v2(row: Mapping[str, object], schema_id: str) -> None
         raise ValueError("control raw frames cannot claim normalized market events")
     if event_count > 0 and (not symbols or len(symbols) > event_count):
         raise ValueError("expected events require a bounded non-empty symbol set")
+    return symbols
 
 
 def validate_market_event_row_v3(row: Mapping[str, object]) -> None:
     """Validate V3 Parquet row shape and its optional all-or-none capture reference.
 
-    This helper checks row structure and correlation invariants. Rust's market event validator
-    remains the full authority for event-kind-specific price and size rules.
+    This helper checks bounded row structure and correlation invariants. Rust's market event
+    validator remains the authority for complete source, instrument, price, and size semantics.
     """
     _require_exact_row_fields(row, MARKET_EVENT_V3_SCHEMA_ID)
     if type(row["schema_version"]) is not int or row["schema_version"] != 1:
@@ -124,6 +134,12 @@ def validate_market_event_row_v3(row: Mapping[str, object]) -> None:
     raw_sha = row["raw_frame_sha256"]
     if raw_sha is not None and (not isinstance(raw_sha, str) or _SHA256.fullmatch(raw_sha) is None):
         raise ValueError("invalid raw-frame SHA-256 reference")
+    if (
+        encoding.startswith("binary_float") and raw_sha is None
+        or (row["provider"] == "synthetic" or row["feed"] == "synthetic")
+        and encoding != "decimal_token"
+    ):
+        raise ValueError("event source encoding requires a binary-float digest and decimal synthetic values")
     generation = _positive_uint64(row["generation"], "generation")
     _positive_uint64(row["sequence"], "sequence")
     if row["source_timestamp"] is not None:
@@ -166,9 +182,9 @@ def validate_event_against_raw_frame_row_v2(
     event: Mapping[str, object], raw_frame: Mapping[str, object], schema_id: str
 ) -> None:
     """Cross-check one event's complete pre-decode key against a validated raw row."""
-    validate_raw_frame_row_v2(raw_frame, schema_id)
+    symbols = _validate_raw_frame_row_v2_with_symbols(raw_frame, schema_id)
     validate_market_event_row_v3(event)
-    _validate_event_frame_pair(event, raw_frame)
+    _validate_event_frame_pair(event, raw_frame, symbols)
 
 
 def validate_raw_event_chunk_v2(
@@ -183,16 +199,20 @@ def validate_raw_event_chunk_v2(
         raise ValueError("capture chunk exceeds the 1024-frame bound")
     if not isinstance(events, (list, tuple)):
         raise ValueError("capture events must be a bounded sequence")
+    if len(events) > MAX_RAW_CAPTURE_CHUNK_FRAMES * MAX_RAW_FRAME_EVENT_COUNT:
+        raise ValueError("capture chunk expected event count exceeds its structural bound")
     capture_id: str | None = None
     source_generation: int | None = None
     expected_sequence: int | None = None
     payload_bytes = 0
+    metadata_bytes = 0
     expected_event_count = 0
     frame_by_sequence: dict[int, int] = {}
     grouped_events: list[list[Mapping[str, object]]] = [[] for _ in raw_frames]
+    symbols_by_frame: list[list[str]] = []
 
     for index, frame in enumerate(raw_frames):
-        validate_raw_frame_row_v2(frame, schema_id)
+        symbols = _validate_raw_frame_row_v2_with_symbols(frame, schema_id)
         current_capture_id = validate_capture_instance_id_v2(frame["capture_instance_id"])
         current_source_generation = _positive_uint64(frame["source_generation"], "source_generation")
         sequence = _positive_uint64(frame["source_frame_sequence"], "source_frame_sequence")
@@ -208,15 +228,16 @@ def validate_raw_event_chunk_v2(
         frame_by_sequence[sequence] = index
         expected_sequence = sequence + 1
         payload_bytes += len(frame["frame_bytes"])
+        metadata_bytes += len(str(frame["symbols_json"]).encode("utf-8"))
         if payload_bytes > MAX_RAW_CAPTURE_CHUNK_BYTES:
             raise ValueError("capture chunk exceeds the 16 MiB payload bound")
+        if metadata_bytes > MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES:
+            raise ValueError("capture chunk exceeds the 16 MiB symbols metadata bound")
         expected_event_count += frame["event_count"]
+        symbols_by_frame.append(symbols)
 
     if len(events) != expected_event_count:
         raise ValueError("capture chunk does not contain every expected normalized event")
-    if expected_event_count > MAX_RAW_CAPTURE_CHUNK_FRAMES * MAX_RAW_FRAME_EVENT_COUNT:
-        raise ValueError("capture chunk expected event count exceeds its structural bound")
-
     for event in events:
         validate_market_event_row_v3(event)
         reference = event["raw_frame_sequence"]
@@ -230,12 +251,12 @@ def validate_raw_event_chunk_v2(
             raise ValueError("event capture key does not identify a frame in this chunk")
         grouped_events[frame_by_sequence[sequence]].append(event)
 
-    for frame, frame_events in zip(raw_frames, grouped_events, strict=True):
+    for frame, frame_events, symbols in zip(raw_frames, grouped_events, symbols_by_frame, strict=True):
         if len(frame_events) != frame["event_count"]:
             raise ValueError("capture chunk is missing a frame projection")
         ordinals: set[int] = set()
         for event in frame_events:
-            _validate_event_frame_pair(event, frame)
+            _validate_event_frame_pair(event, frame, symbols)
             ordinal = event["raw_frame_event_ordinal"]
             if ordinal in ordinals:
                 raise ValueError("capture chunk contains duplicate event ordinals")
@@ -245,7 +266,7 @@ def validate_raw_event_chunk_v2(
 
 
 def _validate_event_frame_pair(
-    event: Mapping[str, object], raw_frame: Mapping[str, object]
+    event: Mapping[str, object], raw_frame: Mapping[str, object], symbols: Sequence[str]
 ) -> None:
     if (
         event["raw_frame_capture_instance_id"] != raw_frame["capture_instance_id"]
@@ -268,7 +289,7 @@ def _validate_event_frame_pair(
             raw_frame["source_numeric_encoding"] is not None
             and event["numeric_encoding"] != raw_frame["source_numeric_encoding"]
         )
-        or event["symbol"] not in _canonical_symbols(raw_frame["symbols_json"])
+        or event["symbol"] not in symbols
     ):
         raise ValueError("event row does not match the exact raw-frame capture key")
 
@@ -310,7 +331,13 @@ def _positive_uint64(value: object, field_name: str) -> int:
 
 
 def _canonical_symbols(value: object) -> list[str]:
-    if not isinstance(value, str) or len(value.encode("utf-8")) > MAX_RAW_FRAME_SYMBOLS_JSON_BYTES:
+    if not isinstance(value, str):
+        raise ValueError("symbols_json exceeds its bounded UTF-8 size")
+    try:
+        encoded_size = len(value.encode("utf-8"))
+    except UnicodeEncodeError as error:
+        raise ValueError("symbols_json must contain valid Unicode scalar text") from error
+    if encoded_size > MAX_RAW_FRAME_SYMBOLS_JSON_BYTES:
         raise ValueError("symbols_json exceeds its bounded UTF-8 size")
     try:
         symbols = json.loads(value)

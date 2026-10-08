@@ -1,0 +1,6 @@
+{
+  "valid_unicode_symbols_json": "[\"é\"]",
+  "valid_unicode_symbols_json_utf8_bytes": 6,
+  "invalid_symbols_json": "[\"\\ud800\"]",
+  "invalid_event_symbol_json": "\"\\ud800\""
+}

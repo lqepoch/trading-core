@@ -255,6 +255,14 @@ pub(crate) fn validate_raw_frame(
     dataset_encoding: NumericEncodingV1,
     expected_schema_version: u32,
 ) -> Result<(), RawFrameContractError> {
+    validate_raw_frame_with_symbols(frame, dataset_encoding, expected_schema_version).map(|_| ())
+}
+
+pub(crate) fn validate_raw_frame_with_symbols(
+    frame: RawFrameView<'_>,
+    dataset_encoding: NumericEncodingV1,
+    expected_schema_version: u32,
+) -> Result<Vec<String>, RawFrameContractError> {
     if frame.schema_version != expected_schema_version {
         return Err(RawFrameContractError::UnsupportedVersion);
     }
@@ -303,7 +311,7 @@ pub(crate) fn validate_raw_frame(
     if frame.event_count > 0 && (symbols.is_empty() || symbols.len() > frame.event_count as usize) {
         return Err(RawFrameContractError::InvalidDisposition);
     }
-    Ok(())
+    Ok(symbols)
 }
 
 /// Correlation fields appended by the `lqepoch.market_event.v2` storage schema.
@@ -405,6 +413,8 @@ pub enum RawFrameContractError {
     InvalidSource,
     #[error("raw-frame generation and sequence must be positive")]
     InvalidSequence,
+    #[error("row timestamp is not representable as UTC Arrow nanoseconds")]
+    InvalidTimestamp,
     #[error("raw-frame bytes exceed the 1 MiB bound")]
     FrameTooLarge,
     #[error("raw-frame event count exceeds the per-frame bound")]
@@ -431,7 +441,7 @@ pub enum RawFrameContractError {
     InvalidCaptureInstanceId,
     #[error("capture chunk must contain one bounded, ordered capture generation")]
     InvalidCaptureChunk,
-    #[error("capture chunk exceeds its frame-count or payload-byte bound")]
+    #[error("capture chunk exceeds its frame-count, payload-byte, or metadata-byte bound")]
     CaptureChunkTooLarge,
     #[error("capture chunk is missing an expected normalized event")]
     IncompleteProjection,

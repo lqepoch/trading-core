@@ -6,7 +6,7 @@
 
 use crate::raw_frame::{
     RawFrameContractError, RawFrameDispositionV1, RawFrameView, event_symbol,
-    parse_canonical_symbols_json, validate_raw_frame,
+    parse_canonical_symbols_json, validate_raw_frame_with_symbols,
 };
 use crate::{EntitlementState, MarketEventEnvelopeV1, NumericEncodingV1, UtcTimestamp};
 use std::collections::HashMap;
@@ -18,6 +18,8 @@ pub const MARKET_RAW_FRAME_SCHEMA_VERSION_V2: u32 = 2;
 pub const MAX_RAW_CAPTURE_CHUNK_FRAMES_V2: usize = 1024;
 /// Maximum sum of raw payload bytes in one raw/event Parquet pair chunk.
 pub const MAX_RAW_CAPTURE_CHUNK_BYTES_V2: usize = 16 * 1024 * 1024;
+/// Maximum combined `symbols_json` UTF-8 metadata in one raw/event chunk.
+pub const MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES_V2: usize = 16 * 1024 * 1024;
 
 /// Stable capture identity, encoded as 32 lowercase hexadecimal UUIDv4/RFC-variant digits.
 ///
@@ -124,16 +126,25 @@ macro_rules! raw_frame_record_v2 {
         impl $name {
             /// Validate row identity, exact bytes, projection encoding, and symbols.
             pub fn validate(&self) -> Result<(), RawFrameContractError> {
+                self.validate_with_symbols().map(|_| ())
+            }
+
+            fn validate_with_symbols(&self) -> Result<Vec<String>, RawFrameContractError> {
                 if self.schema_version != MARKET_RAW_FRAME_SCHEMA_VERSION_V2 {
                     return Err(RawFrameContractError::UnsupportedVersion);
                 }
+                validate_arrow_timestamp_ns(&self.received_timestamp_utc)?;
                 if self.source_generation == 0
                     || self.source_frame_sequence == 0
                     || self.canonical_generation == 0
                 {
                     return Err(RawFrameContractError::InvalidSequence);
                 }
-                validate_raw_frame(self.view(), $encoding, MARKET_RAW_FRAME_SCHEMA_VERSION_V2)
+                validate_raw_frame_with_symbols(
+                    self.view(),
+                    $encoding,
+                    MARKET_RAW_FRAME_SCHEMA_VERSION_V2,
+                )
             }
 
             /// Decode symbols after enforcing the canonical bounded JSON representation.
@@ -161,8 +172,8 @@ macro_rules! raw_frame_record_v2 {
         }
 
         impl RawFrameV2Row for $name {
-            fn validate_row(&self) -> Result<(), RawFrameContractError> {
-                self.validate()
+            fn validate_row_with_symbols(&self) -> Result<Vec<String>, RawFrameContractError> {
+                self.validate_with_symbols()
             }
 
             fn view(&self) -> RawFrameView<'_> {
@@ -185,7 +196,7 @@ macro_rules! raw_frame_record_v2 {
 }
 
 trait RawFrameV2Row {
-    fn validate_row(&self) -> Result<(), RawFrameContractError>;
+    fn validate_row_with_symbols(&self) -> Result<Vec<String>, RawFrameContractError>;
     fn view(&self) -> RawFrameView<'_>;
     fn capture_instance_id(&self) -> &RawFrameCaptureInstanceIdV2;
     fn source_generation(&self) -> u64;
@@ -236,6 +247,10 @@ impl MarketEventParquetRowV3 {
         self.event
             .validate()
             .map_err(|_| RawFrameContractError::InvalidEvent)?;
+        validate_arrow_timestamp_ns(&self.event.metadata.received_timestamp)?;
+        if let Some(timestamp) = &self.event.metadata.source_timestamp {
+            validate_arrow_timestamp_ns(timestamp)?;
+        }
         if let Some(reference) = &self.raw_frame_reference
             && (reference.raw_frame_source_generation == 0
                 || reference.raw_frame_generation == 0
@@ -257,12 +272,13 @@ impl MarketEventParquetRowV3 {
         &self,
         frame: &RawFrameStorageRecordV2,
     ) -> Result<(), RawFrameContractError> {
-        frame.validate()?;
+        let symbols = frame.validate_with_symbols()?;
         validate_event_against_validated_frame(
             self,
             frame.view(),
             &frame.capture_instance_id,
             frame.source_generation,
+            &symbols,
         )
     }
 
@@ -271,12 +287,13 @@ impl MarketEventParquetRowV3 {
         &self,
         frame: &RawJsonFrameStorageRecordV2,
     ) -> Result<(), RawFrameContractError> {
-        frame.validate()?;
+        let symbols = frame.validate_with_symbols()?;
         validate_event_against_validated_frame(
             self,
             frame.view(),
             &frame.capture_instance_id,
             frame.source_generation,
+            &symbols,
         )
     }
 }
@@ -286,13 +303,13 @@ fn validate_event_against_validated_frame(
     frame: RawFrameView<'_>,
     capture_instance_id: &RawFrameCaptureInstanceIdV2,
     source_generation: u64,
+    symbols: &[String],
 ) -> Result<(), RawFrameContractError> {
     row.validate()?;
     let reference = row
         .raw_frame_reference
         .as_ref()
         .ok_or(RawFrameContractError::MissingReference)?;
-    let symbols = parse_canonical_symbols_json(frame.symbols_json)?;
     if reference.raw_frame_capture_instance_id != *capture_instance_id
         || reference.raw_frame_source_generation != source_generation
         || reference.raw_frame_generation != frame.generation
@@ -311,6 +328,13 @@ fn validate_event_against_validated_frame(
             .any(|symbol| symbol == event_symbol(&row.event.event))
     {
         return Err(RawFrameContractError::ReferenceMismatch);
+    }
+    Ok(())
+}
+
+fn validate_arrow_timestamp_ns(timestamp: &UtcTimestamp) -> Result<(), RawFrameContractError> {
+    if !timestamp.is_arrow_ns_compatible() {
+        return Err(RawFrameContractError::InvalidTimestamp);
     }
     Ok(())
 }
@@ -342,10 +366,12 @@ fn validate_capture_chunk_v2<T: RawFrameV2Row>(
     let capture_id = frames[0].capture_instance_id();
     let source_generation = frames[0].source_generation();
     let mut payload_bytes = 0_usize;
+    let mut metadata_bytes = 0_usize;
     let mut expected_event_count = 0_usize;
     let mut frame_index = HashMap::with_capacity(frames.len());
+    let mut symbols_by_frame = Vec::with_capacity(frames.len());
     for (index, frame) in frames.iter().enumerate() {
-        frame.validate_row()?;
+        let symbols = frame.validate_row_with_symbols()?;
         if frame.capture_instance_id() != capture_id
             || frame.source_generation() != source_generation
         {
@@ -369,12 +395,18 @@ fn validate_capture_chunk_v2<T: RawFrameV2Row>(
         payload_bytes = payload_bytes
             .checked_add(frame.view().frame_bytes.len())
             .ok_or(RawFrameContractError::CaptureChunkTooLarge)?;
+        metadata_bytes = metadata_bytes
+            .checked_add(frame.view().symbols_json.len())
+            .ok_or(RawFrameContractError::CaptureChunkTooLarge)?;
         expected_event_count = expected_event_count
             .checked_add(frame.view().event_count as usize)
             .ok_or(RawFrameContractError::IncompleteProjection)?;
-        if payload_bytes > MAX_RAW_CAPTURE_CHUNK_BYTES_V2 {
+        if payload_bytes > MAX_RAW_CAPTURE_CHUNK_BYTES_V2
+            || metadata_bytes > MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES_V2
+        {
             return Err(RawFrameContractError::CaptureChunkTooLarge);
         }
+        symbols_by_frame.push(symbols);
     }
     if events.len() != expected_event_count {
         return Err(RawFrameContractError::IncompleteProjection);
@@ -400,12 +432,14 @@ fn validate_capture_chunk_v2<T: RawFrameV2Row>(
         events_by_frame[index].push(event);
     }
 
-    for (frame, frame_events) in frames.iter().zip(events_by_frame) {
+    for ((frame, frame_events), symbols) in frames.iter().zip(events_by_frame).zip(symbols_by_frame)
+    {
         validate_complete_frame_projection(
             frame.view(),
             frame.capture_instance_id(),
             frame.source_generation(),
             &frame_events,
+            &symbols,
         )?;
     }
     Ok(())
@@ -416,6 +450,7 @@ fn validate_complete_frame_projection(
     capture_instance_id: &RawFrameCaptureInstanceIdV2,
     source_generation: u64,
     events: &[&MarketEventParquetRowV3],
+    symbols: &[String],
 ) -> Result<(), RawFrameContractError> {
     if events.len() != frame.event_count as usize {
         return Err(RawFrameContractError::IncompleteProjection);
@@ -427,6 +462,7 @@ fn validate_complete_frame_projection(
             frame,
             capture_instance_id,
             source_generation,
+            symbols,
         )?;
         let reference = event
             .raw_frame_reference
@@ -446,16 +482,19 @@ fn validate_complete_frame_projection(
 #[cfg(test)]
 mod tests {
     use super::{
-        MAX_RAW_CAPTURE_CHUNK_BYTES_V2, MAX_RAW_CAPTURE_CHUNK_FRAMES_V2, MarketEventParquetRowV3,
+        MAX_RAW_CAPTURE_CHUNK_BYTES_V2, MAX_RAW_CAPTURE_CHUNK_FRAMES_V2,
+        MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES_V2, MarketEventParquetRowV3,
         RawFrameCaptureInstanceIdV2, RawFrameReferenceV3, RawFrameStorageRecordV2,
         RawJsonFrameStorageRecordV2, validate_json_capture_chunk_v2,
         validate_messagepack_capture_chunk_v2,
     };
+    use crate::raw_frame::MAX_RAW_FRAME_SYMBOLS_JSON_BYTES;
     use crate::{
-        DecimalString, EntitlementState, EventMetadataV1, MarketDataSourceV1,
-        MarketEventEnvelopeV1, MarketEventV1, NumericEncodingV1, RawFrameContractError,
-        RawFrameDispositionV1, UtcTimestamp,
+        DecimalString, EntitlementState, EventMetadataV1, MAX_RAW_FRAME_EVENT_COUNT,
+        MarketDataSourceV1, MarketEventEnvelopeV1, MarketEventV1, NumericEncodingV1,
+        RawFrameContractError, RawFrameDispositionV1, UtcTimestamp,
     };
+    use chrono::DateTime;
     use sha2::{Digest, Sha256};
 
     const CAPTURE_ID: &str = "0123456789ab4def8123456789abcdef";
@@ -857,6 +896,123 @@ mod tests {
     }
 
     #[test]
+    fn raw_v2_and_event_v3_timestamps_match_arrow_signed_nanosecond_range() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../schemas/fixtures/raw-frame-timestamp-ns-v2.json"
+        ))
+        .unwrap();
+
+        for test_case in fixture["valid"].as_array().unwrap() {
+            let value = fixture_string(test_case, "timestamp_utc");
+            let timestamp = UtcTimestamp::parse(value).unwrap();
+            assert!(UtcTimestamp::parse_for_arrow_nanoseconds(value).is_ok());
+            let expected = fixture_string(test_case, "epoch_nanoseconds");
+            let actual = DateTime::parse_from_rfc3339(timestamp.as_str())
+                .unwrap()
+                .timestamp_nanos_opt()
+                .unwrap()
+                .to_string();
+            assert_eq!(actual, expected, "{}", fixture_string(test_case, "name"));
+
+            let mut frame = messagepack_frame(11, vec![0x92, 0xa1, b't', 0x01]);
+            frame.received_timestamp_utc = timestamp.clone();
+            assert_eq!(frame.validate(), Ok(()));
+
+            let mut event = event_for_raw_frame(&frame);
+            event.event.metadata.received_timestamp = timestamp.clone();
+            event.event.metadata.source_timestamp = Some(timestamp);
+            assert_eq!(event.validate(), Ok(()));
+        }
+
+        for test_case in fixture["invalid"].as_array().unwrap() {
+            let value = fixture_string(test_case, "timestamp_utc");
+            assert!(UtcTimestamp::parse_for_arrow_nanoseconds(value).is_err());
+            let Ok(timestamp) = UtcTimestamp::parse(value) else {
+                continue;
+            };
+            let mut frame = messagepack_frame(11, vec![0x92, 0xa1, b't', 0x01]);
+            frame.received_timestamp_utc = timestamp.clone();
+            assert_eq!(
+                frame.validate(),
+                Err(RawFrameContractError::InvalidTimestamp),
+                "{}",
+                fixture_string(test_case, "name")
+            );
+
+            let mut legacy_event = event_for_raw_frame(&frame).event;
+            legacy_event.metadata.received_timestamp = timestamp.clone();
+            legacy_event.metadata.source_timestamp = Some(timestamp.clone());
+            assert_eq!(legacy_event.validate(), Ok(()));
+
+            let mut invalid_received = event_for_raw_frame(&frame);
+            invalid_received.event.metadata.received_timestamp = timestamp.clone();
+            assert_eq!(
+                invalid_received.validate(),
+                Err(RawFrameContractError::InvalidTimestamp),
+                "{} received_timestamp",
+                fixture_string(test_case, "name")
+            );
+
+            let mut invalid_source = event_for_raw_frame(&frame);
+            invalid_source.event.metadata.source_timestamp = Some(timestamp);
+            assert_eq!(
+                invalid_source.validate(),
+                Err(RawFrameContractError::InvalidTimestamp),
+                "{} source_timestamp",
+                fixture_string(test_case, "name")
+            );
+        }
+    }
+
+    #[test]
+    fn json_input_rejects_unpaired_surrogates_before_rust_string_validation() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../schemas/fixtures/raw-frame-unicode-scalar-v2-v3.json"
+        ))
+        .unwrap();
+        let symbols_json = fixture_string(&fixture, "invalid_symbols_json");
+        let event_symbol_json = fixture_string(&fixture, "invalid_event_symbol_json");
+
+        let valid_unicode_symbols_json = fixture_string(&fixture, "valid_unicode_symbols_json");
+        let expected_utf8_bytes = fixture["valid_unicode_symbols_json_utf8_bytes"]
+            .as_u64()
+            .unwrap() as usize;
+        assert_eq!(valid_unicode_symbols_json.len(), expected_utf8_bytes);
+        let mut frame = messagepack_frame(11, vec![0x92, 0xa1, b't', 0x01]);
+        frame.symbols_json = valid_unicode_symbols_json.to_owned();
+        assert_eq!(frame.validate(), Ok(()));
+
+        assert!(serde_json::from_str::<Vec<String>>(symbols_json).is_err());
+        assert!(serde_json::from_str::<String>(event_symbol_json).is_err());
+    }
+
+    #[test]
+    fn event_v3_source_encoding_matches_the_v1_source_metadata_rules() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../schemas/fixtures/raw-frame-event-source-invalid-v3.json"
+        ))
+        .unwrap();
+
+        for test_case in fixture["invalid"].as_array().unwrap() {
+            let mut event =
+                event_for_raw_frame(&messagepack_frame(11, vec![0x92, 0xa1, b't', 0x01]));
+            event.event.metadata.source.provider = fixture_string(test_case, "provider").to_owned();
+            event.event.metadata.source.feed = fixture_string(test_case, "feed").to_owned();
+            event.event.metadata.source.numeric_encoding =
+                fixture_encoding(fixture_string(test_case, "numeric_encoding"));
+            event.event.metadata.raw_frame_sha256 =
+                test_case["raw_frame_sha256"].as_str().map(str::to_owned);
+            event.raw_frame_reference = None;
+            assert_eq!(
+                event.validate(),
+                Err(RawFrameContractError::InvalidEvent),
+                "{}",
+                fixture_string(test_case, "name")
+            );
+        }
+    }
+
+    #[test]
     fn v2_messagepack_and_json_rows_bind_distinct_wire_encoding_and_full_identity() {
         let messagepack_bytes = vec![0x92, 0xa1, b't', 0x01];
         let messagepack = messagepack_frame(11, messagepack_bytes);
@@ -1044,6 +1200,25 @@ mod tests {
         );
         assert_eq!(
             validate_messagepack_capture_chunk_v2(&too_many_bytes, &[]),
+            Err(RawFrameContractError::CaptureChunkTooLarge)
+        );
+
+        let symbols = (0..MAX_RAW_FRAME_EVENT_COUNT)
+            .map(|index| format!("A{}{:05x}", "\"".repeat(250), index))
+            .collect::<Vec<_>>();
+        let symbols_json = serde_json::to_string(&symbols).unwrap();
+        assert!(symbols_json.len() <= MAX_RAW_FRAME_SYMBOLS_JSON_BYTES);
+        assert!(symbols_json.len() * 65 > MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES_V2);
+        let oversized_metadata = (1..=65)
+            .map(|sequence| {
+                let mut frame = messagepack_frame(sequence, vec![0x92, 0xa1, b't', 0x01]);
+                frame.event_count = MAX_RAW_FRAME_EVENT_COUNT;
+                frame.symbols_json = symbols_json.clone();
+                frame
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            validate_messagepack_capture_chunk_v2(&oversized_metadata, &[]),
             Err(RawFrameContractError::CaptureChunkTooLarge)
         );
     }

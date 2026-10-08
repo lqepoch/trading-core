@@ -35,6 +35,9 @@ import {
   MARKET_EVENT_V3_SCHEMA_ID,
   MARKET_RAW_FRAME_V2_SCHEMA_ID,
   MARKET_RAW_JSON_FRAME_V2_SCHEMA_ID,
+  MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES,
+  MAX_RAW_FRAME_EVENT_COUNT,
+  MAX_RAW_FRAME_SYMBOLS_JSON_BYTES,
   validateCaptureInstanceIdV2,
   validateEventAgainstRawFrameRowV2,
   validateMarketEventRowV3,
@@ -89,6 +92,128 @@ validateRawFrameRowV2(jsonFrame, MARKET_RAW_JSON_FRAME_V2_SCHEMA_ID);
 validateEventAgainstRawFrameRowV2(jsonEvent, jsonFrame, MARKET_RAW_JSON_FRAME_V2_SCHEMA_ID);
 validateMarketEventRowV3(jsonEvent);
 assert(MARKET_EVENT_V3_SCHEMA_ID === "lqepoch.market_event.v3", "event V3 schema ID changed");
+
+type TimestampBoundaryCase = { name: string; timestamp_utc: string; epoch_nanoseconds?: string };
+type TimestampBoundaryFixture = { valid: TimestampBoundaryCase[]; invalid: TimestampBoundaryCase[] };
+const timestampBoundaries = readFixture<TimestampBoundaryFixture>(
+  "schemas/fixtures/raw-frame-timestamp-ns-v2.json",
+);
+for (const testCase of timestampBoundaries.valid) {
+  const frame = structuredClone(messagepackFrames[0]!);
+  frame.received_timestamp_utc = testCase.timestamp_utc;
+  validateRawFrameRowV2(frame, MARKET_RAW_FRAME_V2_SCHEMA_ID);
+
+  const event = structuredClone(messagepackEvents[0]!);
+  event.received_timestamp = testCase.timestamp_utc;
+  event.source_timestamp = testCase.timestamp_utc;
+  validateMarketEventRowV3(event);
+}
+for (const testCase of timestampBoundaries.invalid) {
+  const frame = structuredClone(messagepackFrames[0]!);
+  frame.received_timestamp_utc = testCase.timestamp_utc;
+  rejects(
+    () => validateRawFrameRowV2(frame, MARKET_RAW_FRAME_V2_SCHEMA_ID),
+    `raw V2 accepted ${testCase.name}`,
+  );
+
+  const invalidReceived = structuredClone(messagepackEvents[0]!);
+  invalidReceived.received_timestamp = testCase.timestamp_utc;
+  rejects(
+    () => validateMarketEventRowV3(invalidReceived),
+    `event V3 accepted ${testCase.name} in received_timestamp`,
+  );
+
+  const invalidSource = structuredClone(messagepackEvents[0]!);
+  invalidSource.source_timestamp = testCase.timestamp_utc;
+  rejects(
+    () => validateMarketEventRowV3(invalidSource),
+    `event V3 accepted ${testCase.name} in source_timestamp`,
+  );
+}
+const invalidEventSources = readFixture<{
+  invalid: Array<{
+    name: string;
+    provider: string;
+    feed: string;
+    numeric_encoding: string;
+    raw_frame_sha256: string | null;
+  }>;
+}>("schemas/fixtures/raw-frame-event-source-invalid-v3.json");
+for (const testCase of invalidEventSources.invalid) {
+  const event = structuredClone(messagepackEvents[0]!);
+  event.provider = testCase.provider;
+  event.feed = testCase.feed;
+  event.numeric_encoding = testCase.numeric_encoding;
+  event.raw_frame_sha256 = testCase.raw_frame_sha256;
+  for (const field of [
+    "raw_frame_capture_instance_id",
+    "raw_frame_source_generation",
+    "raw_frame_generation",
+    "raw_frame_sequence",
+    "raw_frame_event_ordinal",
+    "raw_frame_event_count",
+  ]) {
+    event[field] = null;
+  }
+  rejects(() => validateMarketEventRowV3(event), `event V3 accepted ${testCase.name}`);
+}
+const invalidUnicodeScalars = readFixture<{
+  valid_unicode_symbols_json: string;
+  valid_unicode_symbols_json_utf8_bytes: number;
+  invalid_symbols_json: string;
+  invalid_event_symbol_json: string;
+}>("schemas/fixtures/raw-frame-unicode-scalar-v2-v3.json");
+const unicodeFrame = { ...messagepackFrames[0]!, symbols_json: invalidUnicodeScalars.valid_unicode_symbols_json };
+validateRawFrameRowV2(unicodeFrame, MARKET_RAW_FRAME_V2_SCHEMA_ID);
+assert(
+  new TextEncoder().encode(unicodeFrame.symbols_json as string).byteLength ===
+    invalidUnicodeScalars.valid_unicode_symbols_json_utf8_bytes,
+  "UTF-8 metadata byte fixture differs",
+);
+rejects(
+  () => validateRawFrameRowV2(
+    { ...messagepackFrames[0]!, symbols_json: invalidUnicodeScalars.invalid_symbols_json },
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "raw-frame validator accepted an unpaired surrogate in symbols_json",
+);
+rejects(
+  () => validateRawFrameRowV2(
+    {
+      ...messagepackFrames[0]!,
+      symbols_json: invalidUnicodeScalars.invalid_symbols_json.replace("\\ud800", "\ud800"),
+    },
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "raw-frame validator accepted a symbols_json string with an unpaired surrogate",
+);
+rejects(
+  () => validateMarketEventRowV3({
+    ...messagepackEvents[0]!,
+    symbol: JSON.parse(invalidUnicodeScalars.invalid_event_symbol_json) as string,
+  }),
+  "event validator accepted an unpaired surrogate symbol",
+);
+rejects(
+  () => validateMarketEventRowV3({ ...messagepackEvents[0]!, source_record_id: "record-\ud800" }),
+  "event validator accepted an unpaired surrogate source identity",
+);
+rejects(
+  () => validateRawEventChunkV2(
+    new Array<ParquetRow>(1),
+    [],
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "capture validator accepted a sparse raw-frame array",
+);
+rejects(
+  () => validateRawEventChunkV2(
+    [messagepackFrames[0]!],
+    new Array<ParquetRow>(1),
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "capture validator accepted a sparse event array",
+);
 
 for (const invalid of [
   "0123456789AB4def8123456789abcdef",
@@ -188,6 +313,29 @@ const largeChunk = Array.from({ length: 17 }, (_, index) => ({
 rejects(
   () => validateRawEventChunkV2(largeChunk, [], MARKET_RAW_FRAME_V2_SCHEMA_ID),
   "capture validator accepted a raw chunk above 16 MiB",
+);
+const largeSymbols = Array.from(
+  { length: MAX_RAW_FRAME_EVENT_COUNT },
+  (_, index) => `A${'"'.repeat(250)}${index.toString(16).padStart(5, "0")}`,
+);
+const largeSymbolsJson = JSON.stringify(largeSymbols);
+assert(
+  new TextEncoder().encode(largeSymbolsJson).byteLength <= MAX_RAW_FRAME_SYMBOLS_JSON_BYTES,
+  "per-frame symbols fixture exceeds its own bound",
+);
+assert(
+  new TextEncoder().encode(largeSymbolsJson).byteLength * 65 > MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES,
+  "aggregate symbols fixture does not exceed the chunk bound",
+);
+const largeMetadataChunk = Array.from({ length: 65 }, (_, index) => ({
+  ...structuredClone(messagepackFrames[0]!),
+  source_frame_sequence: String(index + 1),
+  event_count: MAX_RAW_FRAME_EVENT_COUNT,
+  symbols_json: largeSymbolsJson,
+}));
+rejects(
+  () => validateRawEventChunkV2(largeMetadataChunk, [], MARKET_RAW_FRAME_V2_SCHEMA_ID),
+  "capture validator accepted symbols metadata above 16 MiB",
 );
 
 function assert(condition: unknown, message: string): asserts condition {

@@ -17,6 +17,11 @@ from lqepoch_contracts import (
     validate_raw_frame_row_v2,
 )
 from lqepoch_contracts.parquet_schema import trusted_parquet_schema_sha256
+from lqepoch_contracts.raw_frame import (
+    MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES,
+    MAX_RAW_FRAME_EVENT_COUNT,
+    MAX_RAW_FRAME_SYMBOLS_JSON_BYTES,
+)
 from lqepoch_contracts.protojson import (
     parse_dataset_manifest_protojson,
     parse_dataset_manifest_v2_protojson,
@@ -24,6 +29,9 @@ from lqepoch_contracts.protojson import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = REPO_ROOT / "schemas/fixtures/raw-frame-capture-v2.json"
+TIMESTAMP_FIXTURE = REPO_ROOT / "schemas/fixtures/raw-frame-timestamp-ns-v2.json"
+SOURCE_INVALID_FIXTURE = REPO_ROOT / "schemas/fixtures/raw-frame-event-source-invalid-v3.json"
+UNICODE_SCALAR_FIXTURE = REPO_ROOT / "schemas/fixtures/raw-frame-unicode-scalar-v2-v3.json"
 MAX_FRAME_BYTES = 1024 * 1024
 
 
@@ -88,6 +96,90 @@ class RawFrameRowsV2Test(unittest.TestCase):
             trusted_parquet_schema_sha256(MARKET_EVENT_V3_SCHEMA_ID),
             "2df41366161a20007593a5f1dc908acb9e593c06f3d1d54b68a10a1baf7291fb",
         )
+
+    def test_raw_v2_and_event_v3_timestamps_match_arrow_signed_nanosecond_range(self) -> None:
+        boundaries = json.loads(TIMESTAMP_FIXTURE.read_text(encoding="utf-8"))
+        for test_case in boundaries["valid"]:
+            timestamp = test_case["timestamp_utc"]
+            with self.subTest(case=test_case["name"]):
+                frame = copy.deepcopy(self.messagepack_frames[0])
+                frame["received_timestamp_utc"] = timestamp
+                validate_raw_frame_row_v2(frame, MARKET_RAW_FRAME_V2_SCHEMA_ID)
+
+                event = copy.deepcopy(self.messagepack_events[0])
+                event["received_timestamp"] = timestamp
+                event["source_timestamp"] = timestamp
+                validate_market_event_row_v3(event)
+
+        for test_case in boundaries["invalid"]:
+            timestamp = test_case["timestamp_utc"]
+            with self.subTest(case=test_case["name"]):
+                frame = copy.deepcopy(self.messagepack_frames[0])
+                frame["received_timestamp_utc"] = timestamp
+                with self.assertRaises(ValueError):
+                    validate_raw_frame_row_v2(frame, MARKET_RAW_FRAME_V2_SCHEMA_ID)
+
+                invalid_received = copy.deepcopy(self.messagepack_events[0])
+                invalid_received["received_timestamp"] = timestamp
+                with self.assertRaises(ValueError):
+                    validate_market_event_row_v3(invalid_received)
+
+                invalid_source = copy.deepcopy(self.messagepack_events[0])
+                invalid_source["source_timestamp"] = timestamp
+                with self.assertRaises(ValueError):
+                    validate_market_event_row_v3(invalid_source)
+
+    def test_event_v3_source_encoding_matches_the_v1_source_metadata_rules(self) -> None:
+        cases = json.loads(SOURCE_INVALID_FIXTURE.read_text(encoding="utf-8"))["invalid"]
+        for test_case in cases:
+            with self.subTest(case=test_case["name"]):
+                event = copy.deepcopy(self.messagepack_events[0])
+                event.update(
+                    {
+                        "provider": test_case["provider"],
+                        "feed": test_case["feed"],
+                        "numeric_encoding": test_case["numeric_encoding"],
+                        "raw_frame_sha256": test_case["raw_frame_sha256"],
+                    }
+                )
+                for field in (
+                    "raw_frame_capture_instance_id",
+                    "raw_frame_source_generation",
+                    "raw_frame_generation",
+                    "raw_frame_sequence",
+                    "raw_frame_event_ordinal",
+                    "raw_frame_event_count",
+                ):
+                    event[field] = None
+                with self.assertRaises(ValueError):
+                    validate_market_event_row_v3(event)
+
+    def test_raw_and_event_rows_reject_unpaired_surrogate_code_points(self) -> None:
+        fixture = json.loads(UNICODE_SCALAR_FIXTURE.read_text(encoding="utf-8"))
+        frame = copy.deepcopy(self.messagepack_frames[0])
+        frame["symbols_json"] = fixture["valid_unicode_symbols_json"]
+        validate_raw_frame_row_v2(frame, MARKET_RAW_FRAME_V2_SCHEMA_ID)
+        self.assertEqual(
+            len(frame["symbols_json"].encode("utf-8")),
+            fixture["valid_unicode_symbols_json_utf8_bytes"],
+        )
+
+        frame["symbols_json"] = fixture["invalid_symbols_json"]
+        with self.assertRaisesRegex(ValueError, "canonical sorted unique"):
+            validate_raw_frame_row_v2(frame, MARKET_RAW_FRAME_V2_SCHEMA_ID)
+
+        frame["symbols_json"] = fixture["invalid_symbols_json"].replace("\\ud800", "\ud800")
+        with self.assertRaisesRegex(ValueError, "valid Unicode scalar"):
+            validate_raw_frame_row_v2(frame, MARKET_RAW_FRAME_V2_SCHEMA_ID)
+
+        event = copy.deepcopy(self.messagepack_events[0])
+        event["symbol"] = json.loads(fixture["invalid_event_symbol_json"])
+        with self.assertRaisesRegex(ValueError, "invalid normalized event symbol"):
+            validate_market_event_row_v3(event)
+
+        event["source_record_id"] = "record-\ud800"
+        with self.assertRaisesRegex(ValueError, "source record identity"):
+            validate_market_event_row_v3(event)
 
     def test_capture_id_and_raw_bytes_are_strictly_bound(self) -> None:
         self.assertEqual(
@@ -223,6 +315,25 @@ class RawFrameRowsV2Test(unittest.TestCase):
             validate_raw_event_chunk_v2(
                 large_chunk, [], MARKET_RAW_FRAME_V2_SCHEMA_ID
             )
+
+    def test_chunk_caps_aggregate_symbols_metadata(self) -> None:
+        symbols = ["A" + '"' * 250 + f"{index:05x}" for index in range(MAX_RAW_FRAME_EVENT_COUNT)]
+        symbols_json = json.dumps(symbols, separators=(",", ":"), ensure_ascii=False)
+        self.assertLessEqual(len(symbols_json.encode("utf-8")), MAX_RAW_FRAME_SYMBOLS_JSON_BYTES)
+        self.assertGreater(len(symbols_json.encode("utf-8")) * 65, MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES)
+        frames = []
+        for sequence in range(1, 66):
+            frame = copy.deepcopy(self.messagepack_frames[0])
+            frame.update(
+                {
+                    "source_frame_sequence": str(sequence),
+                    "event_count": MAX_RAW_FRAME_EVENT_COUNT,
+                    "symbols_json": symbols_json,
+                }
+            )
+            frames.append(frame)
+        with self.assertRaisesRegex(ValueError, "symbols metadata bound"):
+            validate_raw_event_chunk_v2(frames, [], MARKET_RAW_FRAME_V2_SCHEMA_ID)
 
     def test_dataset_manifests_accept_matching_additive_raw_schema_versions(self) -> None:
         manifest_v1 = {

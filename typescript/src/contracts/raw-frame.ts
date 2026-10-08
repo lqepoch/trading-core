@@ -8,6 +8,7 @@ export const MAX_RAW_FRAME_BYTES = 1024 * 1024;
 export const MAX_RAW_FRAME_EVENT_COUNT = 512;
 export const MAX_RAW_CAPTURE_CHUNK_FRAMES = 1024;
 export const MAX_RAW_CAPTURE_CHUNK_BYTES = 16 * 1024 * 1024;
+export const MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES = 16 * 1024 * 1024;
 export const MAX_RAW_FRAME_SYMBOLS_JSON_BYTES = MAX_RAW_FRAME_EVENT_COUNT * (2 * 256 + 3) + 1;
 
 const UINT64_MAX = (1n << 64n) - 1n;
@@ -52,6 +53,10 @@ export function validateCaptureInstanceIdV2(value: unknown): string {
 
 /** Validate one exact MessagePack or JSON raw-frame Parquet row. */
 export function validateRawFrameRowV2(row: ParquetRow, schemaId: string): void {
+  validateRawFrameRowV2AndSymbols(row, schemaId);
+}
+
+function validateRawFrameRowV2AndSymbols(row: ParquetRow, schemaId: string): string[] {
   if (
     schemaId !== MARKET_RAW_FRAME_V2_SCHEMA_ID &&
     schemaId !== MARKET_RAW_JSON_FRAME_V2_SCHEMA_ID
@@ -96,9 +101,10 @@ export function validateRawFrameRowV2(row: ParquetRow, schemaId: string): void {
   if (row.event_count > 0 && (symbols.length === 0 || symbols.length > row.event_count)) {
     throw new TypeError("expected events require a bounded non-empty symbol set");
   }
+  return symbols;
 }
 
-/** Validate V3 Parquet shape and optional all-or-none capture correlation columns. */
+/** Validate V3 Parquet row shape and capture columns; Rust remains semantic admission authority. */
 export function validateMarketEventRowV3(row: ParquetRow): void {
   requireExactRowFields(row, MARKET_EVENT_V3_SCHEMA_ID);
   if (!isUint32(row.schema_version) || row.schema_version !== 1) {
@@ -114,6 +120,13 @@ export function validateMarketEventRowV3(row: ParquetRow): void {
   if (row.raw_frame_sha256 !== null &&
       (typeof row.raw_frame_sha256 !== "string" || !SHA256.test(row.raw_frame_sha256))) {
     throw new TypeError("invalid raw-frame SHA-256 reference");
+  }
+  if (
+    (row.numeric_encoding.startsWith("binary_float") && row.raw_frame_sha256 === null) ||
+    ((row.provider === "synthetic" || row.feed === "synthetic") &&
+      row.numeric_encoding !== "decimal_token")
+  ) {
+    throw new TypeError("event source encoding requires a binary-float digest and decimal synthetic values");
   }
   const generation = positiveUint64(row.generation, "generation");
   positiveUint64(row.sequence, "sequence");
@@ -151,15 +164,15 @@ export function validateMarketEventRowV3(row: ParquetRow): void {
   }
 }
 
-/** Cross-check one event's full raw capture key against a raw row. */
+/** Cross-check row pairing; this helper does not replace Rust market-domain validation. */
 export function validateEventAgainstRawFrameRowV2(
   event: ParquetRow,
   rawFrame: ParquetRow,
   schemaId: string,
 ): void {
-  validateRawFrameRowV2(rawFrame, schemaId);
+  const symbols = validateRawFrameRowV2AndSymbols(rawFrame, schemaId);
   validateMarketEventRowV3(event);
-  validateEventFramePair(event, rawFrame);
+  validateEventFramePair(event, rawFrame, symbols);
 }
 
 /** Validate one bounded UUID/source-generation chunk and require complete event ordinals. */
@@ -175,17 +188,25 @@ export function validateRawEventChunkV2(
     throw new RangeError("capture chunk exceeds the 1024-frame bound");
   }
   if (!Array.isArray(events)) throw new TypeError("capture events must be a bounded array");
+  if (events.length > MAX_RAW_CAPTURE_CHUNK_FRAMES * MAX_RAW_FRAME_EVENT_COUNT) {
+    throw new RangeError("capture chunk expected event count exceeds its structural bound");
+  }
+  assertDenseArray(rawFrames, "raw frames");
+  assertDenseArray(events, "events");
 
   let captureId: string | undefined;
   let sourceGeneration: bigint | undefined;
   let expectedSequence: bigint | undefined;
   let payloadBytes = 0;
+  let metadataBytes = 0;
   let expectedEventCount = 0;
   const frameBySequence = new Map<string, number>();
   const groupedEvents: ParquetRow[][] = rawFrames.map(() => []);
+  const symbolsByFrame: string[][] = [];
 
-  rawFrames.forEach((frame, index) => {
-    validateRawFrameRowV2(frame, schemaId);
+  for (let index = 0; index < rawFrames.length; index += 1) {
+    const frame = rawFrames[index]!;
+    const symbols = validateRawFrameRowV2AndSymbols(frame, schemaId);
     const currentCaptureId = validateCaptureInstanceIdV2(frame.capture_instance_id);
     const currentSourceGeneration = positiveUint64(frame.source_generation, "source_generation");
     const sequence = positiveUint64(frame.source_frame_sequence, "source_frame_sequence");
@@ -204,19 +225,20 @@ export function validateRawEventChunkV2(
     frameBySequence.set(sequence.toString(), index);
     expectedSequence = sequence + 1n;
     payloadBytes += (frame.frame_bytes as Uint8Array).byteLength;
+    metadataBytes += new TextEncoder().encode(frame.symbols_json as string).byteLength;
     if (payloadBytes > MAX_RAW_CAPTURE_CHUNK_BYTES) {
       throw new RangeError("capture chunk exceeds the 16 MiB payload bound");
     }
+    if (metadataBytes > MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES) {
+      throw new RangeError("capture chunk exceeds the 16 MiB symbols metadata bound");
+    }
     expectedEventCount += frame.event_count as number;
-  });
+    symbolsByFrame.push(symbols);
+  }
 
   if (events.length !== expectedEventCount) {
     throw new TypeError("capture chunk does not contain every expected normalized event");
   }
-  if (expectedEventCount > MAX_RAW_CAPTURE_CHUNK_FRAMES * MAX_RAW_FRAME_EVENT_COUNT) {
-    throw new RangeError("capture chunk expected event count exceeds its structural bound");
-  }
-
   for (const event of events) {
     validateMarketEventRowV3(event);
     if (
@@ -231,14 +253,15 @@ export function validateRawEventChunkV2(
     groupedEvents[index]!.push(event);
   }
 
-  rawFrames.forEach((frame, index) => {
+  for (let index = 0; index < rawFrames.length; index += 1) {
+    const frame = rawFrames[index]!;
     const frameEvents = groupedEvents[index]!;
     if (frameEvents.length !== frame.event_count) {
       throw new TypeError("capture chunk is missing a frame projection");
     }
     const ordinals = new Set<number>();
     for (const event of frameEvents) {
-      validateEventFramePair(event, frame);
+      validateEventFramePair(event, frame, symbolsByFrame[index]!);
       const ordinal = event.raw_frame_event_ordinal as number;
       if (ordinals.has(ordinal)) throw new TypeError("capture chunk contains duplicate event ordinals");
       ordinals.add(ordinal);
@@ -246,10 +269,14 @@ export function validateRawEventChunkV2(
     if (ordinals.size !== frame.event_count) {
       throw new TypeError("capture chunk event ordinals are incomplete");
     }
-  });
+  }
 }
 
-function validateEventFramePair(event: ParquetRow, rawFrame: ParquetRow): void {
+function validateEventFramePair(
+  event: ParquetRow,
+  rawFrame: ParquetRow,
+  symbols: readonly string[],
+): void {
   if (
     event.raw_frame_capture_instance_id !== rawFrame.capture_instance_id ||
     positiveUint64(event.raw_frame_source_generation, "raw_frame_source_generation") !==
@@ -268,7 +295,7 @@ function validateEventFramePair(event: ParquetRow, rawFrame: ParquetRow): void {
     timestampNanoseconds(event.received_timestamp) !== timestampNanoseconds(rawFrame.received_timestamp_utc) ||
     (rawFrame.source_numeric_encoding !== null &&
       event.numeric_encoding !== rawFrame.source_numeric_encoding) ||
-    !canonicalSymbols(rawFrame.symbols_json).includes(asString(event.symbol))
+    !symbols.includes(asString(event.symbol))
   ) {
     throw new TypeError("event row does not match the exact raw-frame capture key");
   }
@@ -294,6 +321,12 @@ function requireExactRowFields(row: ParquetRow, schemaId: string): void {
   const actual = Object.keys(row);
   if (actual.length !== expected.length || expected.some((field) => !Object.hasOwn(row, field))) {
     throw new TypeError("Parquet row fields differ from the trusted schema descriptor");
+  }
+}
+
+function assertDenseArray(values: readonly unknown[], label: string): void {
+  for (let index = 0; index < values.length; index += 1) {
+    if (!Object.hasOwn(values, index)) throw new TypeError(`capture ${label} cannot contain sparse holes`);
   }
 }
 
@@ -381,14 +414,30 @@ function timestampNanoseconds(value: unknown): bigint {
 
 function validSourceIdentity(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 &&
+    hasOnlyUnicodeScalars(value) &&
     new TextEncoder().encode(value).byteLength <= 128 && value.trim() === value &&
     !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
 }
 
 function validMarketSymbol(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 &&
+    hasOnlyUnicodeScalars(value) &&
     new TextEncoder().encode(value).byteLength <= 256 && value.trim() === value &&
     !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
+}
+
+function hasOnlyUnicodeScalars(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const unit = value.charCodeAt(index);
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return false;
+      index += 1;
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function compareUtf8(left: string, right: string): number {
