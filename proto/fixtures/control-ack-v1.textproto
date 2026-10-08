@@ -1,0 +1,13 @@
+schema_version: 1
+source { provider: "synthetic" feed: "synthetic" entitlement: "unknown" numeric_encoding: NUMERIC_ENCODING_DECIMAL_TOKEN }
+generation: 3
+sequence: 20
+received_timestamp: "2026-10-08T14:30:01Z"
+control {
+  subscription_ack {
+    request_id: "request-1"
+    subscription_id: "subscription-1"
+    acknowledged: "QQQ261016C00600000"
+    rejected { symbol: "QQQ261016P00600000" reason_code: "not_entitled" }
+  }
+}

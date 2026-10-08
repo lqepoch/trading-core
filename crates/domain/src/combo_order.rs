@@ -29,7 +29,7 @@ pub struct NonZeroPrice(Price);
 ///
 /// ```compile_fail
 /// use domain::NetOrderPrice;
-/// let _ = NetOrderPrice::net_debit(0.93_f64);
+/// let _ = NetOrderPrice::net_debit(2.75_f64);
 /// ```
 ///
 /// The adapter must parse a source decimal representation into `ExactDecimal` first.
@@ -465,7 +465,7 @@ mod tests {
                 leg("600", OrderSide::Buy, PositionEffect::Open, 1, 1),
                 leg("605", OrderSide::Sell, PositionEffect::Open, 2, 2),
             ],
-            NetOrderPrice::net_debit(Price::parse_json_number("0.93").unwrap()).unwrap(),
+            NetOrderPrice::net_debit(Price::parse_json_number("2.75").unwrap()).unwrap(),
         )
         .unwrap();
         assert_eq!(intent.quantity().get(), 1);
@@ -482,7 +482,7 @@ mod tests {
                 .to_string(),
             "605"
         );
-        assert_eq!(intent.net_price().amount().decimal().to_string(), "0.93");
+        assert_eq!(intent.net_price().amount().decimal().to_string(), "2.75");
         assert_eq!(intent.intent_id().as_str(), "intent-combo-01");
         assert_eq!(intent.logical_order_id().as_str(), "logical-combo-01");
     }
@@ -490,14 +490,14 @@ mod tests {
     #[test]
     fn zero_cost_is_explicit_and_debit_credit_do_not_infer_direction_from_sign() {
         let zero = NetOrderPrice::ZeroCost;
-        let debit = NetOrderPrice::net_debit(Price::parse_json_number("0.93").unwrap()).unwrap();
-        let credit = NetOrderPrice::net_credit(Price::parse_json_number("0.93").unwrap()).unwrap();
+        let debit = NetOrderPrice::net_debit(Price::parse_json_number("2.75").unwrap()).unwrap();
+        let credit = NetOrderPrice::net_credit(Price::parse_json_number("2.75").unwrap()).unwrap();
         assert!(zero.is_zero_cost());
         assert_eq!(zero.amount().decimal(), ExactDecimal::ZERO);
         assert_ne!(debit, credit);
         assert_ne!(zero, debit);
-        assert_eq!(debit.amount().decimal().to_string(), "0.93");
-        assert_eq!(credit.amount().decimal().to_string(), "0.93");
+        assert_eq!(debit.amount().decimal().to_string(), "2.75");
+        assert_eq!(credit.amount().decimal().to_string(), "2.75");
         assert_eq!(
             NetOrderPrice::net_debit(Price::ZERO),
             Err(NonZeroPriceError::Zero)
@@ -510,8 +510,8 @@ mod tests {
 
     #[test]
     fn decimal_boundaries_and_price_ticks_use_exact_scaled_integers() {
-        let debit = NetOrderPrice::net_debit(Price::parse_json_number("0.93").unwrap()).unwrap();
-        let credit = NetOrderPrice::net_credit(Price::parse_json_number("1.05").unwrap()).unwrap();
+        let debit = NetOrderPrice::net_debit(Price::parse_json_number("2.73").unwrap()).unwrap();
+        let credit = NetOrderPrice::net_credit(Price::parse_json_number("3.25").unwrap()).unwrap();
         assert!(debit.amount().decimal() < credit.amount().decimal());
         assert_eq!(
             debit.validate_tick(

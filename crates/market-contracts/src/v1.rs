@@ -202,6 +202,43 @@ pub enum EntitlementState {
     Unauthorized,
 }
 
+/// On-wire numeric encoding evidence used before building `DecimalString` values.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NumericEncodingV1 {
+    /// Missing encoding evidence is rejected by source validation.
+    #[default]
+    Unspecified,
+    /// JSON or another wire format supplied an exact decimal token.
+    DecimalToken,
+    /// The source supplied a non-negative integer token.
+    IntegerToken,
+    /// A MessagePack float64 was projected to its shortest round-tripping decimal string.
+    BinaryFloat64ShortestDecimal,
+    /// A MessagePack float32 was projected to its shortest round-tripping decimal string.
+    BinaryFloat32ShortestDecimal,
+}
+
+impl NumericEncodingV1 {
+    /// Return the canonical lower-snake-case JSON spelling for this encoding.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Unspecified => "unspecified",
+            Self::DecimalToken => "decimal_token",
+            Self::IntegerToken => "integer_token",
+            Self::BinaryFloat64ShortestDecimal => "binary_float64_shortest_decimal",
+            Self::BinaryFloat32ShortestDecimal => "binary_float32_shortest_decimal",
+        }
+    }
+
+    fn is_binary_float_projection(self) -> bool {
+        matches!(
+            self,
+            Self::BinaryFloat64ShortestDecimal | Self::BinaryFloat32ShortestDecimal
+        )
+    }
+}
+
 /// Exact source identity for one market event.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MarketDataSourceV1 {
@@ -212,6 +249,9 @@ pub struct MarketDataSourceV1 {
     /// Entitlement status; defaults to unknown when old or incomplete evidence is read.
     #[serde(default)]
     pub entitlement: EntitlementState,
+    /// Source numeric representation. `Unspecified` is invalid in a validated envelope.
+    #[serde(default)]
+    pub numeric_encoding: NumericEncodingV1,
     /// Optional provider-native record identity.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_record_id: Option<String>,
@@ -223,12 +263,14 @@ impl MarketDataSourceV1 {
         provider: impl Into<String>,
         feed: impl Into<String>,
         entitlement: EntitlementState,
+        numeric_encoding: NumericEncodingV1,
         source_record_id: Option<String>,
     ) -> Result<Self, MarketWireError> {
         let source = Self {
             provider: provider.into(),
             feed: feed.into(),
             entitlement,
+            numeric_encoding,
             source_record_id,
         };
         source.validate()?;
@@ -237,12 +279,19 @@ impl MarketDataSourceV1 {
 
     /// Check source identifiers before an event enters a store or consumer.
     pub fn validate(&self) -> Result<(), MarketWireError> {
+        let mentions_synthetic = self.provider.eq_ignore_ascii_case("synthetic")
+            || self.feed.eq_ignore_ascii_case("synthetic");
+        let is_canonical_synthetic = self.provider == "synthetic" && self.feed == "synthetic";
         if !valid_identifier(&self.provider, MAX_SOURCE_ID_BYTES)
             || !valid_identifier(&self.feed, MAX_SOURCE_ID_BYTES)
             || self
                 .source_record_id
                 .as_deref()
                 .is_some_and(|value| !valid_identifier(value, MAX_SOURCE_ID_BYTES))
+            || self.numeric_encoding == NumericEncodingV1::Unspecified
+            || mentions_synthetic
+                && (!is_canonical_synthetic
+                    || self.numeric_encoding != NumericEncodingV1::DecimalToken)
         {
             return Err(MarketWireError::InvalidSource);
         }
@@ -263,6 +312,9 @@ pub struct EventMetadataV1 {
     /// Positive sequence within the generation.
     #[serde(with = "crate::wire_u64")]
     pub sequence: u64,
+    /// SHA-256 of the original raw provider frame, required for binary-float projections.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw_frame_sha256: Option<String>,
     /// Provider event time, absent when the source did not report it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_timestamp: Option<UtcTimestamp>,
@@ -279,7 +331,17 @@ impl EventMetadataV1 {
         {
             return Err(MarketWireError::InvalidSequence);
         }
-        self.source.validate()
+        self.source.validate()?;
+        if self
+            .raw_frame_sha256
+            .as_deref()
+            .is_some_and(|value| !valid_sha256(value))
+            || self.source.numeric_encoding.is_binary_float_projection()
+                && self.raw_frame_sha256.is_none()
+        {
+            return Err(MarketWireError::InvalidSource);
+        }
+        Ok(())
     }
 }
 
@@ -541,6 +603,13 @@ fn canonical_utc_timestamp(value: &DateTime<Utc>) -> String {
     formatted
 }
 
+fn valid_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
 fn validate_quote(
     bid: &Option<DecimalString>,
     ask: &Option<DecimalString>,
@@ -598,22 +667,39 @@ mod tests {
     use super::{
         ConnectionState, DecimalString, EntitlementState, EventMetadataV1, MAX_CONTROL_INSTRUMENTS,
         MAX_MARKET_FRAME_BYTES, MarketControlEnvelopeV1, MarketControlEventV1, MarketDataSourceV1,
-        MarketEventEnvelopeV1, MarketEventV1, MarketWireError, UtcTimestamp,
+        MarketEventEnvelopeV1, MarketEventV1, MarketWireError, NumericEncodingV1, UtcTimestamp,
         parse_occ_symbol_candidate, validate_market_frame_len,
     };
+
+    #[test]
+    fn numeric_encoding_exposes_canonical_wire_names() {
+        assert_eq!(NumericEncodingV1::Unspecified.as_str(), "unspecified");
+        assert_eq!(NumericEncodingV1::DecimalToken.as_str(), "decimal_token");
+        assert_eq!(NumericEncodingV1::IntegerToken.as_str(), "integer_token");
+        assert_eq!(
+            NumericEncodingV1::BinaryFloat64ShortestDecimal.as_str(),
+            "binary_float64_shortest_decimal"
+        );
+        assert_eq!(
+            NumericEncodingV1::BinaryFloat32ShortestDecimal.as_str(),
+            "binary_float32_shortest_decimal"
+        );
+    }
 
     fn metadata() -> EventMetadataV1 {
         EventMetadataV1 {
             schema_version: 1,
             source: MarketDataSourceV1::new(
-                "alpaca",
-                "opra",
+                "synthetic",
+                "synthetic",
                 EntitlementState::Unknown,
+                NumericEncodingV1::DecimalToken,
                 Some("synthetic-record-1".to_owned()),
             )
             .unwrap(),
             generation: 3,
             sequence: 19,
+            raw_frame_sha256: None,
             source_timestamp: Some(UtcTimestamp::parse("2026-10-08T14:30:00Z").unwrap()),
             received_timestamp: UtcTimestamp::parse("2026-10-08T14:30:00.000000123Z").unwrap(),
         }
@@ -632,7 +718,7 @@ mod tests {
         assert_eq!(decoded.generation, u64::MAX);
         assert_eq!(decoded.sequence, u64::MAX);
 
-        let numeric = r#"{"schema_version":1,"source":{"provider":"alpaca","feed":"opra","entitlement":"unknown","source_record_id":"synthetic-record-1"},"generation":9007199254740993,"sequence":"1","source_timestamp":"2026-10-08T14:30:00Z","received_timestamp":"2026-10-08T14:30:00Z"}"#;
+        let numeric = r#"{"schema_version":1,"source":{"provider":"synthetic","feed":"synthetic","entitlement":"unknown","numeric_encoding":"decimal_token","source_record_id":"synthetic-record-1"},"generation":9007199254740993,"sequence":"1","source_timestamp":"2026-10-08T14:30:00Z","received_timestamp":"2026-10-08T14:30:00Z"}"#;
         assert!(serde_json::from_str::<EventMetadataV1>(numeric).is_err());
         let leading_zero = numeric.replace("9007199254740993", "\"01\"");
         assert!(serde_json::from_str::<EventMetadataV1>(&leading_zero).is_err());
@@ -693,9 +779,10 @@ mod tests {
         envelope.validate().unwrap();
         let json = serde_json::to_value(&envelope).unwrap();
         assert_eq!(json["schema_version"], 1);
-        assert_eq!(json["source"]["provider"], "alpaca");
-        assert_eq!(json["source"]["feed"], "opra");
+        assert_eq!(json["source"]["provider"], "synthetic");
+        assert_eq!(json["source"]["feed"], "synthetic");
         assert_eq!(json["source"]["entitlement"], "unknown");
+        assert_eq!(json["source"]["numeric_encoding"], "decimal_token");
         assert_eq!(json["generation"], "3");
         assert_eq!(json["sequence"], "19");
         assert_eq!(json["source_timestamp"], "2026-10-08T14:30:00Z");
@@ -726,6 +813,55 @@ mod tests {
             },
         };
         assert_eq!(envelope.validate(), Err(MarketWireError::InvalidTradeSize));
+    }
+
+    #[test]
+    fn binary_float_projection_requires_original_frame_hash_evidence() {
+        let mut value = metadata();
+        value.source.provider = "alpaca".to_owned();
+        value.source.feed = "opra".to_owned();
+        value.source.numeric_encoding = NumericEncodingV1::BinaryFloat64ShortestDecimal;
+        assert_eq!(value.validate(), Err(MarketWireError::InvalidSource));
+
+        value.raw_frame_sha256 = Some("a".repeat(64));
+        value.validate().unwrap();
+
+        value.raw_frame_sha256 = Some("A".repeat(64));
+        assert_eq!(value.validate(), Err(MarketWireError::InvalidSource));
+    }
+
+    #[test]
+    fn synthetic_source_identity_is_explicit_and_canonical() {
+        assert!(
+            MarketDataSourceV1::new(
+                "synthetic",
+                "sip",
+                EntitlementState::Unknown,
+                NumericEncodingV1::DecimalToken,
+                None,
+            )
+            .is_err()
+        );
+        assert!(
+            MarketDataSourceV1::new(
+                "alpaca",
+                "synthetic",
+                EntitlementState::Unknown,
+                NumericEncodingV1::DecimalToken,
+                None,
+            )
+            .is_err()
+        );
+        assert!(
+            MarketDataSourceV1::new(
+                "Synthetic",
+                "synthetic",
+                EntitlementState::Unknown,
+                NumericEncodingV1::DecimalToken,
+                None,
+            )
+            .is_err()
+        );
     }
 
     #[test]

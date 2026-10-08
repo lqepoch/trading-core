@@ -1,0 +1,7 @@
+schema_version: 1
+source { provider: "synthetic" feed: "synthetic" entitlement: "unknown" numeric_encoding: NUMERIC_ENCODING_DECIMAL_TOKEN source_record_id: "synthetic-1" }
+generation: 9007199254740993
+sequence: 18446744073709551615
+source_timestamp: "2026-10-08T14:30:00Z"
+received_timestamp: "2026-10-08T14:30:00.000000123Z"
+event { option_quote { symbol: "QQQ261016C00600000" bid: "1.25" bid_size: "4" } }

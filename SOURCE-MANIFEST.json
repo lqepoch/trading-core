@@ -31,8 +31,10 @@
       "source_path": "crates/domain/src/combo_order.rs",
       "target_path": "crates/domain/src/combo_order.rs",
       "source_sha256": "eaa4b212c60811c489eef7afd4bbb1b06dfac5f36fee5735c4333a88621af507",
-      "target_sha256": "eaa4b212c60811c489eef7afd4bbb1b06dfac5f36fee5735c4333a88621af507",
-      "changes": []
+      "target_sha256": "8ff1551c00480481f77d85d78a4cd7ece291817387191b680711188d2de57e9e",
+      "changes": [
+        "Replaced source-associated constants in generic examples and tests with newly authored synthetic price values; production logic is unchanged."
+      ]
     },
     {
       "repository": "lqepoch/schwab_auto_bot",
@@ -67,8 +69,10 @@
       "source_path": "crates/domain/src/lib.rs",
       "target_path": "crates/domain/src/lib.rs",
       "source_sha256": "cef65de452c290691baa8e1c09f16bcebedbbf14f98a2ebb2e6be73888c1b827",
-      "target_sha256": "cef65de452c290691baa8e1c09f16bcebedbbf14f98a2ebb2e6be73888c1b827",
-      "changes": []
+      "target_sha256": "f8b4b9c8ce1d6da68d475faf1af27a938472905613ade0e8b6661083f77ca722",
+      "changes": [
+        "Replaced a source-associated value in a generic price-validation example with a newly authored synthetic value; production logic is unchanged."
+      ]
     },
     {
       "repository": "lqepoch/schwab_auto_bot",

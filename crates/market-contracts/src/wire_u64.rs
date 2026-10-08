@@ -3,7 +3,7 @@
 use serde::{Deserialize, Deserializer, Serializer, de::Error};
 
 /// Serialize an unsigned 64-bit integer as a canonical decimal string.
-pub(crate) fn serialize<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
+pub fn serialize<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -11,7 +11,7 @@ where
 }
 
 /// Deserialize only canonical decimal strings, rejecting JSON numbers that may lose JS precision.
-pub(crate) fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+pub fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -28,6 +28,18 @@ where
 #[cfg(test)]
 mod tests {
     use serde::{Deserialize, Serialize};
+    use serde_json::Value as JsonValue;
+
+    #[derive(Deserialize)]
+    struct U64Fixture {
+        valid: Vec<NamedValue>,
+        invalid: Vec<NamedValue>,
+    }
+
+    #[derive(Deserialize)]
+    struct NamedValue {
+        value: JsonValue,
+    }
 
     #[derive(Debug, Deserialize, PartialEq, Serialize)]
     struct Value {
@@ -49,5 +61,24 @@ mod tests {
         assert!(serde_json::from_str::<Value>(r#"{"value":1}"#).is_err());
         assert!(serde_json::from_str::<Value>(r#"{"value":"01"}"#).is_err());
         assert!(serde_json::from_str::<Value>(r#"{"value":"18446744073709551616"}"#).is_err());
+    }
+
+    #[test]
+    fn shared_uint64_fixture_roundtrips_and_rejects_ambiguous_json() {
+        let fixture: U64Fixture = serde_json::from_str(include_str!(
+            "../../../schemas/fixtures/uint64-json-v1.json"
+        ))
+        .unwrap();
+
+        for case in fixture.valid {
+            let input = serde_json::json!({"value": case.value});
+            let parsed: Value = serde_json::from_value(input).unwrap();
+            let reencoded = serde_json::to_value(parsed).unwrap();
+            assert_eq!(reencoded["value"], case.value);
+        }
+        for case in fixture.invalid {
+            let input = serde_json::json!({"value": case.value});
+            assert!(serde_json::from_value::<Value>(input).is_err());
+        }
     }
 }

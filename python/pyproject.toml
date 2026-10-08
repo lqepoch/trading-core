@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lqepoch-trading-core-contracts"
+version = "0.1.0"
+description = "Shared Python validators and generated protobuf contracts from trading-core"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT OR Apache-2.0"
+dependencies = ["protobuf==7.36.2"]
+
+[tool.uv]
+required-version = "==0.12.3"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lqepoch_contracts*", "lqepoch*"]

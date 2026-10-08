@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+package lqepoch.market.v1;
+
+option java_multiple_files = true;
+option java_package = "com.lqepoch.market.v1";
+
+enum NumericEncodingV1 {
+  NUMERIC_ENCODING_UNSPECIFIED = 0;
+  NUMERIC_ENCODING_DECIMAL_TOKEN = 1;
+  NUMERIC_ENCODING_INTEGER_TOKEN = 2;
+  NUMERIC_ENCODING_BINARY_FLOAT64_SHORTEST_DECIMAL = 3;
+  NUMERIC_ENCODING_BINARY_FLOAT32_SHORTEST_DECIMAL = 4;
+}
+
+// Market data source identity. Entitlement remains unknown unless separately evidenced.
+message MarketDataSourceV1 {
+  string provider = 1;
+  string feed = 2;
+  string entitlement = 3;
+  optional string source_record_id = 4;
+  NumericEncodingV1 numeric_encoding = 5;
+}
+
+// UTC event metadata shared by market and control messages.
+message EventMetadataV1 {
+  uint32 schema_version = 1;
+  MarketDataSourceV1 source = 2;
+  uint64 generation = 3;
+  uint64 sequence = 4;
+  optional string source_timestamp = 5;
+  string received_timestamp = 6;
+  optional string raw_frame_sha256 = 7;
+}
+
+// Decimal values are exact JSON-number tokens carried as strings.
+message StockQuoteV1 {
+  string symbol = 1;
+  optional string bid = 2;
+  optional string ask = 3;
+  optional string bid_size = 4;
+  optional string ask_size = 5;
+}
+
+message StockTradeV1 {
+  string symbol = 1;
+  string price = 2;
+  string size = 3;
+}
+
+message OptionQuoteV1 {
+  string symbol = 1;
+  optional string bid = 2;
+  optional string ask = 3;
+  optional string bid_size = 4;
+  optional string ask_size = 5;
+}
+
+message OptionTradeV1 {
+  string symbol = 1;
+  string price = 2;
+  string size = 3;
+}
+
+message MarketEventV1 {
+  oneof payload {
+    StockQuoteV1 stock_quote = 1;
+    StockTradeV1 stock_trade = 2;
+    OptionQuoteV1 option_quote = 3;
+    OptionTradeV1 option_trade = 4;
+  }
+}
+
+// Versioned event envelope. Option symbols are retained exactly as supplied by the feed.
+message MarketEventEnvelopeV1 {
+  uint32 schema_version = 1;
+  MarketDataSourceV1 source = 2;
+  uint64 generation = 3;
+  uint64 sequence = 4;
+  optional string source_timestamp = 5;
+  string received_timestamp = 6;
+  optional string raw_frame_sha256 = 7;
+  MarketEventV1 event = 8;
+}
+
+message RejectedInstrumentV1 {
+  string symbol = 1;
+  string reason_code = 2;
+}
+
+message ConnectionStatusV1 {
+  string state = 1;
+}
+
+message SubscriptionAckV1 {
+  string request_id = 1;
+  string subscription_id = 2;
+  repeated string acknowledged = 3;
+  repeated RejectedInstrumentV1 rejected = 4;
+}
+
+message SubscriptionRejectedV1 {
+  string request_id = 1;
+  string reason_code = 2;
+}
+
+// Provider connection and subscription controls are distinct from market events.
+message MarketControlEventV1 {
+  oneof payload {
+    ConnectionStatusV1 connection_status = 1;
+    SubscriptionAckV1 subscription_ack = 2;
+    SubscriptionRejectedV1 subscription_rejected = 3;
+  }
+}
+
+message ControlEventEnvelopeV1 {
+  uint32 schema_version = 1;
+  MarketDataSourceV1 source = 2;
+  uint64 generation = 3;
+  uint64 sequence = 4;
+  optional string source_timestamp = 5;
+  string received_timestamp = 6;
+  optional string raw_frame_sha256 = 7;
+  MarketControlEventV1 control = 8;
+}

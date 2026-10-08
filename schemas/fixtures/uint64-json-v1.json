@@ -1,0 +1,42 @@
+{
+  "valid": [
+    {
+      "name": "beyond_javascript_safe_integer",
+      "value": "9007199254740993"
+    },
+    {
+      "name": "uint64_max",
+      "value": "18446744073709551615"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "json_number",
+      "value": 1
+    },
+    {
+      "name": "leading_zero",
+      "value": "01"
+    },
+    {
+      "name": "overflow",
+      "value": "18446744073709551616"
+    },
+    {
+      "name": "negative",
+      "value": "-1"
+    },
+    {
+      "name": "empty",
+      "value": ""
+    },
+    {
+      "name": "trailing_newline",
+      "value": "1\n"
+    },
+    {
+      "name": "overlong_digits",
+      "value": "999999999999999999999"
+    }
+  ]
+}

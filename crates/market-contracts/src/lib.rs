@@ -5,8 +5,9 @@
 
 pub mod dataset;
 pub mod legacy;
+pub mod parquet_schema;
 pub mod v1;
-mod wire_u64;
+pub mod wire_u64;
 
 pub use dataset::{
     DATASET_MANIFEST_SCHEMA_VERSION, DatasetCompletionEvidenceV1, DatasetManifestError,
@@ -19,6 +20,6 @@ pub use v1::{
     ConnectionState, ControlEventEnvelopeV1, DecimalString, EntitlementState, EventMetadataV1,
     InstrumentRejection, MAX_CONTROL_INSTRUMENTS, MAX_INSTRUMENT_ID_BYTES, MAX_MARKET_FRAME_BYTES,
     MAX_SOURCE_ID_BYTES, MarketControlEnvelopeV1, MarketControlEventV1, MarketDataSourceV1,
-    MarketEventEnvelopeV1, MarketEventV1, MarketWireError, RejectedInstrumentV1, UtcTimestamp,
-    parse_occ_symbol_candidate, validate_market_frame_len,
+    MarketEventEnvelopeV1, MarketEventV1, MarketWireError, NumericEncodingV1, RejectedInstrumentV1,
+    UtcTimestamp, parse_occ_symbol_candidate, validate_market_frame_len,
 };

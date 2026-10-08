@@ -1,0 +1,25 @@
+schema_version: 1
+dataset_id: "qqq-opra-2026-10-08-v1"
+source { provider: "synthetic" feed: "synthetic" entitlement: "unknown" numeric_encoding: NUMERIC_ENCODING_DECIMAL_TOKEN }
+symbols: "QQQ261016C00600000"
+time_range {
+  start_inclusive { seconds: 1791469800 }
+  end_exclusive { seconds: 1791469860 }
+}
+source_timestamp_missing_rows: 0
+row_count: 10
+object {
+  object_name: "qqq-opra-2026-10-08.parquet"
+  object_id: "local-test:qqq-opra-2026-10-08"
+  size_bytes: 4096
+  content_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  parquet_schema_sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  parquet_footer_rows: 10
+  transport: "local_test"
+}
+completion {
+  input_eof: true
+  source_pages_exhausted: true
+  readback_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  verified_before_publish: true
+}

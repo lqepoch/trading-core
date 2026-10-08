@@ -214,11 +214,11 @@ mod tests {
             "-0.01"
         );
         assert_eq!(
-            Price::parse_json_number("0.93")
+            Price::parse_json_number("2.75")
                 .unwrap()
                 .decimal()
                 .to_string(),
-            "0.93"
+            "2.75"
         );
     }
 

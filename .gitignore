@@ -1,5 +1,11 @@
 /target/
 /.schema-build/
 /.venv-schema/
+typescript/node_modules/
+typescript/dist/
+python/.venv/
+python/dist/
+python/build/
+python/*.egg-info/
 __pycache__/
 *.pyc

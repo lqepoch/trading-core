@@ -125,13 +125,10 @@ impl DatasetManifestV1 {
             .map_err(|_| DatasetManifestError::InvalidSource)?;
 
         if self.symbols.is_empty()
-            || self.symbols.iter().any(|symbol| {
-                !valid_identifier(symbol, 256)
-                    || symbol.contains('*')
-                    || symbol.contains('?')
-                    || symbol.eq_ignore_ascii_case("latest")
-                    || symbol.eq_ignore_ascii_case("fallback")
-            })
+            || self
+                .symbols
+                .iter()
+                .any(|symbol| !valid_identifier(symbol, 256))
             || self.symbols.windows(2).any(|pair| pair[0] >= pair[1])
         {
             return Err(DatasetManifestError::InvalidSymbols);
@@ -237,15 +234,51 @@ mod tests {
         DatasetCompletionEvidenceV1, DatasetManifestError, DatasetManifestV1, DatasetObjectV1,
         DatasetTimeRangeV1, DatasetTransportV1,
     };
-    use crate::{EntitlementState, MarketDataSourceV1, UtcTimestamp};
+    use crate::{EntitlementState, MarketDataSourceV1, NumericEncodingV1, UtcTimestamp};
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    struct IdentityFixture {
+        positive: PositiveIdentityCases,
+        negative: NegativeIdentityCases,
+    }
+
+    #[derive(Deserialize)]
+    struct PositiveIdentityCases {
+        provider: String,
+        feed: String,
+        source_record_id: String,
+        dataset_id: String,
+        padded_occ_symbol: String,
+        drive_object_id: String,
+        object_name: String,
+        local_test_object_id: String,
+    }
+
+    #[derive(Deserialize)]
+    struct NegativeIdentityCases {
+        provider_utf8_over_limit: String,
+        dataset_id_latest_selector: String,
+        dataset_id_parent_token: String,
+        object_name_wildcard: String,
+        object_name_dot: String,
+        local_test_path_traversal: String,
+        symbol_utf8_over_limit: String,
+    }
 
     fn manifest() -> DatasetManifestV1 {
         let content_sha256 = "a".repeat(64);
         DatasetManifestV1 {
             schema_version: 1,
             dataset_id: "qqq-opra-2026-10-08-v1".to_owned(),
-            source: MarketDataSourceV1::new("alpaca", "opra", EntitlementState::Unknown, None)
-                .unwrap(),
+            source: MarketDataSourceV1::new(
+                "synthetic",
+                "synthetic",
+                EntitlementState::Unknown,
+                NumericEncodingV1::DecimalToken,
+                None,
+            )
+            .unwrap(),
             symbols: vec!["QQQ261016C00600000".to_owned()],
             time_range: Some(DatasetTimeRangeV1 {
                 start_inclusive: UtcTimestamp::parse("2026-10-08T14:30:00Z").unwrap(),
@@ -375,6 +408,66 @@ mod tests {
         assert_eq!(
             value.validate(),
             Err(DatasetManifestError::InvalidTimeRange)
+        );
+    }
+
+    #[test]
+    fn shared_identity_fixtures_match_the_rust_manifest_boundaries() {
+        let fixture: IdentityFixture = serde_json::from_str(include_str!(
+            "../../../schemas/fixtures/dataset-manifest-v1-identities.json"
+        ))
+        .unwrap();
+
+        let mut value = manifest();
+        value.source.provider = fixture.positive.provider;
+        value.source.feed = fixture.positive.feed;
+        value.source.source_record_id = Some(fixture.positive.source_record_id);
+        value.dataset_id = fixture.positive.dataset_id;
+        value.symbols = vec![fixture.positive.padded_occ_symbol];
+        value.object.object_name = fixture.positive.object_name;
+        value.object.transport = DatasetTransportV1::RcloneGoogleDrive;
+        value.object.object_id = Some(fixture.positive.drive_object_id);
+        value.validate().unwrap();
+
+        let mut local = manifest();
+        local.object.object_id = Some(fixture.positive.local_test_object_id);
+        local.validate().unwrap();
+
+        let mut invalid = manifest();
+        invalid.source.provider = fixture.negative.provider_utf8_over_limit;
+        assert_eq!(invalid.validate(), Err(DatasetManifestError::InvalidSource));
+
+        let mut invalid = manifest();
+        invalid.dataset_id = fixture.negative.dataset_id_latest_selector;
+        assert_eq!(
+            invalid.validate(),
+            Err(DatasetManifestError::InvalidDatasetId)
+        );
+
+        let mut invalid = manifest();
+        invalid.dataset_id = fixture.negative.dataset_id_parent_token;
+        assert_eq!(
+            invalid.validate(),
+            Err(DatasetManifestError::InvalidDatasetId)
+        );
+
+        let mut invalid = manifest();
+        invalid.object.object_name = fixture.negative.object_name_wildcard;
+        assert_eq!(invalid.validate(), Err(DatasetManifestError::InvalidObject));
+
+        let mut invalid = manifest();
+        invalid.object.object_name = fixture.negative.object_name_dot;
+        assert_eq!(invalid.validate(), Err(DatasetManifestError::InvalidObject));
+
+        let mut invalid = manifest();
+        invalid.object.object_id = Some(fixture.negative.local_test_path_traversal);
+        assert_eq!(invalid.validate(), Err(DatasetManifestError::InvalidObject));
+
+        let mut invalid = manifest();
+        invalid.symbols = vec![fixture.negative.symbol_utf8_over_limit];
+        assert_eq!(
+            invalid.validate(),
+            Err(DatasetManifestError::InvalidSymbols)
         );
     }
 }
