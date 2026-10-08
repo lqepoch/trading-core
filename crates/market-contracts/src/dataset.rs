@@ -192,26 +192,43 @@ pub(crate) fn validate_dataset_manifest_fields(
         return Err(DatasetManifestError::InvalidHash);
     }
 
-    let raw_messagepack_schema_sha256 = crate::parquet_schema::trusted_schema_fingerprint(
+    let raw_messagepack_schema_sha256 = [
         crate::parquet_schema::MARKET_RAW_FRAME_PARQUET_SCHEMA_ID,
-    )
-    .map_err(|_| DatasetManifestError::InvalidObject)?;
-    let raw_json_schema_sha256 = crate::parquet_schema::trusted_schema_fingerprint(
+        crate::parquet_schema::MARKET_RAW_FRAME_PARQUET_SCHEMA_V2_ID,
+    ]
+    .map(|schema_id| {
+        crate::parquet_schema::trusted_schema_fingerprint(schema_id)
+            .map_err(|_| DatasetManifestError::InvalidObject)
+    });
+    let raw_messagepack_schema_sha256 = raw_messagepack_schema_sha256
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?;
+    let raw_json_schema_sha256 = [
         crate::parquet_schema::MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_ID,
-    )
-    .map_err(|_| DatasetManifestError::InvalidObject)?;
+        crate::parquet_schema::MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_V2_ID,
+    ]
+    .map(|schema_id| {
+        crate::parquet_schema::trusted_schema_fingerprint(schema_id)
+            .map_err(|_| DatasetManifestError::InvalidObject)
+    });
+    let raw_json_schema_sha256 = raw_json_schema_sha256
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?;
+    let all_raw_schema_sha256 = raw_messagepack_schema_sha256
+        .iter()
+        .chain(raw_json_schema_sha256.iter())
+        .collect::<Vec<_>>();
     let source_is_raw_bytes = source.numeric_encoding.is_raw_bytes();
     let object_raw_schema_matches_encoding = match source.numeric_encoding {
         crate::NumericEncodingV1::RawMessagePackBytes => {
-            object.parquet_schema_sha256 == raw_messagepack_schema_sha256
+            raw_messagepack_schema_sha256.contains(&object.parquet_schema_sha256)
         }
         crate::NumericEncodingV1::RawJsonBytes => {
-            object.parquet_schema_sha256 == raw_json_schema_sha256
+            raw_json_schema_sha256.contains(&object.parquet_schema_sha256)
         }
-        _ => {
-            object.parquet_schema_sha256 != raw_messagepack_schema_sha256
-                && object.parquet_schema_sha256 != raw_json_schema_sha256
-        }
+        _ => !all_raw_schema_sha256
+            .iter()
+            .any(|fingerprint| **fingerprint == object.parquet_schema_sha256),
     };
     if !object_raw_schema_matches_encoding {
         return Err(DatasetManifestError::InvalidSource);
@@ -466,6 +483,35 @@ mod tests {
             with_source_times.validate(),
             Err(DatasetManifestError::InvalidTimeRange)
         );
+    }
+
+    #[test]
+    fn raw_frame_v2_schemas_are_additive_and_remain_bound_to_their_wire_encoding() {
+        let cases = [
+            (
+                NumericEncodingV1::RawMessagePackBytes,
+                crate::MARKET_RAW_FRAME_PARQUET_SCHEMA_V2_ID,
+                crate::MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_V2_ID,
+            ),
+            (
+                NumericEncodingV1::RawJsonBytes,
+                crate::MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_V2_ID,
+                crate::MARKET_RAW_FRAME_PARQUET_SCHEMA_V2_ID,
+            ),
+        ];
+        for (encoding, correct_schema, wrong_schema) in cases {
+            let mut value = manifest();
+            value.source.numeric_encoding = encoding;
+            value.time_range = None;
+            value.source_timestamp_missing_rows = value.row_count;
+            value.object.parquet_schema_sha256 =
+                crate::trusted_schema_fingerprint(correct_schema).unwrap();
+            assert_eq!(value.validate(), Ok(()));
+
+            value.object.parquet_schema_sha256 =
+                crate::trusted_schema_fingerprint(wrong_schema).unwrap();
+            assert_eq!(value.validate(), Err(DatasetManifestError::InvalidSource));
+        }
     }
 
     #[test]

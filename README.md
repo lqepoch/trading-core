@@ -25,7 +25,7 @@ OCC parsing is candidate creation only. It does not qualify an economic contract
 
 The imported legacy DTOs preserve the prior EqoBoard JSON API and its floating-point fields for compatibility. New market event envelopes use exact decimal strings and separate source time from local receive time, plus provider/feed, numeric encoding, generation, and sequence. Binary-float inputs retain a raw-frame digest and remain explicitly projected rather than source-exact. Legacy OCC DTOs do not qualify a contract.
 
-No provider client, OAuth, account-authority coordinator, request-budget scheduler, OMS, persistence implementation, or order transport is included. This repository contains no production broker connectivity. The byte-exact MessagePack/JSON raw-frame and event-correlation schemas describe storage rows; they do not implement a collector, Parquet writer, readback, or publication. A subscription ACK is separate from connection state; neither the DTO nor its validator proves SIP/OPRA entitlement or an active subscription.
+No provider client, OAuth, account-authority coordinator, request-budget scheduler, OMS, persistence implementation, or order transport is included. This repository contains no production broker connectivity. The byte-exact MessagePack/JSON raw-frame and event-correlation schemas describe storage rows; Rust `market-contracts` provides V1/V2 raw and V2/V3 event DTO validators, while the Python wheel and TypeScript expose the capture-scoped V2 raw/V3 event row validators. These contracts do not implement a collector, Parquet writer, readback, or publication. A subscription ACK is separate from connection state; neither the DTO nor its validator proves SIP/OPRA entitlement or an active subscription.
 
 ## Source and license
 

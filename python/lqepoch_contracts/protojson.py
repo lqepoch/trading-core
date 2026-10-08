@@ -92,10 +92,16 @@ _FINITE_SOURCE_KIND_V2_NAMES = frozenset(
 )
 
 RAW_ENCODING_SCHEMA_IDS = {
-    "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES": "lqepoch.market_raw_frame.v1",
-    "NUMERIC_ENCODING_RAW_JSON_BYTES": "lqepoch.market_raw_json_frame.v1",
-    5: "lqepoch.market_raw_frame.v1",
-    6: "lqepoch.market_raw_json_frame.v1",
+    "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES": (
+        "lqepoch.market_raw_frame.v1",
+        "lqepoch.market_raw_frame.v2",
+    ),
+    "NUMERIC_ENCODING_RAW_JSON_BYTES": (
+        "lqepoch.market_raw_json_frame.v1",
+        "lqepoch.market_raw_json_frame.v2",
+    ),
+    5: ("lqepoch.market_raw_frame.v1", "lqepoch.market_raw_frame.v2"),
+    6: ("lqepoch.market_raw_json_frame.v1", "lqepoch.market_raw_json_frame.v2"),
 }
 
 
@@ -103,7 +109,7 @@ def parse_market_event_protojson(document: Mapping[str, object]) -> market_pb2.M
     validate_uint64_json_paths(document, (("generation",), ("sequence",)))
     _reject_duplicate_numeric_encoding_aliases(document)
     message = json_format.ParseDict(document, market_pb2.MarketEventEnvelopeV1())
-    if _raw_schema_id_for_value(message.source.numeric_encoding) is not None:
+    if _raw_schema_ids_for_value(message.source.numeric_encoding) is not None:
         raise ValueError("raw byte-frame encodings are not normalized market-event encodings")
     return message
 
@@ -120,20 +126,23 @@ def parse_dataset_manifest_protojson(document: Mapping[str, object]) -> manifest
     )
     _reject_duplicate_numeric_encoding_aliases(document)
     message = json_format.ParseDict(document, manifest_pb2.DatasetManifestV1())
-    raw_schema_id = _raw_schema_id_for_value(message.source.numeric_encoding)
+    raw_schema_ids = _raw_schema_ids_for_value(message.source.numeric_encoding)
     schema_sha256 = message.object.parquet_schema_sha256
     raw_schema_hashes = {
         trusted_parquet_schema_sha256(schema_id)
-        for schema_id in RAW_ENCODING_SCHEMA_IDS.values()
+        for schema_ids in RAW_ENCODING_SCHEMA_IDS.values()
+        for schema_id in schema_ids
     }
-    if raw_schema_id is None:
+    if raw_schema_ids is None:
         if schema_sha256 in raw_schema_hashes:
             raise ValueError("raw byte-frame schema fingerprint requires its matching raw encoding")
-    elif schema_sha256 != trusted_parquet_schema_sha256(raw_schema_id):
+    elif schema_sha256 not in {
+        trusted_parquet_schema_sha256(schema_id) for schema_id in raw_schema_ids
+    }:
         raise ValueError(
-            f"{raw_schema_id} encoding must be bound to its registered Parquet schema"
+            "raw byte-frame encoding must be bound to one of its registered Parquet schemas"
         )
-    if raw_schema_id is not None:
+    if raw_schema_ids is not None:
         if (
             message.HasField("time_range")
             or message.row_count == 0
@@ -658,15 +667,18 @@ def _validate_dataset_manifest_v2(message: manifest_v2_pb2.DatasetManifestV2) ->
         obj.object_id, local_test=obj.transport == "local_test"
     ):
         raise ValueError("invalid dataset v2 object identity")
-    raw_schema_id = _raw_schema_id_for_value(source.numeric_encoding)
+    raw_schema_ids = _raw_schema_ids_for_value(source.numeric_encoding)
     registered_raw_hashes = {
         trusted_parquet_schema_sha256(schema_id)
-        for schema_id in RAW_ENCODING_SCHEMA_IDS.values()
+        for schema_ids in RAW_ENCODING_SCHEMA_IDS.values()
+        for schema_id in schema_ids
     }
-    if raw_schema_id is None:
+    if raw_schema_ids is None:
         if obj.parquet_schema_sha256 in registered_raw_hashes:
             raise ValueError("raw-frame schema fingerprint requires its matching raw source encoding")
-    elif obj.parquet_schema_sha256 != trusted_parquet_schema_sha256(raw_schema_id):
+    elif obj.parquet_schema_sha256 not in {
+        trusted_parquet_schema_sha256(schema_id) for schema_id in raw_schema_ids
+    }:
         raise ValueError("raw source encoding must match its registered Parquet schema")
 
     if not message.HasField("storage_verification"):
@@ -914,7 +926,7 @@ def parse_prediction_envelope_protojson(
     validate_uint64_json_paths(document, (("forecast", "sequence"),))
     _reject_duplicate_numeric_encoding_aliases(document)
     message = json_format.ParseDict(document, prediction_pb2.PredictionEnvelopeV1())
-    if _raw_schema_id_for_value(message.source.numeric_encoding) is not None:
+    if _raw_schema_ids_for_value(message.source.numeric_encoding) is not None:
         raise ValueError("raw byte-frame encodings cannot identify a normalized prediction source")
     return message
 
@@ -929,7 +941,7 @@ def _reject_duplicate_numeric_encoding_aliases(document: Mapping[str, object]) -
         raise ValueError("source numeric encoding must not use both ProtoJSON field spellings")
 
 
-def _raw_schema_id_for_value(value: object) -> str | None:
+def _raw_schema_ids_for_value(value: object) -> tuple[str, ...] | None:
     if isinstance(value, str) or type(value) is int:
         return RAW_ENCODING_SCHEMA_IDS.get(value)
     return None
