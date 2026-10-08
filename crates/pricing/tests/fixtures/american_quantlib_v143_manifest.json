@@ -93,7 +93,7 @@
   "upstream": {
     "license_file": "LICENSE.TXT",
     "license_sha256": "85c8dd19077a479f7591a7dcc25194cd58c6f5d98690d2f865d0fe870b9d0eb2",
-    "peeled_commit": "6b57206e04598f092efee66e3b367ecf84771995",
+    "peeled_commit": "6b57206e04598f092efee66e3b367efc84771995",
     "reference_source_hashes": {
       "ql/methods/finitedifferences/solvers/fdmblackscholessolver.hpp": "6cfc2515bad51f009c36752189cfa9db3f47cbfd5188ec01b4a09c34942758ca",
       "ql/pricingengines/vanilla/fdblackscholesvanillaengine.hpp": "c4758ecc3af00fa932425a35e4fc6dcd5a375ac64a54a8d80d10fa190e5a15c0",
