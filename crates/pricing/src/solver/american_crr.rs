@@ -287,6 +287,42 @@ mod experimental_candidate {
         }
     }
 
+    #[derive(Clone, Debug)]
+    struct FiniteDifferenceProbe {
+        id: String,
+        kind: OptionKind,
+        maturity_millis: i64,
+        act365f_years: f64,
+        spot: f64,
+        strike: f64,
+        rate: f64,
+        dividend_yield: f64,
+        volatility: f64,
+        time_grid: usize,
+        space_grid: usize,
+        axis: String,
+        bump_fraction: f64,
+        bump_value: f64,
+        bump_unit: String,
+        base_price: f64,
+        positive_axis_price: f64,
+        negative_axis_price: f64,
+    }
+
+    impl FiniteDifferenceProbe {
+        fn candidate_inputs(&self) -> CandidateInputs {
+            CandidateInputs {
+                kind: self.kind,
+                spot: self.spot,
+                strike: self.strike,
+                rate: self.rate,
+                dividend_yield: self.dividend_yield,
+                years: self.maturity_millis as f64 / (365.0 * 86_400_000.0),
+                volatility: self.volatility,
+            }
+        }
+    }
+
     fn oracle_fixture() -> Vec<OracleRecord> {
         let fixture = include_str!("../../tests/fixtures/american_quantlib_v143_grid.csv");
         let mut lines = fixture.lines();
@@ -324,6 +360,52 @@ mod experimental_candidate {
                     delta: fields[16].parse().expect("delta"),
                     gamma: fields[17].parse().expect("gamma"),
                     theta: fields[18].parse().expect("theta"),
+                }
+            })
+            .collect()
+    }
+
+    fn finite_difference_probe_fixture() -> Vec<FiniteDifferenceProbe> {
+        let fixture = include_str!("../../tests/fixtures/american_quantlib_v143_fd.csv");
+        let mut lines = fixture.lines();
+        assert_eq!(
+            lines.next(),
+            Some(
+                "kind,id,quantlib,option,t_ms,t_act365f,spot,strike,rate,continuous_yield,sigma,t_grid,x_grid,axis,bump_fraction,bump_value,bump_unit,base_price,positive_axis_price,negative_axis_price"
+            )
+        );
+        lines
+            .map(|line| {
+                let fields: Vec<_> = line.split(',').collect();
+                assert_eq!(fields.len(), 20, "bad QuantLib FD fixture row: {line}");
+                assert_eq!(
+                    fields[0], "price-probe",
+                    "unexpected QuantLib FD record: {line}"
+                );
+                assert_eq!(fields[2], "1.43", "unexpected QuantLib version: {line}");
+                FiniteDifferenceProbe {
+                    id: fields[1].to_owned(),
+                    kind: match fields[3] {
+                        "call" => OptionKind::Call,
+                        "put" => OptionKind::Put,
+                        other => panic!("unknown option type {other} in {line}"),
+                    },
+                    maturity_millis: fields[4].parse().expect("maturity millis"),
+                    act365f_years: fields[5].parse().expect("ACT/365F time"),
+                    spot: fields[6].parse().expect("spot"),
+                    strike: fields[7].parse().expect("strike"),
+                    rate: fields[8].parse().expect("rate"),
+                    dividend_yield: fields[9].parse().expect("continuous yield"),
+                    volatility: fields[10].parse().expect("volatility"),
+                    time_grid: fields[11].parse().expect("time grid"),
+                    space_grid: fields[12].parse().expect("space grid"),
+                    axis: fields[13].to_owned(),
+                    bump_fraction: fields[14].parse().expect("bump fraction"),
+                    bump_value: fields[15].parse().expect("bump value"),
+                    bump_unit: fields[16].to_owned(),
+                    base_price: fields[17].parse().expect("base price"),
+                    positive_axis_price: fields[18].parse().expect("positive axis price"),
+                    negative_axis_price: fields[19].parse().expect("negative axis price"),
                 }
             })
             .collect()
@@ -746,5 +828,178 @@ mod experimental_candidate {
                     .any(|row| row.maturity_millis == boundary_millis)
             );
         }
+    }
+
+    #[test]
+    fn quantlib_v143_matched_finite_difference_probes_report_candidate_greek_differences() {
+        let oracle = oracle_fixture();
+        let finest: Vec<_> = oracle
+            .iter()
+            .filter(|row| row.time_grid == 1600 && row.space_grid == 3200)
+            .collect();
+        let probes = finite_difference_probe_fixture();
+        assert_eq!(probes.len(), 34 * 6);
+
+        let spot_fractions = [0.0001, 0.001, 0.01];
+        let time_fractions = [0.001, 0.01, 0.05];
+        let mut observed_keys = Vec::with_capacity(probes.len());
+        let mut delta_error_max = std::array::from_fn::<_, 3, _>(|_| (0.0_f64, String::new()));
+        let mut gamma_error_max = std::array::from_fn::<_, 3, _>(|_| (0.0_f64, String::new()));
+        let mut theta_error_max = std::array::from_fn::<_, 3, _>(|_| (0.0_f64, String::new()));
+        let mut delta_comparisons = [0_usize; 3];
+        let mut gamma_comparisons = [0_usize; 3];
+        let mut theta_comparisons = [0_usize; 3];
+        let mut candidate_unavailable = [0_usize; 6];
+
+        for probe in &probes {
+            assert_eq!((probe.time_grid, probe.space_grid), (1600, 3200));
+            let key = (probe.id.as_str(), probe.axis.as_str(), probe.bump_fraction);
+            assert!(
+                !observed_keys.contains(&key),
+                "duplicate QL FD probe: {key:?}"
+            );
+            observed_keys.push(key);
+            let reference = finest
+                .iter()
+                .find(|row| row.id == probe.id)
+                .expect("matching original QuantLib finest-grid row");
+            assert_eq!(probe.kind, reference.kind);
+            assert_eq!(probe.maturity_millis, reference.maturity_millis);
+            assert_eq!(probe.spot, reference.spot);
+            assert_eq!(probe.strike, reference.strike);
+            assert_eq!(probe.rate, reference.rate);
+            assert_eq!(probe.dividend_yield, reference.dividend_yield);
+            assert_eq!(probe.volatility, reference.volatility);
+            assert!((probe.act365f_years - reference.act365f_years).abs() <= 1.0e-15);
+            assert!((probe.base_price - reference.price).abs() <= 1.0e-10);
+            assert!(
+                [
+                    probe.base_price,
+                    probe.positive_axis_price,
+                    probe.negative_axis_price
+                ]
+                .into_iter()
+                .all(f64::is_finite)
+            );
+
+            let (bump_index, bump) = match probe.axis.as_str() {
+                "spot" => {
+                    let index = spot_fractions
+                        .iter()
+                        .position(|fraction| *fraction == probe.bump_fraction)
+                        .expect("known spot bump fraction");
+                    assert_eq!(probe.bump_unit, "underlying-unit");
+                    assert!((probe.bump_value - probe.spot * probe.bump_fraction).abs() <= 1.0e-14);
+                    (index, probe.bump_value)
+                }
+                "time" => {
+                    let index = time_fractions
+                        .iter()
+                        .position(|fraction| *fraction == probe.bump_fraction)
+                        .expect("known time bump fraction");
+                    assert_eq!(probe.bump_unit, "millisecond");
+                    assert_eq!(probe.bump_value.fract(), 0.0);
+                    assert!(probe.bump_value > 0.0);
+                    assert!(probe.bump_value < probe.maturity_millis as f64);
+                    (index + 3, probe.bump_value / (365.0 * 86_400_000.0))
+                }
+                other => panic!("unknown finite-difference axis {other}"),
+            };
+            let input = probe.candidate_inputs();
+            let base = paired_candidate_price(input);
+            let (positive, negative) = if probe.axis == "spot" {
+                (
+                    paired_candidate_price(CandidateInputs {
+                        spot: input.spot + bump,
+                        ..input
+                    }),
+                    paired_candidate_price(CandidateInputs {
+                        spot: input.spot - bump,
+                        ..input
+                    }),
+                )
+            } else {
+                (
+                    paired_candidate_price(CandidateInputs {
+                        years: input.years + bump,
+                        ..input
+                    }),
+                    paired_candidate_price(CandidateInputs {
+                        years: input.years - bump,
+                        ..input
+                    }),
+                )
+            };
+            let (Some(base), Some(positive), Some(negative)) = (base, positive, negative) else {
+                candidate_unavailable[bump_index] += 1;
+                continue;
+            };
+
+            if probe.axis == "spot" {
+                let ql_delta =
+                    (probe.positive_axis_price - probe.negative_axis_price) / (2.0 * bump);
+                let crr_delta = (positive - negative) / (2.0 * bump);
+                delta_error_max[bump_index].0 = delta_error_max[bump_index]
+                    .0
+                    .max((crr_delta - ql_delta).abs());
+                if delta_error_max[bump_index].1.is_empty()
+                    || (crr_delta - ql_delta).abs() == delta_error_max[bump_index].0
+                {
+                    delta_error_max[bump_index].1.clone_from(&probe.id);
+                }
+                let ql_gamma = (probe.positive_axis_price - 2.0 * probe.base_price
+                    + probe.negative_axis_price)
+                    / bump.powi(2);
+                let crr_gamma = (positive - 2.0 * base + negative) / bump.powi(2);
+                gamma_error_max[bump_index].0 = gamma_error_max[bump_index]
+                    .0
+                    .max((crr_gamma - ql_gamma).abs());
+                if gamma_error_max[bump_index].1.is_empty()
+                    || (crr_gamma - ql_gamma).abs() == gamma_error_max[bump_index].0
+                {
+                    gamma_error_max[bump_index].1.clone_from(&probe.id);
+                }
+                delta_comparisons[bump_index] += 1;
+                gamma_comparisons[bump_index] += 1;
+            } else {
+                let ql_theta =
+                    -(probe.positive_axis_price - probe.negative_axis_price) / (2.0 * bump);
+                let crr_theta = -(positive - negative) / (2.0 * bump);
+                theta_error_max[bump_index - 3].0 = theta_error_max[bump_index - 3]
+                    .0
+                    .max((crr_theta - ql_theta).abs());
+                if theta_error_max[bump_index - 3].1.is_empty()
+                    || (crr_theta - ql_theta).abs() == theta_error_max[bump_index - 3].0
+                {
+                    theta_error_max[bump_index - 3].1.clone_from(&probe.id);
+                }
+                theta_comparisons[bump_index - 3] += 1;
+            }
+        }
+
+        assert_eq!(observed_keys.len(), 34 * 6);
+        for row in &finest {
+            if row.cash_dividend == 0.0 {
+                for (axis, fractions) in
+                    [("spot", &spot_fractions[..]), ("time", &time_fractions[..])]
+                {
+                    for fraction in fractions {
+                        assert!(observed_keys.contains(&(row.id.as_str(), axis, *fraction)));
+                    }
+                }
+            }
+        }
+        assert_eq!(delta_comparisons, [31; 3]);
+        assert_eq!(gamma_comparisons, [31; 3]);
+        assert_eq!(theta_comparisons, [31; 3]);
+        assert_eq!(candidate_unavailable, [3; 6]);
+        println!("MATCHED_QL_CRR_FD_SPOT_DELTA_MAX_ABS_BY_BUMP_0.01_0.1_1={delta_error_max:?}");
+        println!("MATCHED_QL_CRR_FD_SPOT_GAMMA_MAX_ABS_BY_BUMP_0.01_0.1_1={gamma_error_max:?}");
+        println!(
+            "MATCHED_QL_CRR_FD_TIME_THETA_MAX_ABS_BY_BUMP_0.1_1_5_PERCENT={theta_error_max:?}"
+        );
+        println!(
+            "MATCHED_QL_CRR_FD_COMPARISONS delta={delta_comparisons:?} gamma={gamma_comparisons:?} theta={theta_comparisons:?} unavailable={candidate_unavailable:?}"
+        );
     }
 }

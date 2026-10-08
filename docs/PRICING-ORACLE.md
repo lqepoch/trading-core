@@ -37,6 +37,20 @@ python3 "$PRICING_REPO/crates/pricing/tests/oracle/convert_quantlib_jsonl.py" \
   /tmp/quantlib-v143-grid.jsonl > /tmp/american_quantlib_v143_grid.csv
 cmp "$PRICING_REPO/crates/pricing/tests/fixtures/american_quantlib_v143_grid.csv" \
   /tmp/american_quantlib_v143_grid.csv
+
+g++ -std=c++17 -O2 -Wall -Wextra \
+  -I/tmp/quantlib-v143-build -isystem /tmp/quantlib-v143 \
+  "$PRICING_REPO/crates/pricing/tests/oracle/american_quantlib_v143_fd.cpp" \
+  -L/tmp/quantlib-v143-build/ql \
+  -Wl,-rpath,/tmp/quantlib-v143-build/ql -lQuantLib \
+  -o /tmp/pricing-quantlib-v143-fd
+/tmp/pricing-quantlib-v143-fd \
+  "$PRICING_REPO/crates/pricing/tests/fixtures/american_quantlib_v143_grid.csv" \
+  > /tmp/quantlib-v143-fd.jsonl
+python3 "$PRICING_REPO/crates/pricing/tests/oracle/convert_quantlib_fd_jsonl.py" \
+  /tmp/quantlib-v143-fd.jsonl > /tmp/american_quantlib_v143_fd.csv
+cmp "$PRICING_REPO/crates/pricing/tests/fixtures/american_quantlib_v143_fd.csv" \
+  /tmp/american_quantlib_v143_fd.csv
 ```
 
 The fixture was regenerated from the committed C++ harness using this command sequence; `cmp` succeeded byte-for-byte. The runtime rows report `QuantLib 1.43`. Harness and converter SHA-256 values are included in the manifest.
@@ -80,7 +94,7 @@ The maximum absolute error does not decrease monotonically at every step pair: f
 
 ## Greek experiment
 
-QuantLib `delta()`, `gamma()`, and `theta()` at grid `1600x3200` are compared with central finite differences of the test-only CRR pair across 31 emitted cases. Spot bump fractions for Delta and Gamma are `0.01%`, `0.1%`, and `1%` of spot. Theta uses `-(P(T+h)-P(T-h))/(2h)` with `h` equal to `0.1%`, `1%`, and `5%` of ACT/365F remaining time, giving the same per-year-fraction unit as the reference.
+QuantLib `delta()`, `gamma()`, and `theta()` at grid `1600x3200` are compared with central finite differences of the test-only CRR pair across 31 emitted cases. Spot bump fractions for Delta and Gamma are `0.01%`, `0.1%`, and `1%` of spot. Theta uses `-(P(T+h)-P(T-h))/(2h)` with `h` equal to `0.1%`, `1%`, and `5%` of ACT/365F remaining time, giving the same per-year-fraction unit as the reference. These are cross-convention comparisons: QuantLib's native Delta/Gamma come from derivatives of its finite-difference solution interpolation, and its native Theta uses the solver's snapshot convention rather than the test's local central difference.
 
 Maximum absolute errors across this sample were:
 
@@ -90,7 +104,25 @@ Maximum absolute errors across this sample were:
 | Gamma | `0.01%`, `0.1%`, `1%` of spot | `10.5971` | `0dte_atm_put_59999ms_no_div` |
 | Theta | `0.1%`, `1%`, `5%` of remaining time | `2958.60` | `matrix_call_100_60s` |
 
-Delta/Gamma/Theta bump-size results are also emitted by the regression test. Relative Greek error is not used as a gate: near-zero reference Greeks make that ratio unstable, and the finite differences are only experimental. The large near-expiry Gamma/Theta discrepancies are evidence to keep American Greeks unavailable.
+Delta/Gamma/Theta bump-size results are also emitted by the regression test. Relative Greek error is not used as a gate: near-zero reference Greeks make that ratio unstable, and the finite differences are only experimental. The large gaps in this table are not treated as production numerical errors because the native QuantLib and finite-difference conventions differ.
+
+### Convention-matched price probes
+
+To separate model differences from Greek-definition differences, `american_quantlib_v143_fd.cpp` independently reprices each of the 34 no-cash-dividend cases at the same `1600x3200` grid. It reads model parameters from the original finest-grid rows, recomputes each base price, and checks that price against the original row within `$1e-10`; it ignores the original Delta, Gamma, and Theta columns. The original C++ harness, converter, 36-case/144-row fixture, and its manifest remain byte-for-byte unchanged. See [`american_quantlib_v143_fd_manifest.json`](../crates/pricing/tests/fixtures/american_quantlib_v143_fd_manifest.json) for the new harness, converter, output, upstream library, and preserved-artifact SHA-256 values.
+
+For each case the probe records prices at `S±h` for `h/S = 0.01%, 0.1%, 1%`, and at `T±h` for `h/T = 0.1%, 1%, 5%`. Time bumps are rounded to the nearest integer millisecond before both QuantLib repricing and the CRR comparison. The resulting Delta and Gamma use central spot differences; Theta uses `-(P(T+h)-P(T-h))/(2h)`. This directly matches the test-only CRR finite-difference definitions. The new fixture contains 204 rows. All 31 cases with an accepted 256/257 CRR pair are compared; the three parity-rejected price cases remain unavailable.
+
+The maximum absolute differences between those matched finite differences were:
+
+| Metric | Bump sweep | Maximum absolute difference | Case |
+|---|---|---:|---|
+| Delta | `0.01%`, `0.1%`, `1%` of spot | `0.00829955` | `matrix_call_120_30d` |
+| Gamma | `0.01%`, `0.1%`, `1%` of spot | `2.43431` | `american_call_90d_atm_no_div` |
+| Theta | `0.1%`, `1%`, `5%` of remaining time | `7.79605` | `matrix_put_120_1d` |
+
+The smaller bump does not always give the closer Gamma match, consistent with finite differences amplifying each engine's spatial-grid/interpolation noise. The Theta result also confirms that the prior maximum gap of about `2958.6` came from comparing a local central difference with QuantLib's different native snapshot convention; it is not evidence of a production American solver error. The matched figures remain finite-sample diagnostics, do not establish Greek accuracy or a production budget, and do not change the public unavailable result.
+
+QuantLib v1.43's finite-difference engine delegates native Theta to `Fdm1DimSolver::thetaAt`; that method derives Theta from a value snapshot near the current time rather than from symmetric `T±h` reprices. The pinned sources are [`Fdm1DimSolver.cpp`](https://github.com/lballabio/QuantLib/blob/6b57206e04598f092efee66e3b367efc84771995/ql/methods/finitedifferences/solvers/fdm1dimsolver.cpp) and [`FdBlackScholesVanillaEngine.cpp`](https://github.com/lballabio/QuantLib/blob/6b57206e04598f092efee66e3b367efc84771995/ql/pricingengines/vanilla/fdblackscholesvanillaengine.cpp).
 
 ## Discrete-dividend boundary
 
