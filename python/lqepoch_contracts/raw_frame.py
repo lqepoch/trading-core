@@ -228,7 +228,11 @@ def validate_raw_event_chunk_v2(
         frame_by_sequence[sequence] = index
         expected_sequence = sequence + 1
         payload_bytes += len(frame["frame_bytes"])
-        metadata_bytes += len(str(frame["symbols_json"]).encode("utf-8"))
+        symbols_json = frame["symbols_json"]
+        if not isinstance(symbols_json, str):
+            raise ValueError("symbols_json exceeds its bounded UTF-8 size")
+        # The row validator has already bounded this exact text before encoding.
+        metadata_bytes += len(symbols_json.encode("utf-8"))
         if payload_bytes > MAX_RAW_CAPTURE_CHUNK_BYTES:
             raise ValueError("capture chunk exceeds the 16 MiB payload bound")
         if metadata_bytes > MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES:

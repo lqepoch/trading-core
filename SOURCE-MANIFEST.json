@@ -430,7 +430,7 @@
     },
     {
       "path": "docs/parquet-schema-v1.md",
-      "sha256": "8699e201ac196e7dc1b4ea98396564c6adb05ac3a429ef6625173e4b4bcd68fb",
+      "sha256": "b48181df5cb1d33facd0a3dab5d1a1a7da33d4c44e44a49c020ee24c15bf7b78",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -501,7 +501,7 @@
     {
       "path": "python/lqepoch_contracts/identities.py",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "0400bc8ab19f9a4ba3a76a9cb2275e83e0f105f7bc97eaec3d10ffaeb5a8a0dd"
+      "sha256": "bb4fcb766adfeaa7ad1ceb1ff505d9fdcececefacba1fd446035a16b52a085a5"
     },
     {
       "path": "python/lqepoch_contracts/parquet_schema.py",
@@ -516,7 +516,7 @@
     {
       "path": "python/lqepoch_contracts/raw_frame.py",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "44441917e0582dc0c1b28353def1cedafb553fafc9806914b37ce8b970f959a8"
+      "sha256": "380647e7022bceabcaebfab3971aee9b647ca727d3d3b4997d814c0b63bff88b"
     },
     {
       "path": "python/lqepoch_contracts/resources/parquet-schema-registry.json",
@@ -541,7 +541,7 @@
     {
       "path": "python/tests/test_raw_frame_rows_v2.py",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "6833f5c0fc84635d846582183da5ee3096c1a4b914215e5f3fff2619d6ed8f2e"
+      "sha256": "b3c6c6daf6c9cd48a6259c9d7f18ed0ffdcec03767062b87b4616d79380fffce"
     },
     {
       "path": "python/tests/test_shared_contract_fixtures.py",
@@ -795,7 +795,7 @@
     },
     {
       "path": "typescript/src/tests/contracts.test.ts",
-      "sha256": "43db93054904594db646b22e6ccd76c40ef799fca68b2eb764b978131b4d2bf6",
+      "sha256": "39f14b6fe134677a542c418ae2d5b16fc6a4f255bac7b9247199756fd3608873",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     }
   ]

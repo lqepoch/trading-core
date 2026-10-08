@@ -188,11 +188,11 @@ rejects(
   "raw-frame validator accepted a symbols_json string with an unpaired surrogate",
 );
 const nativeTextEncoder = globalThis.TextEncoder;
-function rejectsSymbolsBeforeEncoding(symbolsJson: string, message: string): void {
-  let encodedSymbols = false;
+function rejectsTextBeforeEncoding(value: string, validate: () => void, message: string): void {
+  let encodedValue = false;
   class TrackingTextEncoder extends nativeTextEncoder {
     override encode(input?: string) {
-      if (input === symbolsJson) encodedSymbols = true;
+      if (input === value) encodedValue = true;
       return super.encode(input);
     }
   }
@@ -200,25 +200,61 @@ function rejectsSymbolsBeforeEncoding(symbolsJson: string, message: string): voi
   assert(descriptor !== undefined, "TextEncoder descriptor is unavailable");
   Object.defineProperty(globalThis, "TextEncoder", { ...descriptor, value: TrackingTextEncoder });
   try {
-    rejects(
-      () => validateRawFrameRowV2(
-        { ...messagepackFrames[0]!, symbols_json: symbolsJson },
-        MARKET_RAW_FRAME_V2_SCHEMA_ID,
-      ),
-      message,
-    );
-    assert(!encodedSymbols, "invalid symbols_json reached UTF-8 encoding");
+    rejects(validate, message);
+    assert(!encodedValue, "oversized or invalid text reached UTF-8 encoding");
   } finally {
     Object.defineProperty(globalThis, "TextEncoder", descriptor);
   }
 }
-rejectsSymbolsBeforeEncoding(
-  "x".repeat(MAX_RAW_FRAME_SYMBOLS_JSON_BYTES + 1),
+const oversizedSymbolsJson = "x".repeat(MAX_RAW_FRAME_SYMBOLS_JSON_BYTES + 1);
+rejectsTextBeforeEncoding(
+  oversizedSymbolsJson,
+  () => validateRawFrameRowV2(
+    { ...messagepackFrames[0]!, symbols_json: oversizedSymbolsJson },
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
   "raw-frame validator accepted oversized symbols_json",
 );
-rejectsSymbolsBeforeEncoding(
-  '["\ud800"]',
+const loneSurrogateSymbolsJson = '["\ud800"]';
+rejectsTextBeforeEncoding(
+  loneSurrogateSymbolsJson,
+  () => validateRawFrameRowV2(
+    { ...messagepackFrames[0]!, symbols_json: loneSurrogateSymbolsJson },
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
   "raw-frame validator accepted an unpaired surrogate before UTF-8 encoding",
+);
+const oversizedSourceRecordId = "x".repeat(129);
+rejectsTextBeforeEncoding(
+  oversizedSourceRecordId,
+  () => validateMarketEventRowV3({
+    ...messagepackEvents[0]!,
+    source_record_id: oversizedSourceRecordId,
+  }),
+  "event validator accepted an oversized source record identity",
+);
+const oversizedEventSymbol = "X".repeat(257);
+rejectsTextBeforeEncoding(
+  oversizedEventSymbol,
+  () => validateMarketEventRowV3({
+    ...messagepackEvents[0]!,
+    symbol: oversizedEventSymbol,
+  }),
+  "event validator accepted an oversized symbol identity",
+);
+rejects(
+  () => validateMarketEventRowV3({
+    ...messagepackEvents[0]!,
+    source_record_id: "é".repeat(65),
+  }),
+  "event validator accepted a source record identity over its UTF-8 byte limit",
+);
+rejects(
+  () => validateMarketEventRowV3({
+    ...messagepackEvents[0]!,
+    symbol: "é".repeat(129),
+  }),
+  "event validator accepted a symbol over its UTF-8 byte limit",
 );
 const byteOversizedSymbolsJson = `["${"é".repeat(
   Math.floor((MAX_RAW_FRAME_SYMBOLS_JSON_BYTES - 4) / 2) + 1,

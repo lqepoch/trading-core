@@ -211,6 +211,38 @@ class RawFrameRowsV2Test(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "bounded UTF-8 size"):
             validate_raw_frame_row_v2(frame, MARKET_RAW_FRAME_V2_SCHEMA_ID)
 
+    def test_v3_identity_bounds_precede_utf8_encoding(self) -> None:
+        class EncodeTrackingString(str):
+            encode_calls = 0
+
+            def encode(self, *args: object, **kwargs: object) -> bytes:
+                self.encode_calls += 1
+                return super().encode(*args, **kwargs)
+
+        source_record_id = EncodeTrackingString("x" * 129)
+        event = copy.deepcopy(self.messagepack_events[0])
+        event["source_record_id"] = source_record_id
+        with self.assertRaisesRegex(ValueError, "source record identity"):
+            validate_market_event_row_v3(event)
+        self.assertEqual(source_record_id.encode_calls, 0)
+
+        symbol = EncodeTrackingString("X" * 257)
+        event = copy.deepcopy(self.messagepack_events[0])
+        event["symbol"] = symbol
+        with self.assertRaisesRegex(ValueError, "invalid normalized event symbol"):
+            validate_market_event_row_v3(event)
+        self.assertEqual(symbol.encode_calls, 0)
+
+        event = copy.deepcopy(self.messagepack_events[0])
+        event["source_record_id"] = "é" * 65
+        with self.assertRaisesRegex(ValueError, "source record identity"):
+            validate_market_event_row_v3(event)
+
+        event = copy.deepcopy(self.messagepack_events[0])
+        event["symbol"] = "é" * 129
+        with self.assertRaisesRegex(ValueError, "invalid normalized event symbol"):
+            validate_market_event_row_v3(event)
+
     def test_capture_id_and_raw_bytes_are_strictly_bound(self) -> None:
         self.assertEqual(
             validate_capture_instance_id_v2("0123456789ab4def8123456789abcdef"),
