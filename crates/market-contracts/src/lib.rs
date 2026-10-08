@@ -8,6 +8,8 @@ pub mod dataset;
 pub mod dataset_v2;
 pub mod legacy;
 pub mod parquet_schema;
+pub mod prediction;
+mod prediction_validation;
 pub mod raw_frame;
 pub mod raw_frame_v2;
 pub mod v1;
@@ -46,6 +48,12 @@ pub use parquet_schema::{
     ParquetSchemaFieldV1, US_EQUITY_TRADE_BAR_1M_V2_SCHEMA_ID, trusted_parquet_schema,
     trusted_parquet_schema_metadata, trusted_schema_fingerprint,
     validate_optional_parquet_schema_metadata,
+};
+pub use prediction::{
+    ForecastHorizonUnitV1, ForecastHorizonV1, ForecastSnapshotV2,
+    MAX_PREDICTION_ENVELOPE_V1_JSON_BYTES, PredictionEnvelopeV1, PredictionEnvelopeV1Error,
+    PredictionEvidenceV1, PredictionQualityStatusV1, PredictionQualityV1, PredictionSourceV1,
+    parse_prediction_envelope_v1_protojson,
 };
 pub use raw_frame::{
     MARKET_RAW_FRAME_SCHEMA_VERSION, MAX_RAW_FRAME_BYTES, MAX_RAW_FRAME_EVENT_COUNT,

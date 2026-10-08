@@ -1117,8 +1117,16 @@ rejects(
   () => parseMarketEventProtoJson({ ...marketJson, source: rawManifest.source }),
   "market event accepted raw MessagePack as a numeric encoding",
 );
+const predictionEnvelopeFixture = readFixture<Record<string, any>>(
+  "schemas/fixtures/prediction-envelope-v1-quant-export.json",
+);
+function copyPredictionEnvelopeFixture(): Record<string, any> {
+  return JSON.parse(JSON.stringify(predictionEnvelopeFixture)) as Record<string, any>;
+}
+const rawMessagePackPrediction = copyPredictionEnvelopeFixture();
+rawMessagePackPrediction.source = rawManifest.source;
 rejects(
-  () => parsePredictionEnvelopeProtoJson({ source: rawManifest.source, forecast: { sequence: "1" } }),
+  () => parsePredictionEnvelopeProtoJson(rawMessagePackPrediction),
   "prediction accepted raw MessagePack as a numeric encoding",
 );
 const rawJsonManifest = {
@@ -1141,7 +1149,11 @@ rejects(
   "market event accepted raw JSON as a numeric encoding",
 );
 rejects(
-  () => parsePredictionEnvelopeProtoJson({ source: rawJsonManifest.source, forecast: { sequence: "1" } }),
+  () => {
+    const prediction = copyPredictionEnvelopeFixture();
+    prediction.source = rawJsonManifest.source;
+    return parsePredictionEnvelopeProtoJson(prediction);
+  },
   "prediction accepted raw JSON as a numeric encoding",
 );
 
@@ -1160,7 +1172,11 @@ for (const [encoding, label] of [
     `market event accepted snake-case raw ${label} encoding`,
   );
   rejects(
-    () => parsePredictionEnvelopeProtoJson({ source: snakeSource, forecast: { sequence: "1" } }),
+    () => {
+      const prediction = copyPredictionEnvelopeFixture();
+      prediction.source = snakeSource;
+      return parsePredictionEnvelopeProtoJson(prediction);
+    },
     `prediction accepted snake-case raw ${label} encoding`,
   );
 }
@@ -1252,38 +1268,67 @@ rejects(
   "raw JSON manifest accepted a snake-case source-time range",
 );
 
-const predictionJson = { forecast: { sequence: max } };
+const predictionJson = copyPredictionEnvelopeFixture();
 const predictionMessage = parsePredictionEnvelopeProtoJson(predictionJson);
 assert(predictionMessage.forecast?.sequence === BigInt(max), "prediction sequence lost precision");
+const predictionPartialWireFixture = readFixture<Record<string, unknown>>(
+  "schemas/fixtures/prediction-envelope-v1-wire-partial-max.json",
+);
+assert(
+  parsePredictionEnvelopeProtoJson(predictionPartialWireFixture).forecast?.sequence === BigInt(max),
+  "wire-compatible partial prediction lost max uint64 precision",
+);
 const predictionText = JSON.stringify(predictionJson);
 const predictionTextMessage = parsePredictionEnvelopeProtoJsonText(predictionText);
 assert(
   predictionTextMessage.forecast?.sequence === BigInt(max),
   "raw prediction ProtoJSON text lost max uint64 precision",
 );
+assert(
+  parsePredictionEnvelopeProtoJsonText(JSON.stringify(predictionPartialWireFixture)).forecast?.sequence === BigInt(max),
+  "raw-text wire-compatible partial prediction lost max uint64 precision",
+);
+const predictionDefaultEnumsFixture = readFixture<Record<string, unknown>>(
+  "schemas/fixtures/prediction-envelope-v1-wire-default-enums.json",
+);
+const predictionDefaultEnums = parsePredictionEnvelopeProtoJson(predictionDefaultEnumsFixture);
+assert(
+  predictionDefaultEnums.source?.numericEncoding === 0 &&
+    predictionDefaultEnums.quality?.status === 0 &&
+    predictionDefaultEnums.horizon?.unit === 0 &&
+    predictionDefaultEnums.forecast?.forecastHorizon?.unit === 0,
+  "wire parser did not preserve absent enum defaults",
+);
 rejects(
-  () => parsePredictionEnvelopeProtoJsonText('{"forecast":{"sequence":1}}'),
+  () => {
+    const numeric = copyPredictionEnvelopeFixture();
+    numeric.forecast.sequence = 1;
+    return parsePredictionEnvelopeProtoJsonText(JSON.stringify(numeric));
+  },
   "raw prediction ProtoJSON text accepted numeric uint64",
 );
 rejects(
-  () =>
-    parsePredictionEnvelopeProtoJsonText(
-      '{"forecast":{"sequence":"1","sequence":"2"}}',
+  () => parsePredictionEnvelopeProtoJsonText(
+    predictionText.replace(
+      '"predictionId":"prediction-1"',
+      '"predictionId":"prediction-1","predictionId":"prediction-1"',
     ),
+  ),
   "raw prediction ProtoJSON text accepted duplicate object keys",
 );
 rejects(
-  () =>
-    parsePredictionEnvelopeProtoJsonText(
-      '{"predictionId":"x","prediction_id":"x","forecast":{"sequence":"1"}}',
+  () => parsePredictionEnvelopeProtoJsonText(
+    predictionText.replace(
+      '"predictionId":"prediction-1"',
+      '"predictionId":"prediction-1","prediction_id":"prediction-1"',
     ),
+  ),
   "raw prediction ProtoJSON text accepted conflicting camel/snake aliases",
 );
 rejects(
-  () =>
-    parsePredictionEnvelopeProtoJsonText(
-      '{"unknownField":"x","forecast":{"sequence":"1"}}',
-    ),
+  () => parsePredictionEnvelopeProtoJsonText(
+    JSON.stringify({ ...predictionJson, unknownField: "x" }),
+  ),
   "raw prediction ProtoJSON text accepted an unknown field",
 );
 const oversizedPredictionJsonText = " ".repeat(2 * 1024 * 1024 + 1);
@@ -1294,8 +1339,102 @@ rejectsTextBeforeEncoding(
 );
 for (const testCase of uint64Fixture.invalid) {
   rejects(
-    () => parsePredictionEnvelopeProtoJson({ forecast: { sequence: testCase.value } }),
+    () => {
+      const invalid = copyPredictionEnvelopeFixture();
+      invalid.forecast.sequence = testCase.value;
+      return parsePredictionEnvelopeProtoJson(invalid);
+    },
     `prediction envelope accepted ${testCase.name}`,
+  );
+}
+
+type PredictionProtoJsonMutation = {
+  name: string;
+  path: string[];
+  value: unknown;
+};
+type PredictionProtoJsonTextReplacement = {
+  name: string;
+  needle: string;
+  replacement: string;
+};
+type PredictionProtoJsonCases = {
+  invalid_mutations: PredictionProtoJsonMutation[];
+  invalid_text_replacements: PredictionProtoJsonTextReplacement[];
+};
+const predictionEnvelope = parsePredictionEnvelopeProtoJson(predictionEnvelopeFixture);
+assert(
+  predictionEnvelope.forecast?.sequence === BigInt(max),
+  "quant prediction exporter fixture did not preserve maximum uint64",
+);
+const predictionNanosecondText = readFileSync(
+  resolve(process.cwd(), "..", "schemas/fixtures/prediction-envelope-v1-nanosecond.json"),
+  "utf8",
+);
+const predictionNanosecond = parsePredictionEnvelopeProtoJsonText(predictionNanosecondText);
+assert(
+  predictionNanosecond.createdAt?.nanos === 123_456_789,
+  "prediction parser lost timestamp nanoseconds",
+);
+const predictionSnakeFixture = readFixture<Record<string, unknown>>(
+  "schemas/fixtures/prediction-envelope-v1-snake.json",
+);
+assert(
+  parsePredictionEnvelopeProtoJson(predictionSnakeFixture).forecast?.sequence === BigInt(max),
+  "prediction parser rejected the shared snake-case ProtoJSON fixture",
+);
+
+const predictionCases = readFixture<PredictionProtoJsonCases>(
+  "schemas/fixtures/prediction-envelope-v1-protojson-cases.json",
+);
+const crossLanguageInvalidCases = new Set([
+  "numeric uint64",
+  "leading-zero uint64",
+  "uint64 overflow",
+  "numeric quality enum",
+  "unknown quality enum",
+  "numeric horizon enum",
+  "unknown horizon enum",
+  "numeric numeric-encoding enum",
+  "unknown numeric-encoding enum",
+  "unspecified numeric encoding",
+  "raw JSON encoding",
+  "raw MessagePack encoding",
+  "unknown field",
+  "numeric timestamp",
+  "timestamp over nanosecond precision",
+  "leap-second timestamp",
+]);
+function setPredictionPath(document: Record<string, unknown>, path: string[], value: unknown): void {
+  let current = document;
+  for (const key of path.slice(0, -1)) {
+    const nested = current[key];
+    if (typeof nested !== "object" || nested === null || Array.isArray(nested)) {
+      throw new Error(`prediction fixture path is not an object: ${key}`);
+    }
+    current = nested as Record<string, unknown>;
+  }
+  current[path.at(-1)!] = value;
+}
+for (const mutation of predictionCases.invalid_mutations) {
+  if (!crossLanguageInvalidCases.has(mutation.name)) continue;
+  const document = JSON.parse(JSON.stringify(predictionEnvelopeFixture)) as Record<string, unknown>;
+  setPredictionPath(document, mutation.path, mutation.value);
+  rejects(
+    () => parsePredictionEnvelopeProtoJson(document),
+    `prediction parser accepted shared invalid case: ${mutation.name}`,
+  );
+}
+const predictionExportText = readFileSync(
+  resolve(process.cwd(), "..", "schemas/fixtures/prediction-envelope-v1-quant-export.json"),
+  "utf8",
+);
+for (const replacement of predictionCases.invalid_text_replacements) {
+  assert(predictionExportText.includes(replacement.needle), "prediction fixture replacement needle is absent");
+  const invalid = predictionExportText.replace(replacement.needle, replacement.replacement);
+  rejects(
+    () => parsePredictionEnvelopeProtoJsonText(invalid),
+    `prediction text parser accepted shared invalid case: ${replacement.name}`,
   );
 }
 

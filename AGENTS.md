@@ -21,7 +21,7 @@ This repository owns provider-neutral financial values, deterministic models, an
 - Use the toolchain in rust-toolchain.toml, locked dependencies, and synthetic fixtures.
 - Run the narrowest relevant package tests, formatting and strict Clippy for changed crates, and scripts/validate-schemas.sh for schema changes.
 - Record exact commands and any unavailable language generators as NOT RUN or NOT IMPLEMENTED.
-- No GitHub Actions workflow is currently configured; the local validation scripts are the current gate. If workflows are added later, they may build, test, lint, and scan only public source and fixtures. They must not read private repositories, credentials, private market archives, account data, or invoke any broker or trading operation.
+- No repository-defined GitHub Actions workflow is currently configured. GitHub's default CodeQL analysis may run without repository secrets; the local validation scripts remain this repository's project validation gate. If custom workflows are added later, they may build, test, lint, and scan only public source and fixtures. They must not read private repositories, credentials, private market archives, account data, or invoke any broker or trading operation.
 
 ## Provenance and licensing
 

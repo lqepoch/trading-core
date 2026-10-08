@@ -1,0 +1,185 @@
+{
+  "invalid_mutations": [
+    {
+      "name": "numeric uint64",
+      "path": [
+        "forecast",
+        "sequence"
+      ],
+      "value": 1
+    },
+    {
+      "name": "leading-zero uint64",
+      "path": [
+        "forecast",
+        "sequence"
+      ],
+      "value": "01"
+    },
+    {
+      "name": "uint64 overflow",
+      "path": [
+        "forecast",
+        "sequence"
+      ],
+      "value": "18446744073709551616"
+    },
+    {
+      "name": "numeric quality enum",
+      "path": [
+        "quality",
+        "status"
+      ],
+      "value": 1
+    },
+    {
+      "name": "unknown quality enum",
+      "path": [
+        "quality",
+        "status"
+      ],
+      "value": "PROMOTED"
+    },
+    {
+      "name": "numeric horizon enum",
+      "path": [
+        "horizon",
+        "unit"
+      ],
+      "value": 2
+    },
+    {
+      "name": "unknown horizon enum",
+      "path": [
+        "horizon",
+        "unit"
+      ],
+      "value": "FISCAL_QUARTERS"
+    },
+    {
+      "name": "numeric numeric-encoding enum",
+      "path": [
+        "source",
+        "numericEncoding"
+      ],
+      "value": 1
+    },
+    {
+      "name": "unknown numeric-encoding enum",
+      "path": [
+        "source",
+        "numericEncoding"
+      ],
+      "value": "NUMERIC_ENCODING_FUTURE"
+    },
+    {
+      "name": "unspecified numeric encoding",
+      "path": [
+        "source",
+        "numericEncoding"
+      ],
+      "value": "NUMERIC_ENCODING_UNSPECIFIED"
+    },
+    {
+      "name": "raw JSON encoding",
+      "path": [
+        "source",
+        "numericEncoding"
+      ],
+      "value": "NUMERIC_ENCODING_RAW_JSON_BYTES"
+    },
+    {
+      "name": "raw MessagePack encoding",
+      "path": [
+        "source",
+        "numericEncoding"
+      ],
+      "value": "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES"
+    },
+    {
+      "name": "unknown field",
+      "path": [
+        "unknownField"
+      ],
+      "value": "not-in-proto"
+    },
+    {
+      "name": "numeric timestamp",
+      "path": [
+        "createdAt"
+      ],
+      "value": 1
+    },
+    {
+      "name": "timestamp over nanosecond precision",
+      "path": [
+        "createdAt"
+      ],
+      "value": "2026-01-05T14:30:05.1234567899Z"
+    },
+    {
+      "name": "leap-second timestamp",
+      "path": [
+        "createdAt"
+      ],
+      "value": "2026-01-05T14:30:60Z"
+    },
+    {
+      "name": "OOS selected",
+      "path": [
+        "evidence",
+        "oosUsedForSelection"
+      ],
+      "value": true
+    },
+    {
+      "name": "unbound model identity",
+      "path": [
+        "modelId"
+      ],
+      "value": "other-model"
+    }
+  ],
+  "rust_invalid_removed_fields": [
+    {
+      "name": "missing source message",
+      "path": ["source"]
+    },
+    {
+      "name": "missing source numeric encoding",
+      "path": ["source", "numericEncoding"]
+    },
+    {
+      "name": "missing quality message",
+      "path": ["quality"]
+    },
+    {
+      "name": "missing quality status",
+      "path": ["quality", "status"]
+    },
+    {
+      "name": "missing horizon message",
+      "path": ["horizon"]
+    },
+    {
+      "name": "missing horizon unit",
+      "path": ["horizon", "unit"]
+    },
+    {
+      "name": "missing nested horizon unit",
+      "path": ["forecast", "forecastHorizon", "unit"]
+    }
+  ],
+  "invalid_text_replacements": [
+    {
+      "name": "duplicate JSON key",
+      "needle": "\"predictionId\":\"prediction-1\"",
+      "replacement": "\"predictionId\":\"prediction-1\",\"predictionId\":\"prediction-1\""
+    },
+    {
+      "name": "camelCase and snake_case aliases",
+      "needle": "\"predictionId\":\"prediction-1\"",
+      "replacement": "\"predictionId\":\"prediction-1\",\"prediction_id\":\"prediction-1\""
+    }
+  ]
+}

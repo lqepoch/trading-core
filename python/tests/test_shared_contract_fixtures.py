@@ -596,19 +596,19 @@ class SharedContractFixturesTest(unittest.TestCase):
             with self.subTest(dataset_case=case["name"]), self.assertRaises(ValueError):
                 parse_dataset_manifest_protojson(invalid)
 
-        prediction = parse_prediction_envelope_protojson(
-            {
-                "createdAt": "2026-10-08T14:30:00.000000123Z",
-                "forecast": {"sequence": max_u64},
-            }
+        prediction_document = read_json_fixture(
+            "schemas/fixtures/prediction-envelope-v1-quant-export.json"
         )
+        prediction_document["createdAt"] = "2026-10-08T14:30:00.000000123Z"
+        prediction_document["forecast"]["sequence"] = max_u64
+        prediction = parse_prediction_envelope_protojson(prediction_document)
         self.assertEqual(prediction.forecast.sequence, (1 << 64) - 1)
         self.assertEqual(prediction.created_at.nanos, 123)
         for case in fixture["invalid"]:
+            invalid_prediction = copy.deepcopy(prediction_document)
+            invalid_prediction["forecast"]["sequence"] = case["value"]
             with self.subTest(prediction_case=case["name"]), self.assertRaises(ValueError):
-                parse_prediction_envelope_protojson(
-                    {"forecast": {"sequence": case["value"]}}
-                )
+                parse_prediction_envelope_protojson(invalid_prediction)
 
     def test_identity_fixture_matches_shared_utf8_and_path_boundaries(self) -> None:
         fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v1-identities.json")
@@ -724,11 +724,13 @@ class SharedContractFixturesTest(unittest.TestCase):
             ):
                 parse_market_event_protojson({**event, "source": snake_source})
             with self.subTest(prediction_alias=encoding_case), self.assertRaisesRegex(
-                ValueError, "not identify a normalized prediction source"
+                ValueError, "supported named ProtoJSON values"
             ):
-                parse_prediction_envelope_protojson(
-                    {"source": snake_source, "forecast": {"sequence": "1"}}
+                prediction = read_json_fixture(
+                    "schemas/fixtures/prediction-envelope-v1-quant-export.json"
                 )
+                prediction["source"] = snake_source
+                parse_prediction_envelope_protojson(prediction)
 
         ambiguous_source = {
             **event["source"],
@@ -856,19 +858,11 @@ class SharedContractFixturesTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "raw byte-frame schema fingerprint"):
             parse_dataset_manifest_protojson(wrong_encoding)
 
-        prediction = {
-            "source": {
-                "provider": "synthetic",
-                "feed": "synthetic",
-                "entitlement": "unknown",
-                "datasetId": "synthetic-raw-frame-v1",
-                "manifestSha256": "a" * 64,
-                "datasetSha256": "b" * 64,
-                "numericEncoding": raw_encoding,
-            },
-            "forecast": {"sequence": "1"},
-        }
-        with self.assertRaisesRegex(ValueError, "cannot identify a normalized prediction"):
+        prediction = read_json_fixture(
+            "schemas/fixtures/prediction-envelope-v1-quant-export.json"
+        )
+        prediction["source"]["numericEncoding"] = raw_encoding
+        with self.assertRaisesRegex(ValueError, "supported named ProtoJSON values"):
             parse_prediction_envelope_protojson(prediction)
 
         raw_json_schema_sha256 = trusted_parquet_schema_sha256(
@@ -907,7 +901,7 @@ class SharedContractFixturesTest(unittest.TestCase):
                 "source": {**prediction["source"], "numericEncoding": raw_json_encoding},
             }
             with self.subTest(raw_json_encoding=raw_json_encoding), self.assertRaisesRegex(
-                ValueError, "normalized prediction"
+                ValueError, "supported named ProtoJSON values"
             ):
                 parse_prediction_envelope_protojson(raw_json_prediction)
 
