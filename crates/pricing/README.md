@@ -121,17 +121,60 @@ resolution boundary passes, it returns the typed
 `DividendAssumptionUnsupported`. At exact expiry, the shared exact intrinsic
 path is still available.
 
-The CRR tree retained in `solver/american_crr.rs` is compiled only for unit
-tests. Its candidate pair uses fixed 256/257 steps and rejects invalid
-risk-neutral probabilities and non-finite values. Test-only convergence study
-code also evaluates bounded `N/(N+1)` pairs up through 1024/1025 steps; it does
-not change the candidate pair or production behavior. These invariants do not
-establish price or IV accuracy and the production entrypoint cannot expose its
-candidate values. The provenance identifier
-`AmericanCrrV1` is reserved, and metric validation rejects it until the
-accuracy gate passes. The negative-rate American put
-upper bound uses `K * exp(max(-r, 0) * T)` rather than assuming the bound is
-always `K`.
+The separately named
+`evaluate_american_crr_offline_diagnostic(input, volatility_fraction,
+evaluation_at_ms, absolute_deadline)` API exposes a bounded research result in
+the distinct `AmericanCrrOfflineDiagnostic` type. Its result carries explicit
+`AccuracyUnverified` and `DiagnosticOnlyNotTradable` markers, and cannot be
+converted into `SolverOutcome` or `OptionMetrics`. It returns a Richardson
+price and native lattice Delta/Gamma/Theta, but no IV. The production solver,
+metric validation, strategy, risk, and execution paths remain disconnected and
+fail-closed.
+
+The mathematical input envelope reuses `SolverInput` bounds: spot and strike
+`(0, $1,000,000]`; ACT/365F remaining time from 60 seconds through 10 years;
+continuously compounded risk-free rate and continuous yield `[-1, 1]`; and
+volatility `[0.0001, 5.0]`. The model assumes American exercise, constant
+volatility, and either caller-evidenced no cash dividends or a continuous-yield
+approximation. Discrete and unknown cash-dividend schedules are rejected.
+Every call rechecks quote/dividend freshness at `evaluation_at_ms`, checks
+theoretical American market-price bounds, and requires a caller absolute
+monotonic deadline. The deadline is capped at one second. A single
+`1,316,872` node budget covers all four 512/513 and 1024/1025 CRR trees; price
+and the native lattice Greeks come from those same trees and add no extra grid
+work. Pair gaps above `$0.05`, risk-neutral probabilities outside `[0,1]`,
+deadline exhaustion, and node-budget exhaustion return typed errors.
+
+That broad mathematical envelope is not an empirical accuracy domain. The
+independent QuantLib sample covers a narrower 34 no-cash/continuous-yield
+matrix: `S/K` from `0.80` to `1.20`, time from `59,999 ms` through 365 days,
+rates `[-0.15, 0.15]`, yields `[-0.02, 0.08]`, and volatility `[0.05, 2.0]`.
+Two 59,999 ms rows are outside the API's one-minute boundary, so only 32 rows
+were admitted by the Richardson candidate. The sample's maximum absolute price
+difference from the finest QuantLib grid was `$0.003312676`; its maximum
+relative difference was `0.136962%`. These are sample measurements, not
+certified errors or production tolerances. Low-premium relative error remains
+reported explicitly; the earlier 1024/1025 pair alone had a `4.9893%` relative
+error in that sample.
+
+Before any production price or Greek gate is considered, the pricing owner must
+freeze independent absolute and relative acceptance limits before evaluating
+the expanded matrix. The matrix should cover calls and puts, `S/K` around
+`0.25, 0.5, 0.8, 1.0, 1.2, 2, 4`, early-exercise and deep ITM/OTM cases, rate,
+yield, volatility and maturity boundaries, and grid refinement. It must retain
+both absolute and relative price errors, including low-premium rows, and
+compare Greeks under explicitly matched definitions and units. The exact
+59,999/60,000/60,001 ms boundary and the 10-year maximum must be exercised;
+unknown/discrete cash dividends stay rejected. The existing 36-case sample
+cannot set these limits. IV remains unavailable until an independent price
+error bound `E_price`, an accepted IV error `E_IV`, and a local Vega condition
+`V >= E_price / E_IV` are approved; no numeric values are inferred from the
+current sample.
+
+The provenance identifier `AmericanCrrV1` remains reserved, and metric
+validation rejects it until a separate accuracy gate passes. The negative-rate
+American put upper bound uses `K * exp(max(-r, 0) * T)` rather than assuming the
+bound is always `K`.
 
 An independent reference source is pinned to QuantLib v1.43 commit
 [`6b57206e04598f092efee66e3b367efc84771995`](https://github.com/lballabio/QuantLib/blob/6b57206e04598f092efee66e3b367efc84771995/test-suite/americanoption.cpp),
@@ -146,7 +189,7 @@ fixture stores 36 cases over four PDE grids. See
 [`docs/PRICING-ORACLE.md`](../../docs/PRICING-ORACLE.md) for commands, source
 and license hashes, input assumptions, and measured errors.
 
-On the 34 no-cash-dividend or continuous-yield cases, the test-only 256/257
+On the 34 no-cash-dividend or continuous-yield cases, the studied 256/257
 CRR pair emitted values for 31 cases and failed its existing `$0.05` adjacent
 step check for three. Among emitted values, the largest absolute price error
 was `$0.011082`; the largest relative error was `18.68%` on a low-premium
@@ -155,8 +198,9 @@ with a largest absolute error of `0.000992` units across ten cases. The
 finite-difference CRR Greeks showed material errors near expiry: maximum
 absolute Delta, Gamma, and annualized Theta errors were `0.00830`, `10.60`,
 and `2958.60` respectively. These are sample measurements, not production
-acceptance thresholds. The public path remains fail-closed, and the CRR
-candidate remains test-only.
+acceptance thresholds. The public production path remains fail-closed; bounded
+candidate values are available only through the explicitly non-authoritative
+offline diagnostic API.
 
 The QuantLib 800x1600 to 1600x3200 grid change was at most `$0.001745` in
 price, `8.83e-6` in Delta, `2.54e-5` in Gamma, and `1.735` in annualized Theta
@@ -167,19 +211,49 @@ the cash-dividend rows are not CRR comparisons and continuous yield is not a
 substitute for a discrete schedule.
 
 The fixture and test-only study do not establish a general American price or
-IV budget, reliable American Greeks, exchange settlement/calendar behavior,
-provider evidence, strategy integration, or real-market accuracy. No public
-American price, IV, or Greek is enabled.
+IV budget, reliable production American Greeks, exchange settlement/calendar
+behavior, provider evidence, strategy integration, or real-market accuracy.
+No production American price, IV, or Greek is enabled.
 
 公共入口 `solve_american_crr(input, evaluation_at_ms)` 不会为正剩余时间发布美式价格、IV
 或 Greek。重新检查显式检查时刻的新鲜度并通过一分钟分辨率边界后，仍返回
 `AmericanPricingAccuracyUnverified`；少于一分钟返回 `TimeBelowResolution`，未知或离散股息
 返回 `DividendAssumptionUnsupported`。精确到期仍只返回内在价值。
 
-`solver/american_crr.rs` 中的候选树仅在单元测试中编译。候选配对固定使用 256/257 步，
-并拒绝无效风险中性概率和非有限值。测试专用收敛实验扩展到最多 1024/1025 步，但不改变
-候选配对或生产行为。来源 `AmericanCrrV1` 仍被指标校验拒绝；负利率美式 put 上界使用
-`K * exp(max(-r, 0) * T)`。
+独立的 `evaluate_american_crr_offline_diagnostic(input, volatility_fraction,
+evaluation_at_ms, absolute_deadline)` API 通过单独的
+`AmericanCrrOfflineDiagnostic` 类型公开有界研究结果。返回类型明确标记
+`AccuracyUnverified` 和 `DiagnosticOnlyNotTradable`，不提供到 `SolverOutcome` 或
+`OptionMetrics` 的转换，也不含 IV。生产求解器、指标校验、策略、风险和执行路径仍保持
+断开与失败关闭。
+
+数学输入范围复用 `SolverInput` 约束：标的和行权价 `(0, $1,000,000]`；ACT/365F 剩余时间
+60 秒至 10 年；连续复利无风险利率和连续收益率 `[-1, 1]`；波动率 `[0.0001, 5.0]`。
+模型假设美式行权、波动率恒定，且股息为调用方提供证据的无现金股息区间或连续收益率
+近似；离散或未知现金股息日程会被拒绝。每次调用都会在 `evaluation_at_ms` 重新检查
+行情/股息证据新鲜度和美式理论价格边界，并要求调用方提供单调时钟绝对截止时刻，最多
+放宽到一秒。四棵 512/513 与 1024/1025 CRR 树共用 `1,316,872` 节点预算；价格与原生格点
+Delta/Gamma/Theta 都从这四棵树提取，不增加额外网格。配对差超过 `$0.05`、风险中性概率
+不在 `[0,1]`、截止时刻或节点预算耗尽时，返回类型化错误。
+
+这个宽泛数学范围不等于经验精度覆盖范围。独立 QuantLib 样本只有 34 个无现金股息/连续
+收益率场景：`S/K` 为 `0.80` 至 `1.20`、期限 `59,999 ms` 至 365 天、利率 `[-0.15, 0.15]`、
+收益率 `[-0.02, 0.08]`、波动率 `[0.05, 2.0]`。其中两个 `59,999 ms` 场景低于 API 一分钟
+边界，因此 Richardson 候选仅接受 32 个场景。该样本相对最细 QuantLib 网格的最大绝对
+价格差为 `$0.003312676`，最大相对价格差为 `0.136962%`。这只是有限样本测量，不是认证
+误差或生产容差；低权利金相对误差仍单独报告，样本中早先的 1024/1025 配对曾有 `4.9893%`
+相对误差。
+
+考虑任何生产价格或 Greek 门槛前，pricing owner 必须在扩展矩阵评估前冻结独立绝对和相对
+验收限值。矩阵应覆盖 calls/puts、`S/K` 附近 `0.25, 0.5, 0.8, 1.0, 1.2, 2, 4` 的极端
+价内/价外及提前行权场景、利率/收益率/波动率/期限边界和网格加密。价格绝对误差和相对
+误差必须同时保留，包括低权利金场景；Greeks 必须用明确定义和单位进行对照。必须验证
+`59,999/60,000/60,001 ms` 与 10 年上限；未知或离散现金股息继续拒绝。现有 36 场景不能
+用来反推验收限值。IV 继续不可用，直到独立价格误差界 `E_price`、已批准的 IV 误差 `E_IV`
+以及局部 Vega 条件 `V >= E_price / E_IV` 被批准；不从当前样本推导数值。
+
+来源标识 `AmericanCrrV1` 仍被保留，独立精度门通过前指标校验会拒绝该来源。负利率美式
+put 上界使用 `K * exp(max(-r, 0) * T)`，不再假设上界恒为 `K`。
 
 独立参考来源固定为 QuantLib v1.43 commit
 [`6b57206e04598f092efee66e3b367efc84771995`](https://github.com/lballabio/QuantLib/blob/6b57206e04598f092efee66e3b367efc84771995/test-suite/americanoption.cpp)
@@ -191,13 +265,13 @@ QuantLib，并以高精度日期和合成 `Actual/365 Fixed` 模型运行四档 
 36 个场景。命令、源码与许可证哈希、输入假设和误差见
 [`docs/PRICING-ORACLE.md`](../../docs/PRICING-ORACLE.md)。
 
-34 个无现金股息或连续收益率场景中，测试专用的 256/257 CRR 配对仅为 31 个输出数值，
+34 个无现金股息或连续收益率场景中，研究过的 256/257 CRR 配对仅为 31 个输出数值，
 另 3 个因相邻步差超过现有 `$0.05` 检查而拒绝。已输出样本最大绝对价格误差为
 `$0.011082`；短期限低权利金场景最大相对误差为 `18.68%`。10 个场景的测试专用
 CRR 隐含波动率反解最大绝对误差为 `0.000992`。接近到期时 CRR 有限差分 Greeks
 误差明显：Delta、Gamma、年化 Theta 的最大绝对误差分别为 `0.00830`、`10.60` 和
-`2958.60`。这些是有限合成样本测量值，不是生产验收门槛；公开路径仍失败关闭，CRR
-候选仍仅用于测试。
+`2958.60`。这些是有限合成样本测量值，不是生产验收门槛；生产入口仍失败关闭，候选值
+只能通过明确非权威的离线诊断 API 获取。
 
 在此矩阵内，QuantLib 网格从 `800x1600` 加密至 `1600x3200` 时，价格、Delta、Gamma、
 年化 Theta 的最大变化分别为 `$0.001745`、`8.83e-6`、`2.54e-5` 和 `1.735`。30 日
@@ -205,8 +279,8 @@ CRR 隐含波动率反解最大绝对误差为 `0.000992`。接近到期时 CRR 
 `-$0.509633` 和 `+$0.625555`。这属于不同股息模型，现金股息行不与 CRR 对比，连续收益率
 不能代替离散股息日程。
 
-这些固定样本和测试专用实验不能证明通用美式价格/IV 误差预算、可靠的美式 Greeks、
-交易所结算/日历行为、供应商证据、策略接线或真实行情准确度；公开美式价格、IV 和 Greeks
+这些固定样本和测试专用实验不能证明通用美式价格/IV 误差预算、可靠的生产美式 Greeks、
+交易所结算/日历行为、供应商证据、策略接线或真实行情准确度；生产美式价格、IV 和 Greeks
 均未启用。
 
 ## Shared local singleflight
