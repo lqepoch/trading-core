@@ -26,7 +26,7 @@ from lqepoch_contracts.protojson import (
     parse_market_event_protojson,
     parse_prediction_envelope_protojson,
 )
-from lqepoch_contracts.uint64_json import parse_uint64_json
+from lqepoch_contracts.uint64_json import parse_uint64_json, validate_uint64_json_paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -44,6 +44,13 @@ class SharedContractFixturesTest(unittest.TestCase):
         for case in fixture["invalid"]:
             with self.subTest(case=case["name"]), self.assertRaises(ValueError):
                 parse_uint64_json(case["value"])
+        validate_uint64_json_paths({"row_count": "1"}, (("rowCount",),))
+        with self.assertRaises(ValueError):
+            validate_uint64_json_paths({"row_count": 1}, (("rowCount",),))
+        with self.assertRaisesRegex(ValueError, "multiple ProtoJSON spellings"):
+            validate_uint64_json_paths(
+                {"rowCount": "1", "row_count": "1"}, (("rowCount",),)
+            )
 
         market_json = {
             "schemaVersion": 1,
@@ -192,11 +199,15 @@ class SharedContractFixturesTest(unittest.TestCase):
         ]["parquet_schema_sha256"]["const"]
         self.assertEqual(raw_hash_condition, raw_schema_sha)
 
-    def test_raw_messagepack_encoding_is_bound_only_to_raw_frame_dataset_schema(self) -> None:
+    def test_raw_byte_encodings_are_bound_only_to_their_registered_frame_schemas(self) -> None:
         from lqepoch_contracts.parquet_schema import trusted_parquet_schema_sha256
 
         raw_encoding = "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES"
         raw_schema_hash = trusted_parquet_schema_sha256("lqepoch.market_raw_frame.v1")
+        self.assertEqual(
+            raw_schema_hash,
+            "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6",
+        )
         event = {
             "schemaVersion": 1,
             "source": {
@@ -210,8 +221,36 @@ class SharedContractFixturesTest(unittest.TestCase):
             "receivedTimestamp": "2026-10-08T14:30:00Z",
             "event": {"stockTrade": {"symbol": "QQQ", "price": "1.25", "size": "1"}},
         }
-        with self.assertRaisesRegex(ValueError, "not a normalized market-event"):
+        with self.assertRaisesRegex(ValueError, "not normalized market-event"):
             parse_market_event_protojson(event)
+
+        for encoding_case in (
+            "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES",
+            "NUMERIC_ENCODING_RAW_JSON_BYTES",
+        ):
+            snake_source = {
+                key: value
+                for key, value in event["source"].items()
+                if key != "numericEncoding"
+            }
+            snake_source["numeric_encoding"] = encoding_case
+            with self.subTest(normalized_alias=encoding_case), self.assertRaisesRegex(
+                ValueError, "not normalized market-event"
+            ):
+                parse_market_event_protojson({**event, "source": snake_source})
+            with self.subTest(prediction_alias=encoding_case), self.assertRaisesRegex(
+                ValueError, "not identify a normalized prediction source"
+            ):
+                parse_prediction_envelope_protojson(
+                    {"source": snake_source, "forecast": {"sequence": "1"}}
+                )
+
+        ambiguous_source = {
+            **event["source"],
+            "numeric_encoding": "NUMERIC_ENCODING_RAW_JSON_BYTES",
+        }
+        with self.assertRaisesRegex(ValueError, "both ProtoJSON field spellings"):
+            parse_market_event_protojson({**event, "source": ambiguous_source})
 
         manifest = {
             "schemaVersion": 1,
@@ -242,6 +281,73 @@ class SharedContractFixturesTest(unittest.TestCase):
         }
         self.assertEqual(parse_dataset_manifest_protojson(manifest).source.numeric_encoding, 5)
 
+        raw_json_schema_hash = trusted_parquet_schema_sha256(
+            "lqepoch.market_raw_json_frame.v1"
+        )
+        snake_source = {
+            key: value
+            for key, value in manifest["source"].items()
+            if key != "numericEncoding"
+        }
+        snake_source["numeric_encoding"] = "NUMERIC_ENCODING_RAW_JSON_BYTES"
+        snake_object = {
+            key: value
+            for key, value in manifest["object"].items()
+            if key != "parquetSchemaSha256"
+        }
+        snake_object["parquet_schema_sha256"] = raw_json_schema_hash
+        snake_manifest = {
+            **manifest,
+            "source": snake_source,
+            "object": snake_object,
+            "row_count": manifest["rowCount"],
+            "source_timestamp_missing_rows": manifest["sourceTimestampMissingRows"],
+        }
+        del snake_manifest["rowCount"]
+        del snake_manifest["sourceTimestampMissingRows"]
+        self.assertEqual(
+            parse_dataset_manifest_protojson(snake_manifest).source.numeric_encoding, 6
+        )
+        with self.assertRaisesRegex(ValueError, "registered Parquet schema"):
+            parse_dataset_manifest_protojson(
+                {
+                    **snake_manifest,
+                    "object": {
+                        **snake_object,
+                        "parquet_schema_sha256": raw_schema_hash,
+                    },
+                }
+            )
+        snake_messagepack_source = {
+            key: value
+            for key, value in manifest["source"].items()
+            if key != "numericEncoding"
+        }
+        snake_messagepack_source["numeric_encoding"] = (
+            "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES"
+        )
+        with self.assertRaisesRegex(ValueError, "registered Parquet schema"):
+            parse_dataset_manifest_protojson(
+                {
+                    **snake_manifest,
+                    "source": snake_messagepack_source,
+                }
+            )
+        with self.assertRaisesRegex(ValueError, "both ProtoJSON field spellings"):
+            parse_dataset_manifest_protojson(
+                {
+                    **manifest,
+                    "source": {
+                        **manifest["source"],
+                        "numeric_encoding": "NUMERIC_ENCODING_RAW_JSON_BYTES",
+                    },
+                }
+            )
+        with self.assertRaises(ValueError):
+            parse_dataset_manifest_protojson(
+                {**snake_manifest, "row_count": 1}
+            )
+
         for invalid_raw_manifest in (
             {**manifest, "rowCount": "0", "sourceTimestampMissingRows": "0"},
             {key: value for key, value in manifest.items() if key != "rowCount"},
@@ -252,7 +358,7 @@ class SharedContractFixturesTest(unittest.TestCase):
                 parse_dataset_manifest_protojson(invalid_raw_manifest)
 
         wrong_hash = {**manifest, "object": {**manifest["object"], "parquetSchemaSha256": "b" * 64}}
-        with self.assertRaisesRegex(ValueError, "must be bound to the registered"):
+        with self.assertRaisesRegex(ValueError, "registered Parquet schema"):
             parse_dataset_manifest_protojson(wrong_hash)
 
         wrong_encoding = {
@@ -262,7 +368,7 @@ class SharedContractFixturesTest(unittest.TestCase):
                 "numericEncoding": "NUMERIC_ENCODING_DECIMAL_TOKEN",
             },
         }
-        with self.assertRaisesRegex(ValueError, "must be bound to the registered"):
+        with self.assertRaisesRegex(ValueError, "raw byte-frame schema fingerprint"):
             parse_dataset_manifest_protojson(wrong_encoding)
 
         prediction = {
@@ -279,6 +385,46 @@ class SharedContractFixturesTest(unittest.TestCase):
         }
         with self.assertRaisesRegex(ValueError, "cannot identify a normalized prediction"):
             parse_prediction_envelope_protojson(prediction)
+
+        raw_json_schema_sha256 = trusted_parquet_schema_sha256(
+            "lqepoch.market_raw_json_frame.v1"
+        )
+        raw_json_manifest = {
+            **manifest,
+            "source": {
+                **manifest["source"],
+                "numericEncoding": "NUMERIC_ENCODING_RAW_JSON_BYTES",
+            },
+            "object": {**manifest["object"], "parquetSchemaSha256": raw_json_schema_sha256},
+        }
+        raw_json_message = parse_dataset_manifest_protojson(raw_json_manifest)
+        self.assertEqual(raw_json_message.source.numeric_encoding, 6)
+
+        crossed_schema = {
+            **raw_json_manifest,
+            "object": {**raw_json_manifest["object"], "parquetSchemaSha256": raw_schema_hash},
+        }
+        with self.assertRaisesRegex(ValueError, "registered Parquet schema"):
+            parse_dataset_manifest_protojson(crossed_schema)
+
+        for raw_json_encoding in ("NUMERIC_ENCODING_RAW_JSON_BYTES", 6):
+            raw_json_event = {
+                **event,
+                "source": {**event["source"], "numericEncoding": raw_json_encoding},
+            }
+            with self.subTest(raw_json_encoding=raw_json_encoding), self.assertRaisesRegex(
+                ValueError, "not normalized market-event"
+            ):
+                parse_market_event_protojson(raw_json_event)
+
+            raw_json_prediction = {
+                **prediction,
+                "source": {**prediction["source"], "numericEncoding": raw_json_encoding},
+            }
+            with self.subTest(raw_json_encoding=raw_json_encoding), self.assertRaisesRegex(
+                ValueError, "normalized prediction"
+            ):
+                parse_prediction_envelope_protojson(raw_json_prediction)
 
 
 if __name__ == "__main__":

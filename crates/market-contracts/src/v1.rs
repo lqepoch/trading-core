@@ -220,6 +220,9 @@ pub enum NumericEncodingV1 {
     /// A data-object manifest identifies byte-exact MessagePack frames, not a price projection.
     #[serde(rename = "raw_messagepack_bytes")]
     RawMessagePackBytes,
+    /// A data-object manifest identifies byte-exact JSON frames, not a price projection.
+    #[serde(rename = "raw_json_bytes")]
+    RawJsonBytes,
 }
 
 impl NumericEncodingV1 {
@@ -232,6 +235,7 @@ impl NumericEncodingV1 {
             Self::BinaryFloat64ShortestDecimal => "binary_float64_shortest_decimal",
             Self::BinaryFloat32ShortestDecimal => "binary_float32_shortest_decimal",
             Self::RawMessagePackBytes => "raw_messagepack_bytes",
+            Self::RawJsonBytes => "raw_json_bytes",
         }
     }
 
@@ -293,7 +297,7 @@ impl MarketDataSourceV1 {
                 .as_deref()
                 .is_some_and(|value| !valid_identifier(value, MAX_SOURCE_ID_BYTES))
             || self.numeric_encoding == NumericEncodingV1::Unspecified
-            || self.numeric_encoding == NumericEncodingV1::RawMessagePackBytes
+            || self.numeric_encoding.is_raw_bytes()
             || mentions_synthetic
                 && (!is_canonical_synthetic
                     || self.numeric_encoding != NumericEncodingV1::DecimalToken)
@@ -305,10 +309,10 @@ impl MarketDataSourceV1 {
 
     /// Validate the source identity used by an immutable data-object manifest.
     ///
-    /// Raw MessagePack is permitted only as a dataset-object encoding marker; event envelopes
-    /// continue to reject it because it does not describe a normalized numeric projection.
+    /// Raw byte encodings are permitted only as dataset-object markers; event envelopes continue
+    /// to reject them because they do not describe a normalized numeric projection.
     pub(crate) fn validate_for_dataset_manifest(&self) -> Result<(), MarketWireError> {
-        if self.numeric_encoding != NumericEncodingV1::RawMessagePackBytes {
+        if !self.numeric_encoding.is_raw_bytes() {
             return self.validate();
         }
         let mentions_synthetic = self.provider.eq_ignore_ascii_case("synthetic")
@@ -325,6 +329,13 @@ impl MarketDataSourceV1 {
             return Err(MarketWireError::InvalidSource);
         }
         Ok(())
+    }
+}
+
+impl NumericEncodingV1 {
+    /// Whether this encoding names a raw byte-object dataset rather than a normalized event.
+    pub const fn is_raw_bytes(self) -> bool {
+        matches!(self, Self::RawMessagePackBytes | Self::RawJsonBytes)
     }
 }
 
@@ -717,6 +728,7 @@ mod tests {
             NumericEncodingV1::RawMessagePackBytes.as_str(),
             "raw_messagepack_bytes"
         );
+        assert_eq!(NumericEncodingV1::RawJsonBytes.as_str(), "raw_json_bytes");
     }
 
     fn metadata() -> EventMetadataV1 {
@@ -905,6 +917,16 @@ mod tests {
                 "opra",
                 EntitlementState::Unknown,
                 NumericEncodingV1::RawMessagePackBytes,
+                None,
+            ),
+            Err(MarketWireError::InvalidSource)
+        );
+        assert_eq!(
+            MarketDataSourceV1::new(
+                "alpaca",
+                "sip",
+                EntitlementState::Unknown,
+                NumericEncodingV1::RawJsonBytes,
                 None,
             ),
             Err(MarketWireError::InvalidSource)

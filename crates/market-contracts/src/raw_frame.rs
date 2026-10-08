@@ -111,65 +111,188 @@ impl fmt::Debug for RawFrameStorageRecordV1 {
 impl RawFrameStorageRecordV1 {
     /// Validate the frame identity, content digest, projection metadata, and symbol list.
     pub fn validate(&self) -> Result<(), RawFrameContractError> {
-        if self.schema_version != MARKET_RAW_FRAME_SCHEMA_VERSION {
-            return Err(RawFrameContractError::UnsupportedVersion);
-        }
-        if self.generation == 0 || self.frame_sequence == 0 {
-            return Err(RawFrameContractError::InvalidSequence);
-        }
-        if self.frame_bytes.len() > MAX_RAW_FRAME_BYTES {
-            return Err(RawFrameContractError::FrameTooLarge);
-        }
-        if self.event_count > MAX_RAW_FRAME_EVENT_COUNT {
-            return Err(RawFrameContractError::TooManyEvents);
-        }
-        if !crate::parquet_schema::validate_sha256_hex(&self.frame_sha256) {
-            return Err(RawFrameContractError::InvalidHash);
-        }
-        if lower_hex(&Sha256::digest(&self.frame_bytes)) != self.frame_sha256 {
-            return Err(RawFrameContractError::HashMismatch);
-        }
-        if self.source_numeric_encoding.is_some_and(|encoding| {
-            matches!(
-                encoding,
-                NumericEncodingV1::Unspecified | NumericEncodingV1::RawMessagePackBytes
-            )
-        }) {
-            return Err(RawFrameContractError::InvalidProjectionEncoding);
-        }
-
-        let source = MarketDataSourceV1 {
-            provider: self.provider.clone(),
-            feed: self.feed.clone(),
-            entitlement: self.entitlement,
-            numeric_encoding: NumericEncodingV1::RawMessagePackBytes,
-            source_record_id: None,
-        };
-        source
-            .validate_for_dataset_manifest()
-            .map_err(|_| RawFrameContractError::InvalidSource)?;
-
-        let symbols = parse_canonical_symbols_json(&self.symbols_json)?;
-        match self.disposition {
-            RawFrameDispositionV1::MarketData if self.event_count == 0 || symbols.is_empty() => {
-                return Err(RawFrameContractError::InvalidDisposition);
-            }
-            RawFrameDispositionV1::Control if self.event_count != 0 || !symbols.is_empty() => {
-                return Err(RawFrameContractError::InvalidDisposition);
-            }
-            _ => {}
-        }
-        if self.event_count > 0 && (symbols.is_empty() || symbols.len() > self.event_count as usize)
-        {
-            return Err(RawFrameContractError::InvalidDisposition);
-        }
-        Ok(())
+        validate_raw_frame(self.view(), NumericEncodingV1::RawMessagePackBytes)
     }
 
     /// Return the decoded symbol list after validating its canonical representation.
     pub fn symbols(&self) -> Result<Vec<String>, RawFrameContractError> {
         parse_canonical_symbols_json(&self.symbols_json)
     }
+
+    fn view(&self) -> RawFrameView<'_> {
+        RawFrameView {
+            schema_version: self.schema_version,
+            provider: &self.provider,
+            feed: &self.feed,
+            entitlement: self.entitlement,
+            source_numeric_encoding: self.source_numeric_encoding,
+            generation: self.generation,
+            frame_sequence: self.frame_sequence,
+            received_timestamp_utc: &self.received_timestamp_utc,
+            frame_sha256: &self.frame_sha256,
+            frame_bytes: &self.frame_bytes,
+            event_count: self.event_count,
+            disposition: self.disposition,
+            symbols_json: &self.symbols_json,
+        }
+    }
+}
+
+/// One exact inbound JSON application frame row in `lqepoch.market_raw_json_frame.v1`.
+///
+/// It deliberately stores raw bytes without requiring the payload to be valid JSON: malformed
+/// application frames must remain available to bounded quarantine tooling.
+#[derive(Clone, Eq, PartialEq)]
+pub struct RawJsonFrameStorageRecordV1 {
+    /// Raw-frame schema version, fixed at 1.
+    pub schema_version: u32,
+    /// Provider code shared with projected events.
+    pub provider: String,
+    /// Feed code shared with projected events.
+    pub feed: String,
+    /// Provider entitlement evidence; unknown remains explicit.
+    pub entitlement: EntitlementState,
+    /// Optional uniform numeric projection encoding observed within this raw frame.
+    pub source_numeric_encoding: Option<NumericEncodingV1>,
+    /// Canonical connection generation shared with projected events.
+    pub generation: u64,
+    /// Monotonic raw-frame sequence within this generation.
+    pub frame_sequence: u64,
+    /// Local UTC receive timestamp for the exact bytes.
+    pub received_timestamp_utc: UtcTimestamp,
+    /// SHA-256 of `frame_bytes`, recomputed during validation.
+    pub frame_sha256: String,
+    /// Exact received JSON application-frame bytes.
+    pub frame_bytes: Vec<u8>,
+    /// Expected number of normalized quote/trade records in the raw frame, not delivered count.
+    pub event_count: u32,
+    /// Decoder disposition retained even when no normalized event was produced.
+    pub disposition: RawFrameDispositionV1,
+    /// Compact JSON array of the frame's lexically sorted, unique normalizable symbols.
+    pub symbols_json: String,
+}
+
+impl fmt::Debug for RawJsonFrameStorageRecordV1 {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("RawJsonFrameStorageRecordV1")
+            .field("schema_version", &self.schema_version)
+            .field("provider", &self.provider)
+            .field("feed", &self.feed)
+            .field("entitlement", &self.entitlement)
+            .field("source_numeric_encoding", &self.source_numeric_encoding)
+            .field("generation", &self.generation)
+            .field("frame_sequence", &self.frame_sequence)
+            .field("received_timestamp_utc", &self.received_timestamp_utc)
+            .field("frame_sha256", &self.frame_sha256)
+            .field("frame_bytes_len", &self.frame_bytes.len())
+            .field("event_count", &self.event_count)
+            .field("disposition", &self.disposition)
+            .field("symbols_json_bytes_len", &self.symbols_json.len())
+            .finish()
+    }
+}
+
+impl RawJsonFrameStorageRecordV1 {
+    /// Validate the frame identity, content digest, projection metadata, and symbol list.
+    pub fn validate(&self) -> Result<(), RawFrameContractError> {
+        validate_raw_frame(self.view(), NumericEncodingV1::RawJsonBytes)
+    }
+
+    /// Return the decoded symbol list after validating its canonical representation.
+    pub fn symbols(&self) -> Result<Vec<String>, RawFrameContractError> {
+        parse_canonical_symbols_json(&self.symbols_json)
+    }
+
+    fn view(&self) -> RawFrameView<'_> {
+        RawFrameView {
+            schema_version: self.schema_version,
+            provider: &self.provider,
+            feed: &self.feed,
+            entitlement: self.entitlement,
+            source_numeric_encoding: self.source_numeric_encoding,
+            generation: self.generation,
+            frame_sequence: self.frame_sequence,
+            received_timestamp_utc: &self.received_timestamp_utc,
+            frame_sha256: &self.frame_sha256,
+            frame_bytes: &self.frame_bytes,
+            event_count: self.event_count,
+            disposition: self.disposition,
+            symbols_json: &self.symbols_json,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct RawFrameView<'a> {
+    schema_version: u32,
+    provider: &'a str,
+    feed: &'a str,
+    entitlement: EntitlementState,
+    source_numeric_encoding: Option<NumericEncodingV1>,
+    generation: u64,
+    frame_sequence: u64,
+    received_timestamp_utc: &'a UtcTimestamp,
+    frame_sha256: &'a str,
+    frame_bytes: &'a [u8],
+    event_count: u32,
+    disposition: RawFrameDispositionV1,
+    symbols_json: &'a str,
+}
+
+fn validate_raw_frame(
+    frame: RawFrameView<'_>,
+    dataset_encoding: NumericEncodingV1,
+) -> Result<(), RawFrameContractError> {
+    if frame.schema_version != MARKET_RAW_FRAME_SCHEMA_VERSION {
+        return Err(RawFrameContractError::UnsupportedVersion);
+    }
+    if frame.generation == 0 || frame.frame_sequence == 0 {
+        return Err(RawFrameContractError::InvalidSequence);
+    }
+    if frame.frame_bytes.len() > MAX_RAW_FRAME_BYTES {
+        return Err(RawFrameContractError::FrameTooLarge);
+    }
+    if frame.event_count > MAX_RAW_FRAME_EVENT_COUNT {
+        return Err(RawFrameContractError::TooManyEvents);
+    }
+    if !crate::parquet_schema::validate_sha256_hex(frame.frame_sha256) {
+        return Err(RawFrameContractError::InvalidHash);
+    }
+    if lower_hex(&Sha256::digest(frame.frame_bytes)) != frame.frame_sha256 {
+        return Err(RawFrameContractError::HashMismatch);
+    }
+    if frame.source_numeric_encoding.is_some_and(|encoding| {
+        matches!(encoding, NumericEncodingV1::Unspecified) || encoding.is_raw_bytes()
+    }) {
+        return Err(RawFrameContractError::InvalidProjectionEncoding);
+    }
+
+    let source = MarketDataSourceV1 {
+        provider: frame.provider.to_owned(),
+        feed: frame.feed.to_owned(),
+        entitlement: frame.entitlement,
+        numeric_encoding: dataset_encoding,
+        source_record_id: None,
+    };
+    source
+        .validate_for_dataset_manifest()
+        .map_err(|_| RawFrameContractError::InvalidSource)?;
+
+    let symbols = parse_canonical_symbols_json(frame.symbols_json)?;
+    match frame.disposition {
+        RawFrameDispositionV1::MarketData if frame.event_count == 0 || symbols.is_empty() => {
+            return Err(RawFrameContractError::InvalidDisposition);
+        }
+        RawFrameDispositionV1::Control if frame.event_count != 0 || !symbols.is_empty() => {
+            return Err(RawFrameContractError::InvalidDisposition);
+        }
+        _ => {}
+    }
+    if frame.event_count > 0 && (symbols.is_empty() || symbols.len() > frame.event_count as usize) {
+        return Err(RawFrameContractError::InvalidDisposition);
+    }
+    Ok(())
 }
 
 /// Correlation fields appended by the `lqepoch.market_event.v2` storage schema.
@@ -220,24 +343,39 @@ impl MarketEventParquetRowV2 {
         &self,
         frame: &RawFrameStorageRecordV1,
     ) -> Result<(), RawFrameContractError> {
+        self.validate_against_raw_frame(frame.view(), NumericEncodingV1::RawMessagePackBytes)
+    }
+
+    /// Cross-check this event against the exact JSON frame row it claims to derive from.
+    pub fn validate_against_json_frame(
+        &self,
+        frame: &RawJsonFrameStorageRecordV1,
+    ) -> Result<(), RawFrameContractError> {
+        self.validate_against_raw_frame(frame.view(), NumericEncodingV1::RawJsonBytes)
+    }
+
+    fn validate_against_raw_frame(
+        &self,
+        frame: RawFrameView<'_>,
+        dataset_encoding: NumericEncodingV1,
+    ) -> Result<(), RawFrameContractError> {
         self.validate()?;
-        frame.validate()?;
+        validate_raw_frame(frame, dataset_encoding)?;
         let reference = self
             .raw_frame_reference
             .ok_or(RawFrameContractError::MissingReference)?;
         if reference.raw_frame_generation != frame.generation
             || reference.raw_frame_sequence != frame.frame_sequence
             || reference.raw_frame_event_count != frame.event_count
-            || self.event.metadata.raw_frame_sha256.as_deref() != Some(frame.frame_sha256.as_str())
+            || self.event.metadata.raw_frame_sha256.as_deref() != Some(frame.frame_sha256)
             || self.event.metadata.source.provider != frame.provider
             || self.event.metadata.source.feed != frame.feed
             || self.event.metadata.source.entitlement != frame.entitlement
-            || self.event.metadata.received_timestamp != frame.received_timestamp_utc
+            || self.event.metadata.received_timestamp != *frame.received_timestamp_utc
             || frame
                 .source_numeric_encoding
                 .is_some_and(|encoding| encoding != self.event.metadata.source.numeric_encoding)
-            || !frame
-                .symbols()?
+            || !parse_canonical_symbols_json(frame.symbols_json)?
                 .iter()
                 .any(|symbol| symbol == event_symbol(&self.event.event))
         {
@@ -327,6 +465,7 @@ mod tests {
         MAX_RAW_FRAME_BYTES, MAX_RAW_FRAME_EVENT_COUNT, MAX_RAW_FRAME_SYMBOLS,
         MAX_RAW_FRAME_SYMBOLS_JSON_BYTES, MarketEventParquetRowV2, RawFrameContractError,
         RawFrameDispositionV1, RawFrameReferenceV2, RawFrameStorageRecordV1,
+        RawJsonFrameStorageRecordV1,
     };
     use crate::{
         DecimalString, EntitlementState, EventMetadataV1, MarketDataSourceV1,
@@ -355,6 +494,24 @@ mod tests {
             source_numeric_encoding: Some(NumericEncodingV1::DecimalToken),
             generation: 17,
             frame_sequence: 23,
+            received_timestamp_utc: UtcTimestamp::parse("2026-10-08T14:30:00Z").unwrap(),
+            frame_sha256: sha256(&bytes),
+            frame_bytes: bytes,
+            event_count: 1,
+            disposition: RawFrameDispositionV1::MarketData,
+            symbols_json: r#"["QQQ   261016C00600000"]"#.to_owned(),
+        }
+    }
+
+    fn json_frame(bytes: Vec<u8>) -> RawJsonFrameStorageRecordV1 {
+        RawJsonFrameStorageRecordV1 {
+            schema_version: 1,
+            provider: "synthetic".to_owned(),
+            feed: "synthetic".to_owned(),
+            entitlement: EntitlementState::Unknown,
+            source_numeric_encoding: Some(NumericEncodingV1::DecimalToken),
+            generation: 17,
+            frame_sequence: 24,
             received_timestamp_utc: UtcTimestamp::parse("2026-10-08T14:30:00Z").unwrap(),
             frame_sha256: sha256(&bytes),
             frame_bytes: bytes,
@@ -405,6 +562,68 @@ mod tests {
         assert_eq!(frame.validate(), Ok(()));
         assert_eq!(event.validate_against_frame(&frame), Ok(()));
         assert_eq!(frame.disposition.as_str(), "market_data");
+    }
+
+    #[test]
+    fn raw_json_frame_uses_shared_bounds_hash_symbols_and_event_correlation() {
+        let bytes = br#"{"T":"t","S":"QQQ","p":1.25}"#.to_vec();
+        let mut raw = json_frame(bytes);
+        assert_eq!(raw.validate(), Ok(()));
+        assert_eq!(
+            raw.symbols().unwrap(),
+            vec!["QQQ   261016C00600000".to_owned()]
+        );
+
+        let mut projected = event();
+        projected.event.metadata.raw_frame_sha256 = Some(raw.frame_sha256.clone());
+        projected
+            .raw_frame_reference
+            .as_mut()
+            .unwrap()
+            .raw_frame_sequence = raw.frame_sequence;
+        projected
+            .raw_frame_reference
+            .as_mut()
+            .unwrap()
+            .raw_frame_generation = raw.generation;
+        assert_eq!(projected.validate_against_json_frame(&raw), Ok(()));
+
+        raw.frame_sha256 = "0".repeat(64);
+        assert_eq!(raw.validate(), Err(RawFrameContractError::HashMismatch));
+
+        let mut invalid_projection = json_frame(b"{}".to_vec());
+        invalid_projection.source_numeric_encoding = Some(NumericEncodingV1::RawJsonBytes);
+        assert_eq!(
+            invalid_projection.validate(),
+            Err(RawFrameContractError::InvalidProjectionEncoding)
+        );
+
+        let mut malformed = json_frame(b"{not-json".to_vec());
+        malformed.event_count = 0;
+        malformed.disposition = RawFrameDispositionV1::MalformedMessage;
+        malformed.symbols_json = "[]".to_owned();
+        assert_eq!(malformed.validate(), Ok(()));
+
+        let mut oversized = json_frame(vec![0; MAX_RAW_FRAME_BYTES + 1]);
+        oversized.event_count = 0;
+        oversized.disposition = RawFrameDispositionV1::MalformedMessage;
+        oversized.symbols_json = "[]".to_owned();
+        assert_eq!(
+            oversized.validate(),
+            Err(RawFrameContractError::FrameTooLarge)
+        );
+    }
+
+    #[test]
+    fn raw_json_debug_does_not_reveal_payload_or_symbols() {
+        let payload = br#"{"symbol":"PRIVATE_SYMBOL_VALUE","token":"PRIVATE_TOKEN"}"#.to_vec();
+        let mut value = json_frame(payload.clone());
+        value.symbols_json = r#"["PRIVATE_SYMBOL_VALUE"]"#.to_owned();
+        let debug = format!("{value:?}");
+        assert!(!debug.contains("PRIVATE_SYMBOL_VALUE"));
+        assert!(!debug.contains("PRIVATE_TOKEN"));
+        assert!(!debug.contains(&format!("{:?}", payload)));
+        assert!(debug.contains("frame_bytes_len"));
     }
 
     #[test]

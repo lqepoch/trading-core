@@ -22,6 +22,8 @@ pub const MARKET_EVENT_PARQUET_SCHEMA_ID: &str = "lqepoch.market_event.v1";
 pub const US_EQUITY_TRADE_BAR_1M_SCHEMA_ID: &str = "lqepoch.us_equity_trade_bar_1m.v1";
 /// Trusted schema ID for byte-exact provider MessagePack frames.
 pub const MARKET_RAW_FRAME_PARQUET_SCHEMA_ID: &str = "lqepoch.market_raw_frame.v1";
+/// Trusted schema ID for byte-exact provider JSON frames.
+pub const MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_ID: &str = "lqepoch.market_raw_json_frame.v1";
 /// Storage schema ID for normalized market events with raw-frame correlation.
 pub const MARKET_EVENT_PARQUET_SCHEMA_V2_ID: &str = "lqepoch.market_event.v2";
 
