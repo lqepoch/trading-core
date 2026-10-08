@@ -16,7 +16,7 @@ Python research consumers can pin the reusable validators and generated bindings
 lqepoch-trading-core-contracts = { git = "https://github.com/lqepoch/trading-core", rev = "<reviewed-sha>", subdirectory = "python" }
 ```
 
-The package exports strict `uint64` JSON helpers, manifest identity checks, canonical Parquet fingerprinting, and validated ProtoJSON entry points. Rust data producers can use `market_contracts::wire_u64` with Serde and `NumericEncodingV1::as_str()` for the same wire spellings.
+The package exports strict `uint64` JSON helpers, manifest identity checks, canonical Parquet fingerprinting, the trusted Parquet schema registry, and validated ProtoJSON entry points. Python consumers can load the installed registry with `load_trusted_parquet_schema_registry()` and resolve a descriptor or fingerprint by schema ID; there is no second hand-maintained descriptor table. The optional `arrow` extra pins PyArrow for checking actual physical schemas against that registry. Rust data producers can use `market_contracts::wire_u64` with Serde and `NumericEncodingV1::as_str()` for the same wire spellings.
 
 ## Safety and evidence limits
 
@@ -24,7 +24,7 @@ OCC parsing is candidate creation only. It does not qualify an economic contract
 
 The imported legacy DTOs preserve the prior EqoBoard JSON API and its floating-point fields for compatibility. New market event envelopes use exact decimal strings and separate source time from local receive time, plus provider/feed, numeric encoding, generation, and sequence. Binary-float inputs retain a raw-frame digest and remain explicitly projected rather than source-exact. Legacy OCC DTOs do not qualify a contract.
 
-No provider client, OAuth, account-authority coordinator, request-budget scheduler, OMS, persistence, or order transport is included. This repository contains no production broker connectivity. A subscription ACK is separate from connection state; neither the DTO nor its validator proves SIP/OPRA entitlement or an active subscription.
+No provider client, OAuth, account-authority coordinator, request-budget scheduler, OMS, persistence implementation, or order transport is included. This repository contains no production broker connectivity. The byte-exact raw-frame and event-correlation schemas describe storage rows; they do not implement a collector, Parquet writer, readback, or publication. A subscription ACK is separate from connection state; neither the DTO nor its validator proves SIP/OPRA entitlement or an active subscription.
 
 ## Source and license
 
@@ -32,6 +32,6 @@ Selected source files from lqepoch/schwab_auto_bot and lqepoch/EqoBoard are reco
 
 ## Local validation
 
-Use Rust 1.98.1 with locked dependencies. Run `scripts/validate-rust.sh` for formatting, workspace tests, and strict Clippy. Run `scripts/validate-schemas.sh` when Protobuf or OpenAPI changes; it checks protoc text fixtures, regenerates the pinned Python/TypeScript bindings, runs both generated-consumer suites, and validates OpenAPI JSON including uint64 bounds. Schema generation pins protoc 3.21.12, protobuf Python 7.36.2, and exact npm dependencies in `typescript/package-lock.json`.
+Use Rust 1.98.1 with locked dependencies. Run `scripts/validate-rust.sh` for formatting, workspace tests, strict Clippy, and cargo-deny advisory/license/source/bans checks. Run `scripts/validate-schemas.sh` when Protobuf, OpenAPI, or Parquet registry changes; it checks the generated registry copies, compiles protoc text fixtures, regenerates the pinned Python/TypeScript bindings, verifies Arrow physical mappings with the optional PyArrow extra, runs both generated-consumer suites, clean-builds and installs the Python wheel, and validates OpenAPI JSON including uint64 bounds. Schema generation pins protoc 3.21.12, protobuf Python 7.36.2, and exact npm dependencies in `typescript/package-lock.json`.
 
 See [docs/development.md](docs/development.md) for local and cross-target checks, [docs/parquet-schema-v1.md](docs/parquet-schema-v1.md) for physical mappings and row constraints, and [SECURITY.md](SECURITY.md) for the repository security boundary.

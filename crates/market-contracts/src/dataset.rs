@@ -121,7 +121,7 @@ impl DatasetManifestV1 {
             return Err(DatasetManifestError::InvalidDatasetId);
         }
         self.source
-            .validate()
+            .validate_for_dataset_manifest()
             .map_err(|_| DatasetManifestError::InvalidSource)?;
 
         if self.symbols.is_empty()
@@ -158,6 +158,18 @@ impl DatasetManifestV1 {
             || !valid_sha256(&self.completion.readback_sha256)
         {
             return Err(DatasetManifestError::InvalidHash);
+        }
+
+        let raw_frame_schema_sha256 = crate::parquet_schema::trusted_schema_fingerprint(
+            crate::parquet_schema::MARKET_RAW_FRAME_PARQUET_SCHEMA_ID,
+        )
+        .map_err(|_| DatasetManifestError::InvalidObject)?;
+        let object_is_raw_frame_schema =
+            self.object.parquet_schema_sha256 == raw_frame_schema_sha256;
+        let source_is_raw_messagepack =
+            self.source.numeric_encoding == crate::NumericEncodingV1::RawMessagePackBytes;
+        if object_is_raw_frame_schema != source_is_raw_messagepack {
+            return Err(DatasetManifestError::InvalidSource);
         }
 
         let object_id = self
@@ -322,6 +334,31 @@ mod tests {
         assert_eq!(json["completion"]["source_pages_exhausted"], true);
         assert!(json.get("dataset_version").is_none());
         assert!(value.validate().is_ok());
+    }
+
+    #[test]
+    fn raw_messagepack_manifest_is_bound_to_the_raw_frame_parquet_fingerprint() {
+        let mut value = manifest();
+        value.source.numeric_encoding = NumericEncodingV1::RawMessagePackBytes;
+        value.time_range = None;
+        value.source_timestamp_missing_rows = value.row_count;
+        value.object.parquet_schema_sha256 =
+            crate::trusted_schema_fingerprint(crate::MARKET_RAW_FRAME_PARQUET_SCHEMA_ID).unwrap();
+        value.validate().unwrap();
+
+        let mut wrong_encoding = value.clone();
+        wrong_encoding.source.numeric_encoding = NumericEncodingV1::DecimalToken;
+        assert_eq!(
+            wrong_encoding.validate(),
+            Err(DatasetManifestError::InvalidSource)
+        );
+
+        let mut wrong_schema = value;
+        wrong_schema.object.parquet_schema_sha256 = "b".repeat(64);
+        assert_eq!(
+            wrong_schema.validate(),
+            Err(DatasetManifestError::InvalidSource)
+        );
     }
 
     #[test]

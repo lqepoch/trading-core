@@ -217,6 +217,9 @@ pub enum NumericEncodingV1 {
     BinaryFloat64ShortestDecimal,
     /// A MessagePack float32 was projected to its shortest round-tripping decimal string.
     BinaryFloat32ShortestDecimal,
+    /// A data-object manifest identifies byte-exact MessagePack frames, not a price projection.
+    #[serde(rename = "raw_messagepack_bytes")]
+    RawMessagePackBytes,
 }
 
 impl NumericEncodingV1 {
@@ -228,6 +231,7 @@ impl NumericEncodingV1 {
             Self::IntegerToken => "integer_token",
             Self::BinaryFloat64ShortestDecimal => "binary_float64_shortest_decimal",
             Self::BinaryFloat32ShortestDecimal => "binary_float32_shortest_decimal",
+            Self::RawMessagePackBytes => "raw_messagepack_bytes",
         }
     }
 
@@ -289,9 +293,34 @@ impl MarketDataSourceV1 {
                 .as_deref()
                 .is_some_and(|value| !valid_identifier(value, MAX_SOURCE_ID_BYTES))
             || self.numeric_encoding == NumericEncodingV1::Unspecified
+            || self.numeric_encoding == NumericEncodingV1::RawMessagePackBytes
             || mentions_synthetic
                 && (!is_canonical_synthetic
                     || self.numeric_encoding != NumericEncodingV1::DecimalToken)
+        {
+            return Err(MarketWireError::InvalidSource);
+        }
+        Ok(())
+    }
+
+    /// Validate the source identity used by an immutable data-object manifest.
+    ///
+    /// Raw MessagePack is permitted only as a dataset-object encoding marker; event envelopes
+    /// continue to reject it because it does not describe a normalized numeric projection.
+    pub(crate) fn validate_for_dataset_manifest(&self) -> Result<(), MarketWireError> {
+        if self.numeric_encoding != NumericEncodingV1::RawMessagePackBytes {
+            return self.validate();
+        }
+        let mentions_synthetic = self.provider.eq_ignore_ascii_case("synthetic")
+            || self.feed.eq_ignore_ascii_case("synthetic");
+        let is_canonical_synthetic = self.provider == "synthetic" && self.feed == "synthetic";
+        if !valid_identifier(&self.provider, MAX_SOURCE_ID_BYTES)
+            || !valid_identifier(&self.feed, MAX_SOURCE_ID_BYTES)
+            || self
+                .source_record_id
+                .as_deref()
+                .is_some_and(|value| !valid_identifier(value, MAX_SOURCE_ID_BYTES))
+            || mentions_synthetic && !is_canonical_synthetic
         {
             return Err(MarketWireError::InvalidSource);
         }
@@ -684,6 +713,10 @@ mod tests {
             NumericEncodingV1::BinaryFloat32ShortestDecimal.as_str(),
             "binary_float32_shortest_decimal"
         );
+        assert_eq!(
+            NumericEncodingV1::RawMessagePackBytes.as_str(),
+            "raw_messagepack_bytes"
+        );
     }
 
     fn metadata() -> EventMetadataV1 {
@@ -861,6 +894,20 @@ mod tests {
                 None,
             )
             .is_err()
+        );
+    }
+
+    #[test]
+    fn raw_messagepack_encoding_is_rejected_for_normalized_event_sources() {
+        assert_eq!(
+            MarketDataSourceV1::new(
+                "alpaca",
+                "opra",
+                EntitlementState::Unknown,
+                NumericEncodingV1::RawMessagePackBytes,
+                None,
+            ),
+            Err(MarketWireError::InvalidSource)
         );
     }
 

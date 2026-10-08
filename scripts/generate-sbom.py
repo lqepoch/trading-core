@@ -19,6 +19,8 @@ OUTPUT = ROOT / "sbom.spdx.json"
 PYPI_LICENSE_OVERRIDES = {
     # Verified from the metadata of the exact locked protobuf release.
     ("protobuf", "7.36.2"): "BSD-3-Clause",
+    # Verified from the exact locked PyArrow metadata and its bundled LICENSE/NOTICE files.
+    ("pyarrow", "25.0.1"): "Apache-2.0",
 }
 
 

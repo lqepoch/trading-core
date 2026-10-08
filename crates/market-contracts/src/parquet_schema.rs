@@ -6,15 +6,24 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::OnceLock;
 use thiserror::Error;
 
 /// Prefix/domain separator prepended to canonical descriptor JSON before hashing.
 pub const PARQUET_SCHEMA_FINGERPRINT_PREFIX: &str = "LQEpoch-Parquet-Schema-v1\n";
+/// Optional Arrow/Parquet metadata key containing the registered canonical descriptor JSON.
+pub const PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY: &str = "lqepoch.schema_descriptor.v1";
+/// Optional Arrow/Parquet metadata key containing the registered lowercase fingerprint.
+pub const PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY: &str = "lqepoch.schema_fingerprint_sha256";
 /// Trusted schema ID for one normalized market event per Parquet row.
 pub const MARKET_EVENT_PARQUET_SCHEMA_ID: &str = "lqepoch.market_event.v1";
 /// Trusted schema ID for one-minute US equity trade bars.
 pub const US_EQUITY_TRADE_BAR_1M_SCHEMA_ID: &str = "lqepoch.us_equity_trade_bar_1m.v1";
+/// Trusted schema ID for byte-exact provider MessagePack frames.
+pub const MARKET_RAW_FRAME_PARQUET_SCHEMA_ID: &str = "lqepoch.market_raw_frame.v1";
+/// Storage schema ID for normalized market events with raw-frame correlation.
+pub const MARKET_EVENT_PARQUET_SCHEMA_V2_ID: &str = "lqepoch.market_event.v2";
 
 /// Validate a row-level SHA-256 logical value as lowercase hexadecimal.
 pub fn validate_sha256_hex(value: &str) -> bool {
@@ -59,6 +68,10 @@ pub enum ParquetSchemaError {
     UnknownSchemaId,
     #[error("schema descriptor does not match its trusted schema ID")]
     TrustedSchemaMismatch,
+    #[error("schema metadata contains only one of the registered descriptor and fingerprint")]
+    IncompleteSchemaMetadata,
+    #[error("schema metadata differs from the registered descriptor or fingerprint")]
+    SchemaMetadataMismatch,
 }
 
 impl ParquetSchemaDescriptorV1 {
@@ -115,22 +128,52 @@ impl ParquetSchemaDescriptorV1 {
 pub fn trusted_parquet_schema(
     schema_id: &str,
 ) -> Result<ParquetSchemaDescriptorV1, ParquetSchemaError> {
-    let columns: &[(&str, &str, bool)] = match schema_id {
-        MARKET_EVENT_PARQUET_SCHEMA_ID => MARKET_EVENT_FIELDS,
-        US_EQUITY_TRADE_BAR_1M_SCHEMA_ID => US_EQUITY_TRADE_BAR_1M_FIELDS,
-        _ => return Err(ParquetSchemaError::UnknownSchemaId),
-    };
-    Ok(ParquetSchemaDescriptorV1 {
-        fields: columns
-            .iter()
-            .map(|(name, logical_type, nullable)| ParquetSchemaFieldV1 {
-                name: (*name).to_owned(),
-                nullable: *nullable,
-                logical_type: (*logical_type).to_owned(),
-            })
-            .collect(),
-        schema_id: schema_id.to_owned(),
-        schema_version: 1,
+    trusted_schemas()
+        .get(schema_id)
+        .cloned()
+        .ok_or(ParquetSchemaError::UnknownSchemaId)
+}
+
+#[derive(Deserialize)]
+struct TrustedRegistryFixture {
+    schemas: Vec<TrustedRegistryEntry>,
+}
+
+#[derive(Deserialize)]
+struct TrustedRegistryEntry {
+    descriptor: ParquetSchemaDescriptorV1,
+    canonical_json: String,
+    sha256: String,
+}
+
+/// Read the checked-in registry once so the fixture remains the sole trusted descriptor source.
+fn trusted_schemas() -> &'static HashMap<String, ParquetSchemaDescriptorV1> {
+    static SCHEMAS: OnceLock<HashMap<String, ParquetSchemaDescriptorV1>> = OnceLock::new();
+    SCHEMAS.get_or_init(|| {
+        let registry: TrustedRegistryFixture = serde_json::from_str(include_str!(
+            "../../../schemas/fixtures/parquet-schema-registry.json"
+        ))
+        .expect("checked-in Parquet schema registry must parse");
+        let mut schemas = HashMap::with_capacity(registry.schemas.len());
+        for entry in registry.schemas {
+            let descriptor = entry.descriptor;
+            assert_eq!(
+                descriptor.canonical_json().as_deref(),
+                Ok(entry.canonical_json.as_str()),
+                "trusted schema canonical JSON must match its descriptor"
+            );
+            assert_eq!(
+                descriptor.fingerprint_sha256().as_deref(),
+                Ok(entry.sha256.as_str()),
+                "trusted schema digest must match its canonical bytes"
+            );
+            let schema_id = descriptor.schema_id.clone();
+            assert!(
+                schemas.insert(schema_id, descriptor).is_none(),
+                "trusted Parquet schema IDs must be unique"
+            );
+        }
+        schemas
     })
 }
 
@@ -138,6 +181,58 @@ pub fn trusted_parquet_schema(
 pub fn trusted_schema_fingerprint(schema_id: &str) -> Result<String, ParquetSchemaError> {
     let schema = trusted_parquet_schema(schema_id)?;
     schema.fingerprint_sha256()
+}
+
+/// Return the canonical Arrow/Parquet metadata pair computed from the trusted registry.
+///
+/// Writers should attach both entries to the Arrow schema and, where supported, the flat Parquet
+/// footer. These entries are outside the logical fingerprint and therefore do not change a
+/// schema's SHA-256.
+pub fn trusted_parquet_schema_metadata(
+    schema_id: &str,
+) -> Result<BTreeMap<String, String>, ParquetSchemaError> {
+    let schema = trusted_parquet_schema(schema_id)?;
+    let canonical_json = schema.canonical_json()?;
+    let fingerprint = schema.fingerprint_sha256()?;
+    Ok(BTreeMap::from([
+        (
+            PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY.to_owned(),
+            canonical_json,
+        ),
+        (
+            PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY.to_owned(),
+            fingerprint,
+        ),
+    ]))
+}
+
+/// Validate optional schema metadata while accepting legacy files with no registry metadata.
+///
+/// Unrelated metadata is ignored. If either registry-owned key is present, both must be present
+/// and byte-for-byte equal to the values derived from the trusted descriptor.
+pub fn validate_optional_parquet_schema_metadata(
+    schema_id: &str,
+    metadata: Option<&HashMap<String, String>>,
+) -> Result<(), ParquetSchemaError> {
+    let schema = trusted_parquet_schema(schema_id)?;
+    let Some(metadata) = metadata else {
+        return Ok(());
+    };
+    let descriptor = metadata.get(PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY);
+    let fingerprint = metadata.get(PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY);
+    match (descriptor, fingerprint) {
+        (None, None) => Ok(()),
+        (Some(_), None) | (None, Some(_)) => Err(ParquetSchemaError::IncompleteSchemaMetadata),
+        (Some(descriptor), Some(fingerprint)) => {
+            let trusted_descriptor = schema.canonical_json()?;
+            let trusted_fingerprint = schema.fingerprint_sha256()?;
+            if descriptor == &trusted_descriptor && fingerprint == &trusted_fingerprint {
+                Ok(())
+            } else {
+                Err(ParquetSchemaError::SchemaMetadataMismatch)
+            }
+        }
+    }
 }
 
 fn valid_token(value: &str, max_bytes: usize) -> bool {
@@ -162,7 +257,8 @@ fn valid_field_name(value: &str) -> bool {
 fn is_supported_logical_type(value: &str) -> bool {
     matches!(
         value,
-        "bool"
+        "binary"
+            | "bool"
             | "date_iso8601"
             | "decimal_string"
             | "sha256_hex"
@@ -183,74 +279,16 @@ fn lower_hex(bytes: &[u8]) -> String {
     output
 }
 
-const MARKET_EVENT_FIELDS: &[(&str, &str, bool)] = &[
-    ("schema_version", "uint32", false),
-    ("provider", "utf8", false),
-    ("feed", "utf8", false),
-    ("entitlement", "utf8", false),
-    ("numeric_encoding", "utf8", false),
-    ("source_record_id", "utf8", true),
-    ("raw_frame_sha256", "sha256_hex", true),
-    ("generation", "uint64", false),
-    ("sequence", "uint64", false),
-    ("source_timestamp", "timestamp_ns_utc", true),
-    ("received_timestamp", "timestamp_ns_utc", false),
-    ("event_kind", "utf8", false),
-    ("symbol", "utf8", false),
-    ("price", "decimal_string", true),
-    ("size", "decimal_string", true),
-    ("bid", "decimal_string", true),
-    ("ask", "decimal_string", true),
-    ("bid_size", "decimal_string", true),
-    ("ask_size", "decimal_string", true),
-];
-
-const US_EQUITY_TRADE_BAR_1M_FIELDS: &[(&str, &str, bool)] = &[
-    ("schema_version", "uint32", false),
-    ("source_provider", "utf8", false),
-    ("source_feed", "utf8", false),
-    ("source_entitlement", "utf8", false),
-    ("source_numeric_encoding", "utf8", false),
-    ("symbol", "utf8", false),
-    ("bar_start_utc", "timestamp_ns_utc", false),
-    ("bar_end_exclusive_utc", "timestamp_ns_utc", false),
-    ("available_at_utc", "timestamp_ns_utc", false),
-    ("trade_date", "date_iso8601", false),
-    ("session_id", "utf8", false),
-    ("session_timezone", "utf8", false),
-    ("session_policy_id", "utf8", false),
-    ("session_policy_sha256", "sha256_hex", false),
-    ("session_start_utc", "timestamp_ns_utc", false),
-    ("session_end_exclusive_utc", "timestamp_ns_utc", false),
-    ("window_start_utc", "timestamp_ns_utc", false),
-    ("window_end_exclusive_utc", "timestamp_ns_utc", false),
-    ("open", "decimal_string", false),
-    ("high", "decimal_string", false),
-    ("low", "decimal_string", false),
-    ("close", "decimal_string", false),
-    ("volume", "decimal_string", false),
-    ("trade_count", "uint64", false),
-    ("quote_events_excluded", "uint64", false),
-    ("source_timestamp_missing_rows", "uint64", false),
-    ("sequence_gap_count", "uint64", false),
-    ("late_event_count", "uint64", false),
-    ("window_expected_minutes", "uint64", false),
-    ("window_empty_trade_minutes", "uint64", false),
-    ("source_start_utc", "timestamp_ns_utc", false),
-    ("source_end_exclusive_utc", "timestamp_ns_utc", false),
-    ("window_input_eof", "bool", false),
-    ("source_pages_exhausted", "bool", true),
-    ("completion_mode", "utf8", false),
-    ("nbbo_input_status", "utf8", false),
-];
-
 #[cfg(test)]
 mod tests {
     use super::{
+        PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY, PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY,
         ParquetSchemaDescriptorV1, ParquetSchemaError, ParquetSchemaFieldV1,
-        trusted_parquet_schema, trusted_schema_fingerprint,
+        trusted_parquet_schema, trusted_parquet_schema_metadata, trusted_schema_fingerprint,
+        validate_optional_parquet_schema_metadata,
     };
     use serde::Deserialize;
+    use std::collections::HashMap;
 
     #[derive(Deserialize)]
     struct GoldenFixture {
@@ -276,7 +314,7 @@ mod tests {
     #[test]
     fn trusted_schema_descriptors_match_shared_canonical_hash_fixture() {
         let fixture: GoldenFixture = serde_json::from_str(include_str!(
-            "../../../schemas/fixtures/parquet-schema-v1.json"
+            "../../../schemas/fixtures/parquet-schema-registry.json"
         ))
         .unwrap();
         assert_eq!(fixture.fingerprint_prefix, "LQEpoch-Parquet-Schema-v1\n");
@@ -310,7 +348,7 @@ mod tests {
 
     #[test]
     fn schema_fingerprint_changes_when_order_type_width_or_nullability_changes() {
-        let base = trusted_parquet_schema("lqepoch.market_event.v1").unwrap();
+        let base = trusted_parquet_schema(super::MARKET_EVENT_PARQUET_SCHEMA_ID).unwrap();
         let base_hash = base.fingerprint_sha256().unwrap();
 
         let mut reordered = base.clone();
@@ -347,7 +385,7 @@ mod tests {
             Err(ParquetSchemaError::UnknownSchemaId)
         );
 
-        let mut invalid = trusted_parquet_schema("lqepoch.market_event.v1").unwrap();
+        let mut invalid = trusted_parquet_schema(super::MARKET_EVENT_PARQUET_SCHEMA_ID).unwrap();
         invalid.fields[0].logical_type = "float64".to_owned();
         assert_eq!(
             invalid.canonical_json(),
@@ -396,7 +434,7 @@ mod tests {
     #[test]
     fn shared_invalid_schema_descriptor_fixtures_are_rejected() {
         let fixture: GoldenFixture = serde_json::from_str(include_str!(
-            "../../../schemas/fixtures/parquet-schema-v1.json"
+            "../../../schemas/fixtures/parquet-schema-registry.json"
         ))
         .unwrap();
         for invalid in fixture.invalid_descriptors {
@@ -419,5 +457,58 @@ mod tests {
         assert!(!super::validate_sha256_hex(&"A".repeat(64)));
         assert!(!super::validate_sha256_hex(&"a".repeat(63)));
         assert!(!super::validate_sha256_hex(&format!("{}g", "a".repeat(63))));
+    }
+
+    #[test]
+    fn optional_parquet_schema_metadata_is_legacy_compatible_and_strict_when_present() {
+        let schema_id = super::MARKET_RAW_FRAME_PARQUET_SCHEMA_ID;
+        assert_eq!(
+            validate_optional_parquet_schema_metadata(schema_id, None),
+            Ok(())
+        );
+
+        let unrelated = HashMap::from([("writer".to_owned(), "synthetic".to_owned())]);
+        assert_eq!(
+            validate_optional_parquet_schema_metadata(schema_id, Some(&unrelated)),
+            Ok(())
+        );
+
+        let trusted = trusted_parquet_schema_metadata(schema_id).unwrap();
+        let mut complete = HashMap::from_iter(trusted);
+        assert_eq!(
+            validate_optional_parquet_schema_metadata(schema_id, Some(&complete)),
+            Ok(())
+        );
+
+        complete.remove(PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY);
+        assert_eq!(
+            validate_optional_parquet_schema_metadata(schema_id, Some(&complete)),
+            Err(ParquetSchemaError::IncompleteSchemaMetadata)
+        );
+
+        complete.insert(
+            PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY.to_owned(),
+            "0".repeat(64),
+        );
+        assert_eq!(
+            validate_optional_parquet_schema_metadata(schema_id, Some(&complete)),
+            Err(ParquetSchemaError::SchemaMetadataMismatch)
+        );
+
+        let trusted = trusted_parquet_schema_metadata(schema_id).unwrap();
+        let wrong_descriptor = HashMap::from([
+            (
+                PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY.to_owned(),
+                "{}".to_owned(),
+            ),
+            (
+                PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY.to_owned(),
+                trusted[PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY].clone(),
+            ),
+        ]);
+        assert_eq!(
+            validate_optional_parquet_schema_metadata(schema_id, Some(&wrong_descriptor)),
+            Err(ParquetSchemaError::SchemaMetadataMismatch)
+        );
     }
 }

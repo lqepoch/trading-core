@@ -7,7 +7,7 @@ license.workspace = true
 publish = false
 
 [dependencies]
-exact-decimal = { path = "../exact-decimal" }
+exact-decimal = { path = "../exact-decimal", version = "0.1.0" }
 
 [dev-dependencies]
 proptest.workspace = true
