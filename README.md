@@ -40,7 +40,7 @@ The consumer test installs the exact Git SHA, compiles against exported TypeScri
 
 ## Safety and evidence limits
 
-OCC parsing is candidate creation only. It does not qualify an economic contract or prove provider entitlement. Pricing requires explicit quote, dividend, time, and model evidence. Positive-time American pricing remains unavailable with AmericanPricingAccuracyUnverified; the retained CRR candidate is test-only. European model metrics are estimates, not executable quotes or risk authority.
+OCC parsing is candidate creation only. It does not qualify an economic contract or prove provider entitlement. Pricing requires explicit quote, dividend, time, and model evidence. Positive-time production American pricing remains unavailable with `AmericanPricingAccuracyUnverified`. The retained CRR candidate is available only through the public offline diagnostic API, whose result is explicitly accuracy-unverified, diagnostic-only, and not tradable; it does not produce a production solver outcome or implied volatility. European model metrics are estimates, not executable quotes or risk authority.
 
 The imported legacy DTOs preserve the prior EqoBoard JSON API and its floating-point fields for compatibility. New market event envelopes use exact decimal strings and separate source time from local receive time, plus provider/feed, numeric encoding, generation, and sequence. Binary-float inputs retain a raw-frame digest and remain explicitly projected rather than source-exact. Legacy OCC DTOs do not qualify a contract.
 

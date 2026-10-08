@@ -1,0 +1,55 @@
+{
+  "format": "american-pricing-finite-difference-manifest-v1",
+  "data_classification": "synthetic-only; no market payloads, accounts, credentials, or broker activity",
+  "fixture": {
+    "path": "crates/pricing/tests/fixtures/american_quantlib_v143_fd.csv",
+    "quantlib_jsonl_sha256": "35b10c4e04b1ef7ce98bc9d71daed417f327e76833da8649c23e2447e4d0ce82",
+    "row_count": 204,
+    "sha256": "ae1c75dbcdefeeea31479486ffff8377a825d861975fb34cb995f96520f63c6f"
+  },
+  "generator": {
+    "converter": "crates/pricing/tests/oracle/convert_quantlib_fd_jsonl.py",
+    "converter_sha256": "4aa89e6c3fbca212b7d77d6b6fd377ee8a8c6cf3b2a8905cb6e763c1b75683c2",
+    "cpp_source": "crates/pricing/tests/oracle/american_quantlib_v143_fd.cpp",
+    "cpp_source_sha256": "696443a1fe5e5db6b37c5633b91a1982e2159a4d6fbf8d32e29dc4152f6489c5",
+    "input_fixture": "crates/pricing/tests/fixtures/american_quantlib_v143_grid.csv",
+    "input_fixture_sha256": "293ca8408f26f524c6c75d411df75fdfedf55ccaca657d1bc9c5e0c8efe2ee96"
+  },
+  "oracle": {
+    "engine": "QuantLib FdBlackScholesVanillaEngine; Douglas default scheme; two damping steps",
+    "grid_time_space": [1600, 3200],
+    "original_fixture_usage": "Only synthetic model inputs are read; the stored base price is checked after re-pricing, and the original Delta, Gamma, and Theta columns are ignored.",
+    "library_sha256": "fe23e3fec782826cd1b7dc0cefcc55892af34117b38c4587932c720e56b286b1",
+    "version": "1.43",
+    "upstream_commit": "6b57206e04598f092efee66e3b367efc84771995"
+  },
+  "probe_definition": {
+    "base_price": "Recomputed by QuantLib at the same input spot and maturity; checked against the original finest-grid row within 1e-10",
+    "case_count": 34,
+    "continuous_yield": "flat continuously compounded yield; fixed cash-dividend cases excluded",
+    "day_count": "Actual/365 Fixed",
+    "price_units": "per one underlying unit; no contract multiplier or currency conversion",
+    "spot_bump_fractions": [0.0001, 0.001, 0.01],
+    "spot_bump_unit": "underlying units; positive and negative price are at S+h and S-h",
+    "time_bump_fractions": [0.001, 0.01, 0.05],
+    "time_bump_unit": "nearest integer millisecond via llround(T_ms*f); positive and negative price are at T+h and T-h",
+    "finite_difference_convention": "central first and second spot differences; central negative time difference for Theta; Theta unit is ACT/365F years per underlying unit"
+  },
+  "preserved_original_artifacts": {
+    "original_converter_sha256": "b1c69e286ebdc264159682835a765e27cff550cbf6b7532ed23bd2cefeeb86b0",
+    "original_cpp_source_sha256": "9b4e7bbcc67ea933411adae5ea20ef5070a9cba6ed11b812ea2a94435a6457e9",
+    "original_fixture_manifest_sha256": "a88134241b6882f655480bddc6c270cebafc8db51efc61dcd73b4da946fe024a",
+    "original_fixture_sha256": "293ca8408f26f524c6c75d411df75fdfedf55ccaca657d1bc9c5e0c8efe2ee96"
+  },
+  "runtime": {
+    "harness_run_elapsed": "2:40.62",
+    "harness_run_peak_rss_kib": 16256,
+    "parallel_jobs": 1,
+    "no_sla_claim": true
+  },
+  "limits": [
+    "The probe compares finite-difference conventions over a finite synthetic matrix and establishes no general price, Greek, IV, or runtime error budget.",
+    "It does not validate a production American solver, exercise behavior on real contracts, discrete dividends, settlement, or market prices.",
+    "The production positive-time American result remains AmericanPricingAccuracyUnverified."
+  ]
+}

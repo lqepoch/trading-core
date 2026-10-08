@@ -37,6 +37,20 @@ python3 "$PRICING_REPO/crates/pricing/tests/oracle/convert_quantlib_jsonl.py" \
   /tmp/quantlib-v143-grid.jsonl > /tmp/american_quantlib_v143_grid.csv
 cmp "$PRICING_REPO/crates/pricing/tests/fixtures/american_quantlib_v143_grid.csv" \
   /tmp/american_quantlib_v143_grid.csv
+
+g++ -std=c++17 -O2 -Wall -Wextra \
+  -I/tmp/quantlib-v143-build -isystem /tmp/quantlib-v143 \
+  "$PRICING_REPO/crates/pricing/tests/oracle/american_quantlib_v143_fd.cpp" \
+  -L/tmp/quantlib-v143-build/ql \
+  -Wl,-rpath,/tmp/quantlib-v143-build/ql -lQuantLib \
+  -o /tmp/pricing-quantlib-v143-fd
+/tmp/pricing-quantlib-v143-fd \
+  "$PRICING_REPO/crates/pricing/tests/fixtures/american_quantlib_v143_grid.csv" \
+  > /tmp/quantlib-v143-fd.jsonl
+python3 "$PRICING_REPO/crates/pricing/tests/oracle/convert_quantlib_fd_jsonl.py" \
+  /tmp/quantlib-v143-fd.jsonl > /tmp/american_quantlib_v143_fd.csv
+cmp "$PRICING_REPO/crates/pricing/tests/fixtures/american_quantlib_v143_fd.csv" \
+  /tmp/american_quantlib_v143_fd.csv
 ```
 
 The fixture was regenerated from the committed C++ harness using this command sequence; `cmp` succeeded byte-for-byte. The runtime rows report `QuantLib 1.43`. Harness and converter SHA-256 values are included in the manifest.
@@ -59,13 +73,39 @@ The raw CRR `N/(N+1)` price-pair maximum absolute errors across the 34 eligible 
 | 512 / 513 | `$0.007853` |
 | 1024 / 1025 | `$0.004356` |
 
-This sequence is a finite-sample convergence observation. It does not qualify a production step count or tolerance. The current public solver does not publish any of these candidate values.
+This sequence is a finite-sample convergence observation. It does not qualify a production step count or tolerance. The production `solve_american_crr` entrypoint does not publish any of these candidate values; the separate public offline diagnostic API is explicitly unverified and non-tradable.
+
+The fixed `$0.05` adjacent-step parity screen admitted more cases as the test-only pair increased, but its finite sample still has material low-premium relative error:
+
+| CRR pair | Cases admitted / 34 | Gated maximum absolute price difference | Gated maximum relative difference | Node visits per paired price |
+|---:|---:|---:|---:|---:|
+| 256 / 257 | 31 | `$0.011081806` | `18.6801%` | `66,564` |
+| 512 / 513 | 34 | `$0.007852691` | `10.0338%` | `264,196` |
+| 1024 / 1025 | 34 | `$0.004355785` | `4.9893%` | `1,052,676` |
+
+The worst absolute 1024/1025 difference (`matrix_put_95_365d`) is still about 2.5 times that case's `800x1600` to `1600x3200` QuantLib price movement (`$0.001744911`). The relative maximum (`matrix_call_95_1d`) is a low-premium case. All values remain sample diagnostics; the parity screen is not an error estimator, and admitting all 34 cases does not prove an acceptable production range.
+
+The node-visit count includes terminal payoff visits and backward-induction node updates for both trees. It grows roughly with the square of step count: one 1024/1025 price pair visits 1,052,676 nodes. A 48-iteration bisection at that pair would visit about 50.5 million nodes before bracketing work; a bump-based price plus Delta/Gamma/Theta set would also repeat tree evaluation. A local single-threaded run measured the 34-case price-pair study at `119.5 ms`, `476.1 ms`, and `1.865 s` for 256/257, 512/513, and 1024/1025 respectively. These are machine-specific observations, not latency promises. They motivate measuring a native lattice Greek path and an explicit IV work budget before considering any production exposure.
+
+## Bounded Richardson candidate
+
+A higher-resolution Richardson candidate evaluates `P_N = (CRR_N + CRR_(N+1))/2` at `N=512` and `N=1024`, then returns `2*P_1024 - P_512`. The production-compiled API `evaluate_american_crr_offline_diagnostic` exposes this candidate only through the distinct `AmericanCrrOfflineDiagnostic` result, marked accuracy-unverified and diagnostic-only/not-tradable. It does not convert to `SolverOutcome` or `OptionMetrics`; the positive-time production American solver remains unavailable. The candidate rejects when either adjacent-step pair differs by more than `$0.05`, a tree violates risk-neutral probability bounds, the extrapolated result leaves American intrinsic/theoretical upper bounds, the model input is outside its domain, the absolute deadline expires, or the node budget is exhausted.
+
+The numerical input envelope is the existing analytical envelope: spot and strike in `(0, $1,000,000]`; ACT/365F time from exactly `60,000 ms` through `10 years`; continuously compounded risk-free rate and continuous dividend yield in `[-1, 1]`; and volatility in `[0.0001, 5]`. The model assumes flat rates, flat continuous yield, constant volatility, and American exercise. There is no discrete cash-dividend schedule model. Production callers would still need fresh matching `NoDividends` or `ContinuousYield` coverage evidence; synthetic fixture fields alone do not provide it. Risk-neutral probabilities outside `[0,1]` reject the candidate. The `59,999 ms` inputs are explicitly outside the candidate domain, even though the QuantLib matrix includes them as boundary controls.
+
+One diagnostic evaluation has a hard ceiling of `1,316,872` tree-node visits: `264,196` for the 512/513 pair plus `1,052,676` for the 1024/1025 pair. A caller must pass an absolute monotonic `Instant` deadline; the API clamps it to at most one second from entry and checks it during bounded node batches. Price and native lattice Delta/Gamma/Theta are extracted from these same four trees, so the single node count includes all price and Greek work and no additional Greek grid is evaluated. Exhaustion returns no candidate value. The matrix runner used a deadline five seconds in the future, which the one-second hard clamp reduced; the 32 admitted cases took `2.661 s` total on this host. That elapsed time is a local measurement, not a service latency promise.
+
+The fixed 34-case, no-cash-dividend sample admitted 32 cases. The two `59,999 ms` rows were rejected by the time bound. Against the finest-grid QuantLib prices, the candidate's maximum absolute error was `$0.003312676` (`matrix_put_120_180d`) and maximum relative error was `0.136962%` (`matrix_call_80_365d`). The relative error is retained alongside absolute error; the earlier 1024/1025 pair still has a `4.9893%` low-premium error (`matrix_call_95_1d`). The empirical sample is narrower than the candidate's mathematical input envelope and does not establish accuracy across the broader envelope. The new sample shows a useful finite candidate, but neither the adjacent-step parity test nor extrapolation supplies a rigorous error bound. These values do not define a production accuracy gate.
+
+The candidate's native lattice Delta and Gamma are Richardson-extrapolated from the first- and second-layer lattice derivatives. Across 32 domain-admitted rows, their maximum absolute differences from QuantLib's native Delta/Gamma were `0.000031606` (`american_put_30d_negative_r`) and `0.000014705` (`matrix_call_100_60s`). The definitions remain engine-specific: these are discrete lattice/interpolation derivative comparisons, not centrally bumped market Greeks. The lattice's two-step Theta is annualized per ACT/365F model-year and uses local calendar-decay values; it is not compared with QuantLib `thetaAt` as an accuracy claim.
+
+For a convention-matched Theta check, both engines instead use `-(P(T+h)-P(T-h))/(2h)`, where `h` is the same rounded integer-millisecond `1%` of remaining time from the independent probe fixture. This is per ACT/365F model-year; dividing by `365` gives per calendar day. Among the 26 cases whose symmetric stencil remains at or above the `60,000 ms` minimum, the maximum absolute difference was `$5.524763` per ACT/365F year, or `$0.0151363` per calendar day (`matrix_put_120_1d`). Eight shorter cases are unavailable for this central stencil because `T-h` would cross the candidate's minimum-time boundary. This is a separate diagnostic and does not imply an error in QuantLib's snapshot Theta convention.
 
 The QuantLib change from grid `800x1600` to `1600x3200` was at most `$0.001744911` for price (`matrix_put_95_365d`), `8.8234e-6` for Delta (`matrix_put_95_365d`), `2.5374e-5` for Gamma (`matrix_call_100_60s`), and `1.7348` for annualized Theta (`matrix_call_100_60s`). This is observed grid convergence for this matrix, not a general error bound.
 
 ## IV experiment
 
-The experiment takes each of ten fixed synthetic volatility inputs, uses the finest-grid QuantLib price at that volatility as the target, then recovers volatility with a test-only CRR price bisection. The bisection runs 48 iterations on the mean of the `N/(N+1)` CRR prices; it expands the lower trial volatility from `0.0001` until the tree is numerically valid and lowers the upper trial volatility from `5.0` until valid. It does not represent an implemented or exposed American IV solver.
+The experiment takes each of ten fixed synthetic volatility inputs, uses the finest-grid QuantLib price at that volatility as the target, then recovers volatility with a test-only CRR price bisection. The bisection runs exactly 48 midpoint iterations on the 512/513 mean price pair. Its initial bracket is `[0.0001, 5.0]`; to find numerically valid trees, the low endpoint can at most double 16 times and the high endpoint can at most halve 16 times. Thus the bounded probe has at most 80 paired price evaluations, or `21,135,680` node visits at 512/513. This helper has no wall-clock deadline; a production candidate would need the same absolute-deadline enforcement as the price path. It does not represent an implemented or exposed American IV solver.
 
 All ten cases returned roots at each tested pair. Maximum absolute and relative recovered-volatility errors were:
 
@@ -78,9 +118,11 @@ All ten cases returned roots at each tested pair. Maximum absolute and relative 
 
 The maximum absolute error does not decrease monotonically at every step pair: for `matrix_call_105_30d` with generating volatility `2.0`, it is `0.00042792` at 128/129, `0.00099123` at 256/257, and `0.00018461` at 512/513. This finite study does not establish an IV error budget.
 
+No numerical minimum-Vega threshold is frozen. To control inversion conditioning, a future IV gate must require local Vega `V >= E_price / E_IV`, where `E_price` is an independently established price uncertainty bound and `E_IV` is an accepted absolute IV error budget. The observed Richardson residuals against this finite QuantLib matrix are not a certified `E_price`, and no `E_IV` gate has been approved, so a defensible numeric `V` floor cannot be derived yet. IV remains unavailable until both budgets and a monotonicity/bracketing contract are independently qualified.
+
 ## Greek experiment
 
-QuantLib `delta()`, `gamma()`, and `theta()` at grid `1600x3200` are compared with central finite differences of the test-only CRR pair across 31 emitted cases. Spot bump fractions for Delta and Gamma are `0.01%`, `0.1%`, and `1%` of spot. Theta uses `-(P(T+h)-P(T-h))/(2h)` with `h` equal to `0.1%`, `1%`, and `5%` of ACT/365F remaining time, giving the same per-year-fraction unit as the reference.
+QuantLib `delta()`, `gamma()`, and `theta()` at grid `1600x3200` are compared with central finite differences of the test-only CRR pair across 31 emitted cases. Spot bump fractions for Delta and Gamma are `0.01%`, `0.1%`, and `1%` of spot. Theta uses `-(P(T+h)-P(T-h))/(2h)` with `h` equal to `0.1%`, `1%`, and `5%` of ACT/365F remaining time, giving the same per-year-fraction unit as the reference. These are cross-convention comparisons: QuantLib's native Delta/Gamma come from derivatives of its finite-difference solution interpolation, and its native Theta uses the solver's snapshot convention rather than the test's local central difference.
 
 Maximum absolute errors across this sample were:
 
@@ -90,7 +132,25 @@ Maximum absolute errors across this sample were:
 | Gamma | `0.01%`, `0.1%`, `1%` of spot | `10.5971` | `0dte_atm_put_59999ms_no_div` |
 | Theta | `0.1%`, `1%`, `5%` of remaining time | `2958.60` | `matrix_call_100_60s` |
 
-Delta/Gamma/Theta bump-size results are also emitted by the regression test. Relative Greek error is not used as a gate: near-zero reference Greeks make that ratio unstable, and the finite differences are only experimental. The large near-expiry Gamma/Theta discrepancies are evidence to keep American Greeks unavailable.
+Delta/Gamma/Theta bump-size results are also emitted by the regression test. Relative Greek error is not used as a gate: near-zero reference Greeks make that ratio unstable, and the finite differences are only experimental. The large gaps in this table are not treated as production numerical errors because the native QuantLib and finite-difference conventions differ.
+
+### Convention-matched price probes
+
+To separate model differences from Greek-definition differences, `american_quantlib_v143_fd.cpp` independently reprices each of the 34 no-cash-dividend cases at the same `1600x3200` grid. It reads model parameters from the original finest-grid rows, recomputes each base price, and checks that price against the original row within `$1e-10`; it ignores the original Delta, Gamma, and Theta columns. The original C++ harness, converter, 36-case/144-row fixture, and its manifest remain byte-for-byte unchanged. See [`american_quantlib_v143_fd_manifest.json`](../crates/pricing/tests/fixtures/american_quantlib_v143_fd_manifest.json) for the new harness, converter, output, upstream library, and preserved-artifact SHA-256 values.
+
+For each case the probe records prices at `S±h` for `h/S = 0.01%, 0.1%, 1%`, and at `T±h` for `h/T = 0.1%, 1%, 5%`. Time bumps are rounded to the nearest integer millisecond before both QuantLib repricing and the CRR comparison. The resulting Delta and Gamma use central spot differences; Theta uses `-(P(T+h)-P(T-h))/(2h)`. This directly matches the test-only CRR finite-difference definitions. The new fixture contains 204 rows. All 31 cases with an accepted 256/257 CRR pair are compared; the three parity-rejected price cases remain unavailable.
+
+The maximum absolute differences between those matched finite differences were:
+
+| Metric | Bump sweep | Maximum absolute difference | Case |
+|---|---|---:|---|
+| Delta | `0.01%`, `0.1%`, `1%` of spot | `0.00829955` | `matrix_call_120_30d` |
+| Gamma | `0.01%`, `0.1%`, `1%` of spot | `2.43431` | `american_call_90d_atm_no_div` |
+| Theta | `0.1%`, `1%`, `5%` of remaining time | `7.79605` | `matrix_put_120_1d` |
+
+The smaller bump does not always give the closer Gamma match, consistent with finite differences amplifying each engine's spatial-grid/interpolation noise. The Theta result also confirms that the prior maximum gap of about `2958.6` came from comparing a local central difference with QuantLib's different native snapshot convention; it is not evidence of a production American solver error. The matched figures remain finite-sample diagnostics, do not establish Greek accuracy or a production budget, and do not change the public unavailable result.
+
+QuantLib v1.43's finite-difference engine delegates native Theta to `Fdm1DimSolver::thetaAt`; that method derives Theta from a value snapshot near the current time rather than from symmetric `T±h` reprices. The pinned sources are [`Fdm1DimSolver.cpp`](https://github.com/lballabio/QuantLib/blob/6b57206e04598f092efee66e3b367efc84771995/ql/methods/finitedifferences/solvers/fdm1dimsolver.cpp) and [`FdBlackScholesVanillaEngine.cpp`](https://github.com/lballabio/QuantLib/blob/6b57206e04598f092efee66e3b367efc84771995/ql/pricingengines/vanilla/fdblackscholesvanillaengine.cpp).
 
 ## Discrete-dividend boundary
 
