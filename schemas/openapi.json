@@ -31,6 +31,24 @@
         ],
         "description": "Exact non-negative decimal token. Quote values may be zero; trade values must be strictly positive."
       },
+      "PositiveDecimalString": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ExactDecimalString"
+          },
+          {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]*(?:\\.[0-9]+)?(?:[eE][+-]?(?:0|[1-9][0-9]*))?$"
+              },
+              {
+                "pattern": "^0\\.[0-9]*[1-9][0-9]*(?:[eE][+-]?(?:0|[1-9][0-9]*))?$"
+              }
+            ]
+          }
+        ],
+        "description": "Exact bounded decimal token strictly greater than zero; Rust ExactDecimal applies exponent, scale, and coefficient bounds."
+      },
       "Sha256": {
         "type": "string",
         "pattern": "^[0-9a-f]{64}$",
@@ -1507,6 +1525,67 @@
           }
         }
       },
+      "FiniteBatchSealReceiptV2": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_kind",
+          "input_identity",
+          "input_sha256",
+          "input_size_bytes",
+          "input_record_count",
+          "consumed_record_count",
+          "reviewed_policy_sha256",
+          "data_cutoff_exclusive",
+          "sealed_at",
+          "completed_at"
+        ],
+        "properties": {
+          "source_kind": {
+            "$ref": "#/components/schemas/FiniteBatchSourceKindV2"
+          },
+          "input_identity": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+          },
+          "input_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "input_size_bytes": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "input_record_count": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "consumed_record_count": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "reviewed_policy_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "data_cutoff_exclusive": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "sealed_at": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "completed_at": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "page_count": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "pages_exhausted": {
+            "const": true
+          },
+          "page_set_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          }
+        },
+        "description": "Canonical non-circular ProtoJSON projection whose exact compact UTF-8 bytes, without a trailing LF, are hashed by FiniteBatchCompletionV2.seal_receipt_sha256. Hash binding is not issuer or provider-completeness evidence."
+      },
       "FiniteBatchCompletionV2": {
         "type": "object",
         "additionalProperties": false,
@@ -1549,7 +1628,8 @@
             "$ref": "#/components/schemas/Sha256"
           },
           "seal_receipt_sha256": {
-            "$ref": "#/components/schemas/Sha256"
+            "$ref": "#/components/schemas/Sha256",
+            "description": "SHA-256 of the exact compact ProtoJSON bytes from FiniteBatchSealReceiptV2, excluding this field and with no trailing LF."
           },
           "data_cutoff_exclusive": {
             "$ref": "#/components/schemas/ProtoTimestampV2"
@@ -1918,6 +1998,204 @@
           "raw_json_bytes"
         ],
         "description": "Protobuf enum names are NUMERIC_ENCODING_*; UNSPECIFIED is omitted and rejected. raw_messagepack_bytes and raw_json_bytes are allowed only on DatasetManifestV1 values whose object schema fingerprint identifies the matching registered raw-frame schema; both are rejected for normalized event and prediction messages."
+      },
+      "UsEquityTradeBarV2": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "source_provider",
+          "source_feed",
+          "source_entitlement",
+          "source_numeric_encoding",
+          "symbol",
+          "bar_start_utc",
+          "bar_end_exclusive_utc",
+          "available_at_utc",
+          "trade_date",
+          "session_id",
+          "session_timezone",
+          "session_policy_id",
+          "session_policy_sha256",
+          "session_start_utc",
+          "session_end_exclusive_utc",
+          "window_start_utc",
+          "window_end_exclusive_utc",
+          "open",
+          "high",
+          "low",
+          "close",
+          "volume",
+          "trade_count",
+          "quote_events_excluded",
+          "source_timestamp_missing_rows",
+          "sequence_gap_count",
+          "late_event_count",
+          "window_expected_minutes",
+          "window_empty_trade_minutes",
+          "source_start_utc",
+          "source_end_exclusive_utc",
+          "window_input_eof",
+          "completion_mode",
+          "nbbo_input_status",
+          "completion_evidence_sha256"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295,
+            "const": 2
+          },
+          "source_provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "source_feed": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "source_entitlement": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "enum": [
+              "unknown",
+              "authorized",
+              "unauthorized"
+            ]
+          },
+          "source_numeric_encoding": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "enum": [
+              "decimal_token",
+              "integer_token",
+              "binary_float64_shortest_decimal",
+              "binary_float32_shortest_decimal"
+            ]
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "bar_start_utc": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "bar_end_exclusive_utc": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "available_at_utc": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "trade_date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "session_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "session_timezone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "session_policy_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "session_policy_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "session_start_utc": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "session_end_exclusive_utc": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "window_start_utc": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "window_end_exclusive_utc": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "open": {
+            "$ref": "#/components/schemas/PositiveDecimalString"
+          },
+          "high": {
+            "$ref": "#/components/schemas/PositiveDecimalString"
+          },
+          "low": {
+            "$ref": "#/components/schemas/PositiveDecimalString"
+          },
+          "close": {
+            "$ref": "#/components/schemas/PositiveDecimalString"
+          },
+          "volume": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          },
+          "trade_count": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "quote_events_excluded": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "source_timestamp_missing_rows": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "sequence_gap_count": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "late_event_count": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "window_expected_minutes": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "window_empty_trade_minutes": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "source_start_utc": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "source_end_exclusive_utc": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "window_input_eof": {
+            "type": "boolean"
+          },
+          "source_pages_exhausted": {
+            "type": "boolean",
+            "const": true
+          },
+          "completion_mode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "enum": [
+              "finite_batch",
+              "provider_watermark",
+              "diagnostic_stream"
+            ]
+          },
+          "nbbo_input_status": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "completion_evidence_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          }
+        },
+        "description": "One-minute US equity trade-only bar. uint64 values are canonical decimal strings and timestamps preserve nanoseconds. completion_evidence_sha256 must equal the canonical ProtoJSON SHA-256 of the unique DatasetManifestV2 completion_evidence oneof. The digest is an internal reference and does not authenticate a receipt issuer or qualify provider completeness."
       }
     }
   }

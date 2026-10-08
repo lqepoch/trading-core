@@ -20,6 +20,8 @@ pub const PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY: &str = "lqepoch.schema_finger
 pub const MARKET_EVENT_PARQUET_SCHEMA_ID: &str = "lqepoch.market_event.v1";
 /// Trusted schema ID for one-minute US equity trade bars.
 pub const US_EQUITY_TRADE_BAR_1M_SCHEMA_ID: &str = "lqepoch.us_equity_trade_bar_1m.v1";
+/// Trusted schema ID for one-minute US equity trade bars bound to manifest completion evidence.
+pub const US_EQUITY_TRADE_BAR_1M_V2_SCHEMA_ID: &str = "lqepoch.us_equity_trade_bar_1m.v2";
 /// Trusted schema ID for byte-exact provider MessagePack frames.
 pub const MARKET_RAW_FRAME_PARQUET_SCHEMA_ID: &str = "lqepoch.market_raw_frame.v1";
 /// Trusted schema ID for byte-exact provider JSON frames.

@@ -1,0 +1,13 @@
+source_kind: FINITE_BATCH_SOURCE_KIND_HISTORICAL_PAGED
+input_identity: "alpaca-sip-query-2026-10-08-v1"
+input_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+input_size_bytes: 8192
+input_record_count: 1
+consumed_record_count: 1
+reviewed_policy_sha256: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+data_cutoff_exclusive { seconds: 1791469860 }
+sealed_at { seconds: 1791469861 nanos: 123456789 }
+completed_at { seconds: 1791469862 nanos: 123456789 }
+page_count: 1
+pages_exhausted: true
+page_set_sha256: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"

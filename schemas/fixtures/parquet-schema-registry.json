@@ -319,6 +319,201 @@
     {
       "descriptor": {
         "schema_version": 1,
+        "schema_id": "lqepoch.us_equity_trade_bar_1m.v2",
+        "fields": [
+          {
+            "name": "schema_version",
+            "type": "uint32",
+            "nullable": false
+          },
+          {
+            "name": "source_provider",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "source_feed",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "source_entitlement",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "source_numeric_encoding",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "symbol",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "bar_start_utc",
+            "type": "timestamp_ns_utc",
+            "nullable": false
+          },
+          {
+            "name": "bar_end_exclusive_utc",
+            "type": "timestamp_ns_utc",
+            "nullable": false
+          },
+          {
+            "name": "available_at_utc",
+            "type": "timestamp_ns_utc",
+            "nullable": false
+          },
+          {
+            "name": "trade_date",
+            "type": "date_iso8601",
+            "nullable": false
+          },
+          {
+            "name": "session_id",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "session_timezone",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "session_policy_id",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "session_policy_sha256",
+            "type": "sha256_hex",
+            "nullable": false
+          },
+          {
+            "name": "session_start_utc",
+            "type": "timestamp_ns_utc",
+            "nullable": false
+          },
+          {
+            "name": "session_end_exclusive_utc",
+            "type": "timestamp_ns_utc",
+            "nullable": false
+          },
+          {
+            "name": "window_start_utc",
+            "type": "timestamp_ns_utc",
+            "nullable": false
+          },
+          {
+            "name": "window_end_exclusive_utc",
+            "type": "timestamp_ns_utc",
+            "nullable": false
+          },
+          {
+            "name": "open",
+            "type": "decimal_string",
+            "nullable": false
+          },
+          {
+            "name": "high",
+            "type": "decimal_string",
+            "nullable": false
+          },
+          {
+            "name": "low",
+            "type": "decimal_string",
+            "nullable": false
+          },
+          {
+            "name": "close",
+            "type": "decimal_string",
+            "nullable": false
+          },
+          {
+            "name": "volume",
+            "type": "decimal_string",
+            "nullable": false
+          },
+          {
+            "name": "trade_count",
+            "type": "uint64",
+            "nullable": false
+          },
+          {
+            "name": "quote_events_excluded",
+            "type": "uint64",
+            "nullable": false
+          },
+          {
+            "name": "source_timestamp_missing_rows",
+            "type": "uint64",
+            "nullable": false
+          },
+          {
+            "name": "sequence_gap_count",
+            "type": "uint64",
+            "nullable": false
+          },
+          {
+            "name": "late_event_count",
+            "type": "uint64",
+            "nullable": false
+          },
+          {
+            "name": "window_expected_minutes",
+            "type": "uint64",
+            "nullable": false
+          },
+          {
+            "name": "window_empty_trade_minutes",
+            "type": "uint64",
+            "nullable": false
+          },
+          {
+            "name": "source_start_utc",
+            "type": "timestamp_ns_utc",
+            "nullable": false
+          },
+          {
+            "name": "source_end_exclusive_utc",
+            "type": "timestamp_ns_utc",
+            "nullable": false
+          },
+          {
+            "name": "window_input_eof",
+            "type": "bool",
+            "nullable": false
+          },
+          {
+            "name": "source_pages_exhausted",
+            "type": "bool",
+            "nullable": true
+          },
+          {
+            "name": "completion_mode",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "nbbo_input_status",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "completion_evidence_sha256",
+            "type": "sha256_hex",
+            "nullable": false
+          }
+        ]
+      },
+      "canonical_json": "{\"fields\":[{\"name\":\"schema_version\",\"nullable\":false,\"type\":\"uint32\"},{\"name\":\"source_provider\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"source_feed\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"source_entitlement\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"source_numeric_encoding\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"symbol\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"bar_start_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"bar_end_exclusive_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"available_at_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"trade_date\",\"nullable\":false,\"type\":\"date_iso8601\"},{\"name\":\"session_id\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"session_timezone\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"session_policy_id\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"session_policy_sha256\",\"nullable\":false,\"type\":\"sha256_hex\"},{\"name\":\"session_start_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"session_end_exclusive_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"window_start_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"window_end_exclusive_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"open\",\"nullable\":false,\"type\":\"decimal_string\"},{\"name\":\"high\",\"nullable\":false,\"type\":\"decimal_string\"},{\"name\":\"low\",\"nullable\":false,\"type\":\"decimal_string\"},{\"name\":\"close\",\"nullable\":false,\"type\":\"decimal_string\"},{\"name\":\"volume\",\"nullable\":false,\"type\":\"decimal_string\"},{\"name\":\"trade_count\",\"nullable\":false,\"type\":\"uint64\"},{\"name\":\"quote_events_excluded\",\"nullable\":false,\"type\":\"uint64\"},{\"name\":\"source_timestamp_missing_rows\",\"nullable\":false,\"type\":\"uint64\"},{\"name\":\"sequence_gap_count\",\"nullable\":false,\"type\":\"uint64\"},{\"name\":\"late_event_count\",\"nullable\":false,\"type\":\"uint64\"},{\"name\":\"window_expected_minutes\",\"nullable\":false,\"type\":\"uint64\"},{\"name\":\"window_empty_trade_minutes\",\"nullable\":false,\"type\":\"uint64\"},{\"name\":\"source_start_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"source_end_exclusive_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"window_input_eof\",\"nullable\":false,\"type\":\"bool\"},{\"name\":\"source_pages_exhausted\",\"nullable\":true,\"type\":\"bool\"},{\"name\":\"completion_mode\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"nbbo_input_status\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"completion_evidence_sha256\",\"nullable\":false,\"type\":\"sha256_hex\"}],\"schema_id\":\"lqepoch.us_equity_trade_bar_1m.v2\",\"schema_version\":1}",
+      "sha256": "5e9df2f97ec1786bcb1037cba82d8721ca87d12b96789808ba2a95b0f1605d54"
+    },
+    {
+      "descriptor": {
+        "schema_version": 1,
         "schema_id": "lqepoch.market_raw_frame.v1",
         "fields": [
           {

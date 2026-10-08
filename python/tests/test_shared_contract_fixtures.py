@@ -6,8 +6,10 @@ import copy
 import unittest
 from pathlib import Path
 
+from google.protobuf import json_format
 from google.protobuf.json_format import MessageToDict
 
+from lqepoch.dataset.v2 import manifest_pb2 as manifest_v2_pb2
 from lqepoch_contracts.identities import (
     valid_dataset_id,
     valid_market_symbol,
@@ -17,6 +19,10 @@ from lqepoch_contracts.identities import (
     valid_source_identity,
 )
 from lqepoch_contracts import (
+    dataset_completion_evidence_v2_protojson_bytes,
+    dataset_completion_evidence_v2_sha256,
+    finite_batch_seal_receipt_protojson_bytes,
+    finite_batch_seal_receipt_sha256,
     load_trusted_parquet_schema_registry,
     trusted_parquet_schema_descriptor,
     trusted_parquet_schema_sha256,
@@ -26,6 +32,9 @@ from lqepoch_contracts.protojson import (
     parse_dataset_manifest_protojson,
     parse_dataset_manifest_v2_json,
     parse_dataset_manifest_v2_protojson,
+    parse_us_equity_trade_bar_v2_protojson,
+    validate_bar_v2_completion_evidence_reference,
+    validate_us_equity_trade_bar_v2_against_manifest,
     parse_market_event_protojson,
     parse_prediction_envelope_protojson,
 )
@@ -38,7 +47,230 @@ def read_json_fixture(relative_path: str) -> object:
     return json.loads((REPO_ROOT / relative_path).read_text(encoding="utf-8"))
 
 
+def refresh_finite_batch_receipt_hash(document: dict[str, object]) -> None:
+    finite_batch = document["completionEvidence"]["finiteBatch"]
+    typed_finite_batch = json_format.ParseDict(
+        finite_batch,
+        manifest_v2_pb2.FiniteBatchCompletionV2(),
+    )
+    finite_batch["sealReceiptSha256"] = finite_batch_seal_receipt_sha256(typed_finite_batch)
+
+
 class SharedContractFixturesTest(unittest.TestCase):
+    def test_finite_batch_receipt_projection_matches_cross_language_bytes_and_sha256(self) -> None:
+        manifest = parse_dataset_manifest_v2_protojson(
+            read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
+        )
+        finite_batch = manifest.completion_evidence.finite_batch
+        payload = finite_batch_seal_receipt_protojson_bytes(finite_batch)
+        expected = (REPO_ROOT / "schemas/fixtures/finite-batch-seal-receipt-v2.protojson").read_bytes()
+        expected_sha256 = (
+            REPO_ROOT / "schemas/fixtures/finite-batch-seal-receipt-v2.sha256"
+        ).read_text(encoding="ascii").strip()
+
+        self.assertEqual(payload, expected)
+        self.assertFalse(payload.endswith(b"\n"))
+        self.assertNotIn(b"sealReceiptSha256", payload)
+        self.assertEqual(hashlib.sha256(payload).hexdigest(), expected_sha256)
+        self.assertEqual(finite_batch_seal_receipt_sha256(finite_batch), expected_sha256)
+        self.assertEqual(finite_batch.seal_receipt_sha256, expected_sha256)
+
+        nonpaged = type(finite_batch)()
+        nonpaged.CopyFrom(finite_batch)
+        nonpaged.source_kind = manifest_v2_pb2.FINITE_BATCH_SOURCE_KIND_HISTORICAL_NON_PAGED
+        nonpaged.input_size_bytes = (1 << 64) - 1
+        nonpaged.input_record_count = (1 << 64) - 1
+        nonpaged.consumed_record_count = (1 << 64) - 1
+        for field in ("page_count", "pages_exhausted", "page_set_sha256"):
+            nonpaged.ClearField(field)
+        nonpaged_payload = finite_batch_seal_receipt_protojson_bytes(nonpaged)
+        nonpaged_expected = (
+            REPO_ROOT / "schemas/fixtures/finite-batch-seal-receipt-v2-nonpaged-u64.protojson"
+        ).read_bytes()
+        nonpaged_expected_sha256 = (
+            REPO_ROOT / "schemas/fixtures/finite-batch-seal-receipt-v2-nonpaged-u64.sha256"
+        ).read_text(encoding="ascii").strip()
+        self.assertEqual(nonpaged_payload, nonpaged_expected)
+        self.assertEqual(hashlib.sha256(nonpaged_payload).hexdigest(), nonpaged_expected_sha256)
+        self.assertNotIn(b"pageCount", nonpaged_payload)
+        self.assertNotIn(b"pagesExhausted", nonpaged_payload)
+        self.assertNotIn(b"pageSetSha256", nonpaged_payload)
+
+        invalid = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
+        invalid["completionEvidence"]["finiteBatch"]["sealReceiptSha256"] = "e" * 64
+        with self.assertRaisesRegex(ValueError, "seal receipt hash"):
+            parse_dataset_manifest_v2_protojson(invalid)
+
+        malformed_receipt = type(finite_batch)()
+        malformed_receipt.CopyFrom(finite_batch)
+        malformed_receipt.page_count = 0
+        with self.assertRaisesRegex(ValueError, "paged finite batch receipt"):
+            finite_batch_seal_receipt_protojson_bytes(malformed_receipt)
+
+    def test_completion_oneof_hashes_and_bar_v2_reference_match_shared_goldens(self) -> None:
+        expected_hashes = read_json_fixture(
+            "schemas/fixtures/dataset-completion-evidence-v2-sha256.json"
+        )
+        cases = (
+            ("schemas/fixtures/dataset-manifest-v2.json", "finite_batch"),
+            ("schemas/fixtures/dataset-manifest-v2-provider-watermark.json", "provider_watermark"),
+            ("schemas/fixtures/dataset-manifest-v2-diagnostic-stream.json", "diagnostic_stream"),
+            (
+                "schemas/fixtures/dataset-manifest-v2-provider-watermark-zero-lateness.json",
+                "provider_watermark_zero_lateness",
+            ),
+        )
+        for path, evidence_case in cases:
+            with self.subTest(evidence_case=evidence_case):
+                manifest = parse_dataset_manifest_v2_protojson(read_json_fixture(path))
+                payload = dataset_completion_evidence_v2_protojson_bytes(manifest)
+                self.assertFalse(payload.endswith(b"\n"))
+                self.assertEqual(
+                    dataset_completion_evidence_v2_sha256(manifest),
+                    expected_hashes[evidence_case],
+                )
+                if evidence_case == "provider_watermark_zero_lateness":
+                    self.assertIn(b'"allowedLatenessNs":"0"', payload)
+                    self.assertEqual(
+                        payload,
+                        (REPO_ROOT / "schemas/fixtures/dataset-completion-evidence-v2-provider-zero-lateness.protojson").read_bytes(),
+                    )
+
+        manifest = parse_dataset_manifest_v2_protojson(
+            read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
+        )
+        row = parse_us_equity_trade_bar_v2_protojson(
+            read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        )
+        validate_bar_v2_completion_evidence_reference(row, manifest)
+        validate_us_equity_trade_bar_v2_against_manifest(row, manifest)
+        snake_row = parse_us_equity_trade_bar_v2_protojson(
+            read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2-snake.json")
+        )
+        self.assertEqual(row, snake_row)
+        validate_us_equity_trade_bar_v2_against_manifest(snake_row, manifest)
+
+        for case in (
+            "provider-watermark", "diagnostic-stream", "historical-non-paged",
+            "synthetic-replay", "provider-watermark-zero-lateness",
+        ):
+            with self.subTest(completion_case=case):
+                case_manifest = parse_dataset_manifest_v2_protojson(
+                    read_json_fixture(f"schemas/fixtures/dataset-manifest-v2-{case}.json")
+                )
+                case_row = parse_us_equity_trade_bar_v2_protojson(
+                    read_json_fixture(f"schemas/fixtures/us-equity-trade-bar-v2-{case}.json")
+                )
+                validate_us_equity_trade_bar_v2_against_manifest(case_row, case_manifest)
+        invalid_generated_row = type(row)()
+        invalid_generated_row.CopyFrom(row)
+        invalid_generated_row.trade_date = "2026-02-30"
+        with self.assertRaises(ValueError):
+            validate_us_equity_trade_bar_v2_against_manifest(invalid_generated_row, manifest)
+        row.completion_evidence_sha256 = "e" * 64
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            validate_us_equity_trade_bar_v2_against_manifest(row, manifest)
+
+        invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        invalid_row["tradeCount"] = 4
+        with self.assertRaisesRegex(ValueError, "uint64 JSON values must be canonical"):
+            parse_us_equity_trade_bar_v2_protojson(invalid_row)
+
+        for field, invalid in (
+            ("high", "9.00"),
+            ("open", "0"),
+            ("volume", "-1"),
+            ("barEndExclusiveUtc", "2026-10-08T14:31:00.000000001Z"),
+        ):
+            with self.subTest(field=field):
+                invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+                invalid_row[field] = invalid
+                with self.assertRaises(ValueError):
+                    parse_us_equity_trade_bar_v2_protojson(invalid_row)
+
+        invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        invalid_row["unrecognized"] = True
+        with self.assertRaises(Exception):
+            parse_us_equity_trade_bar_v2_protojson(invalid_row)
+
+        invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        invalid_row["schema_version"] = 2
+        with self.assertRaisesRegex(ValueError, "both camelCase and snake_case"):
+            parse_us_equity_trade_bar_v2_protojson(invalid_row)
+
+        invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        invalid_row["nbboInputStatus"] = "x" * 65_537
+        with self.assertRaisesRegex(ValueError, "byte limit"):
+            parse_us_equity_trade_bar_v2_protojson(invalid_row)
+
+        invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        invalid_row["sourceProvider"] = "another-provider"
+        with self.assertRaisesRegex(ValueError, "source fields do not match"):
+            validate_us_equity_trade_bar_v2_against_manifest(
+                parse_us_equity_trade_bar_v2_protojson(invalid_row), manifest
+            )
+
+        invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        invalid_row.pop("sourcePagesExhausted")
+        with self.assertRaisesRegex(ValueError, "completion fields do not match"):
+            validate_us_equity_trade_bar_v2_against_manifest(
+                parse_us_equity_trade_bar_v2_protojson(invalid_row), manifest
+            )
+
+        source_bounds = read_json_fixture(
+            "schemas/fixtures/us-equity-trade-bar-v2-source-bounds-invalid.json"
+        )
+        wide_manifest_document = read_json_fixture(
+            "schemas/fixtures/dataset-manifest-v2-provider-watermark.json"
+        )
+        wide_manifest_document["timeRange"] = source_bounds["manifestRange"]
+        wide_manifest_document["completionEvidence"]["providerWatermark"][
+            "completeUpToExclusive"
+        ] = source_bounds["manifestRange"]["endExclusive"]
+        wide_manifest = parse_dataset_manifest_v2_protojson(wide_manifest_document)
+        wide_range = json_format.MessageToDict(wide_manifest)["timeRange"]
+        base_bar = read_json_fixture(
+            "schemas/fixtures/us-equity-trade-bar-v2-provider-watermark.json"
+        )
+        base_bar["completionEvidenceSha256"] = dataset_completion_evidence_v2_sha256(
+            wide_manifest
+        )
+        for case in source_bounds["cases"]:
+            with self.subTest(source_bounds=case["name"]):
+                self.assertLess(wide_range["startInclusive"], case["value"])
+                self.assertLess(case["value"], wide_range["endExclusive"])
+                invalid_bar = copy.deepcopy(base_bar)
+                invalid_bar[case["field"]] = case["value"]
+                with self.assertRaisesRegex(ValueError, "timestamps are inconsistent"):
+                    parse_us_equity_trade_bar_v2_protojson(invalid_bar)
+
+        paging_cases = read_json_fixture(
+            "schemas/fixtures/us-equity-trade-bar-v2-paging-cases.json"
+        )
+        for paging_case in paging_cases["datasets"]:
+            with self.subTest(paging_case=paging_case["name"]):
+                paging_manifest = parse_dataset_manifest_v2_protojson(
+                    read_json_fixture(paging_case["manifest"])
+                )
+                paging_bar_document = read_json_fixture(paging_case["bar"])
+                paging_bar = parse_us_equity_trade_bar_v2_protojson(paging_bar_document)
+                self.assertFalse(paging_bar.HasField("source_pages_exhausted"))
+                validate_us_equity_trade_bar_v2_against_manifest(paging_bar, paging_manifest)
+                for present_value in paging_cases["unexpectedPresenceValues"]:
+                    invalid_paging_document = copy.deepcopy(paging_bar_document)
+                    invalid_paging_document["sourcePagesExhausted"] = present_value
+                    if present_value is False:
+                        with self.assertRaises(ValueError):
+                            parse_us_equity_trade_bar_v2_protojson(invalid_paging_document)
+                    else:
+                        invalid_paging_bar = parse_us_equity_trade_bar_v2_protojson(
+                            invalid_paging_document
+                        )
+                        with self.assertRaisesRegex(ValueError, "completion fields do not match"):
+                            validate_us_equity_trade_bar_v2_against_manifest(
+                                invalid_paging_bar, paging_manifest
+                            )
+
     def test_dataset_manifest_v2_protojson_is_bounded_and_keeps_completion_evidence_distinct(self) -> None:
         fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
         manifest = parse_dataset_manifest_v2_protojson(fixture)
@@ -63,13 +295,14 @@ class SharedContractFixturesTest(unittest.TestCase):
 
         invalid = copy.deepcopy(fixture)
         invalid["completionEvidence"]["finiteBatch"]["pagesExhausted"] = False
-        with self.assertRaisesRegex(ValueError, "paged finite batches"):
+        with self.assertRaisesRegex(ValueError, "paged finite batch"):
             parse_dataset_manifest_v2_protojson(invalid)
 
         invalid = copy.deepcopy(fixture)
         invalid["completionEvidence"]["finiteBatch"]["dataCutoffExclusive"] = (
             "2026-10-08T14:30:59.999999999Z"
         )
+        refresh_finite_batch_receipt_hash(invalid)
         with self.assertRaisesRegex(ValueError, "cutoff precedes"):
             parse_dataset_manifest_v2_protojson(invalid)
 
@@ -161,6 +394,7 @@ class SharedContractFixturesTest(unittest.TestCase):
         for case in timestamp_cases["valid"]:
             candidate = copy.deepcopy(fixture)
             candidate["completionEvidence"]["finiteBatch"]["completedAt"] = case["value"]
+            refresh_finite_batch_receipt_hash(candidate)
             with self.subTest(case=case["name"]):
                 parse_dataset_manifest_v2_protojson(candidate)
         for case in timestamp_cases["invalid"]:

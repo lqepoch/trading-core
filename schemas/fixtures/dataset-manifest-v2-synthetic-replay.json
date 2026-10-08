@@ -1,13 +1,15 @@
 {
   "schemaVersion": 2,
-  "datasetId": "qqq-sip-2026-10-08-finite-v2",
+  "datasetId": "synthetic-qqq-bars-2026-10-08-v2",
   "source": {
-    "provider": "alpaca",
-    "feed": "sip",
+    "provider": "synthetic",
+    "feed": "synthetic",
     "entitlement": "unknown",
     "numericEncoding": "NUMERIC_ENCODING_DECIMAL_TOKEN"
   },
-  "symbols": ["QQQ"],
+  "symbols": [
+    "QQQ"
+  ],
   "timeRange": {
     "startInclusive": "2026-10-08T14:30:00.100Z",
     "endExclusive": "2026-10-08T14:31:00Z"
@@ -15,8 +17,8 @@
   "sourceTimestampMissingRows": "0",
   "rowCount": "1",
   "object": {
-    "objectName": "qqq-sip-2026-10-08.parquet",
-    "objectId": "local-test:qqq-sip-2026-10-08",
+    "objectName": "synthetic-qqq-bars-2026-10-08.parquet",
+    "objectId": "local-test:synthetic-qqq-bars-2026-10-08",
     "sizeBytes": "4096",
     "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "parquetSchemaSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -29,20 +31,17 @@
   },
   "completionEvidence": {
     "finiteBatch": {
-      "sourceKind": "FINITE_BATCH_SOURCE_KIND_HISTORICAL_PAGED",
-      "inputIdentity": "alpaca-sip-query-2026-10-08-v1",
-      "inputSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "sourceKind": "FINITE_BATCH_SOURCE_KIND_SYNTHETIC_REPLAY",
+      "inputIdentity": "synthetic-replay-qqq-bars-2026-10-08-v1",
+      "inputSha256": "2222222222222222222222222222222222222222222222222222222222222222",
       "inputSizeBytes": "8192",
       "inputRecordCount": "1",
       "consumedRecordCount": "1",
       "reviewedPolicySha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-      "sealReceiptSha256": "1f8534e9f80bd2087e37d746b0abef4bb333c8c5554a3eb2f9eacb3984e87415",
+      "sealReceiptSha256": "701d91f7c8a84ec54516913cc4b52c3c5653a1fa7b162de4f6c9fea2ecab63fd",
       "dataCutoffExclusive": "2026-10-08T14:31:00Z",
       "sealedAt": "2026-10-08T14:31:01.123456789Z",
-      "completedAt": "2026-10-08T14:31:02.123456789Z",
-      "pageCount": "1",
-      "pagesExhausted": true,
-      "pageSetSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      "completedAt": "2026-10-08T14:31:02.123456789Z"
     }
   }
 }

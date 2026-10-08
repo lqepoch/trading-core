@@ -11,6 +11,7 @@ use crate::{
 };
 use chrono::{DateTime, Datelike, SecondsFormat, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 /// Wire schema version accepted by [`DatasetManifestV2`].
@@ -37,6 +38,15 @@ pub enum DatasetManifestV2Error {
     /// A parsed manifest violated a dataset or completion invariant.
     #[error(transparent)]
     InvalidManifest(#[from] DatasetManifestError),
+    /// A finite-batch completion cannot be projected to the shared receipt contract.
+    #[error("finite batch completion cannot be projected to a seal receipt")]
+    InvalidFiniteBatchReceipt,
+    /// A dataset completion evidence value cannot be projected to its bounded canonical bytes.
+    #[error("dataset completion evidence cannot be projected to canonical ProtoJSON")]
+    InvalidCompletionEvidenceProjection,
+    /// A bar row's evidence digest does not match the validated manifest completion evidence.
+    #[error("bar completion evidence digest does not match the dataset manifest")]
+    InvalidCompletionEvidenceReference,
 }
 
 /// A protobuf Timestamp carried as a canonical UTC ProtoJSON string without losing nanoseconds.
@@ -439,6 +449,145 @@ pub struct FiniteBatchCompletionV2 {
     pub page_set_sha256: Option<String>,
 }
 
+/// The non-circular ProtoJSON projection hashed by `seal_receipt_sha256`.
+///
+/// This message deliberately omits the hash field itself. Its generated Protobuf equivalent is
+/// `lqepoch.dataset.v2.FiniteBatchSealReceiptV2`; field declaration order is the canonical JSON
+/// key order used by the shared receipt fixture.
+/// 此消息刻意省略自身的哈希字段；对应生成的 Protobuf 类型为
+/// `lqepoch.dataset.v2.FiniteBatchSealReceiptV2`，字段声明顺序也是共享收据夹具的规范 JSON 键顺序。
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FiniteBatchSealReceiptV2 {
+    /// Finite input provenance category.
+    pub source_kind: FiniteBatchSourceKindV2,
+    /// Immutable logical identity for the exact input.
+    pub input_identity: String,
+    /// SHA-256 of the exact consumed input bytes.
+    pub input_sha256: String,
+    /// Exact input byte count as canonical ProtoJSON uint64 string.
+    #[serde(with = "crate::wire_u64")]
+    pub input_size_bytes: u64,
+    /// Record count asserted by the immutable input receipt.
+    #[serde(with = "crate::wire_u64")]
+    pub input_record_count: u64,
+    /// Records actually consumed by the finite processor.
+    #[serde(with = "crate::wire_u64")]
+    pub consumed_record_count: u64,
+    /// SHA-256 of the reviewed finite-input policy.
+    pub reviewed_policy_sha256: String,
+    /// Exclusive requested data cutoff, not a provider watermark.
+    pub data_cutoff_exclusive: ProtoTimestampV2,
+    /// Time when the finite input was sealed after consumption.
+    pub sealed_at: ProtoTimestampV2,
+    /// Time when output generation completed.
+    pub completed_at: ProtoTimestampV2,
+    /// Number of pages in a paginated query; omitted for non-paged sources.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "optional_wire_u64"
+    )]
+    pub page_count: Option<u64>,
+    /// Actual provider/page-reader exhaustion result; omitted for non-paged sources.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pages_exhausted: Option<bool>,
+    /// SHA-256 receipt of the exact ordered page set; omitted for non-paged sources.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page_set_sha256: Option<String>,
+}
+
+/// Maximum bytes accepted for a standalone finite-batch receipt payload.
+pub const MAX_FINITE_BATCH_SEAL_RECEIPT_V2_JSON_BYTES: usize = 16 * 1024;
+
+/// Return the exact compact ProtoJSON bytes hashed by `FiniteBatchCompletionV2.seal_receipt_sha256`.
+///
+/// The projection omits its own hash field, uses canonical decimal strings for `uint64`,
+/// canonical UTC protobuf timestamps, omits absent optional paging fields, and has no trailing LF.
+/// Hash binding establishes only local field integrity; it does not authenticate an issuer or
+/// establish provider completeness.
+/// 返回 `FiniteBatchCompletionV2.seal_receipt_sha256` 所哈希的紧凑 ProtoJSON 字节。
+/// 投影省略自身哈希字段，使用规范 uint64 十进制字符串和 UTC 时间戳，省略未设置分页字段且不追加换行。
+/// 哈希绑定只保证本地字段完整性，不认证签发方，也不证明供应商数据完整性。
+pub fn finite_batch_seal_receipt_protojson_bytes(
+    value: &FiniteBatchCompletionV2,
+) -> Result<Vec<u8>, DatasetManifestV2Error> {
+    if !finite_batch_receipt_fields_valid(value) {
+        return Err(DatasetManifestV2Error::InvalidFiniteBatchReceipt);
+    }
+    let projection = FiniteBatchSealReceiptV2 {
+        source_kind: value.source_kind,
+        input_identity: value.input_identity.clone(),
+        input_sha256: value.input_sha256.clone(),
+        input_size_bytes: value.input_size_bytes,
+        input_record_count: value.input_record_count,
+        consumed_record_count: value.consumed_record_count,
+        reviewed_policy_sha256: value.reviewed_policy_sha256.clone(),
+        data_cutoff_exclusive: value.data_cutoff_exclusive.clone(),
+        sealed_at: value.sealed_at.clone(),
+        completed_at: value.completed_at.clone(),
+        page_count: value.page_count,
+        pages_exhausted: value.pages_exhausted,
+        page_set_sha256: value.page_set_sha256.clone(),
+    };
+    let bytes = serde_json::to_vec(&projection)
+        .map_err(|_| DatasetManifestV2Error::InvalidFiniteBatchReceipt)?;
+    if bytes.len() > MAX_FINITE_BATCH_SEAL_RECEIPT_V2_JSON_BYTES {
+        return Err(DatasetManifestV2Error::InvalidFiniteBatchReceipt);
+    }
+    Ok(bytes)
+}
+
+/// Return the lowercase SHA-256 of [`finite_batch_seal_receipt_protojson_bytes`].
+/// 返回 [`finite_batch_seal_receipt_protojson_bytes`] 的小写 SHA-256。
+pub fn finite_batch_seal_receipt_sha256(
+    value: &FiniteBatchCompletionV2,
+) -> Result<String, DatasetManifestV2Error> {
+    let bytes = finite_batch_seal_receipt_protojson_bytes(value)?;
+    Ok(format!("{:x}", Sha256::digest(bytes)))
+}
+
+/// Return the bounded canonical ProtoJSON projection of a validated manifest's completion oneof.
+///
+/// The complete evidence object is the hash preimage. This projection is intentionally separate
+/// from the enclosing manifest, whose object/readback fields and serialized bytes have their own
+/// identity. Callers must still validate any external issuer or source receipt independently.
+pub fn dataset_completion_evidence_v2_protojson_bytes(
+    manifest: &DatasetManifestV2,
+) -> Result<Vec<u8>, DatasetManifestV2Error> {
+    manifest.validate()?;
+    let bytes = serde_json::to_vec(&manifest.completion_evidence)
+        .map_err(|_| DatasetManifestV2Error::InvalidCompletionEvidenceProjection)?;
+    if bytes.len() > MAX_FINITE_BATCH_SEAL_RECEIPT_V2_JSON_BYTES {
+        return Err(DatasetManifestV2Error::InvalidCompletionEvidenceProjection);
+    }
+    Ok(bytes)
+}
+
+/// Return the canonical evidence projection's lowercase SHA-256 for a validated manifest.
+pub fn dataset_completion_evidence_v2_sha256(
+    manifest: &DatasetManifestV2,
+) -> Result<String, DatasetManifestV2Error> {
+    let bytes = dataset_completion_evidence_v2_protojson_bytes(manifest)?;
+    Ok(format!("{:x}", Sha256::digest(bytes)))
+}
+
+/// Require a BarV2 row's evidence reference to match its validated manifest oneof.
+///
+/// The row digest points to a structural projection only. It does not establish the truth or
+/// authorization of any receipt carried in that evidence.
+pub fn validate_bar_v2_completion_evidence_reference(
+    row_completion_evidence_sha256: &str,
+    manifest: &DatasetManifestV2,
+) -> Result<(), DatasetManifestV2Error> {
+    if !valid_sha256(row_completion_evidence_sha256)
+        || dataset_completion_evidence_v2_sha256(manifest)? != row_completion_evidence_sha256
+    {
+        return Err(DatasetManifestV2Error::InvalidCompletionEvidenceReference);
+    }
+    Ok(())
+}
+
 /// Provider stream watermark observation. Parsing this value never mints a trusted watermark.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -552,37 +701,42 @@ impl DatasetCompletionEvidenceV2 {
     }
 }
 
+fn finite_batch_receipt_fields_valid(value: &FiniteBatchCompletionV2) -> bool {
+    if value.source_kind == FiniteBatchSourceKindV2::Unspecified
+        || !stable_identity(&value.input_identity, 256)
+        || !valid_sha256(&value.input_sha256)
+        || value.input_size_bytes == 0
+        || value.input_record_count == 0
+        || value.input_record_count != value.consumed_record_count
+        || !valid_sha256(&value.reviewed_policy_sha256)
+        || value.data_cutoff_exclusive > value.sealed_at
+        || value.sealed_at > value.completed_at
+    {
+        return false;
+    }
+
+    if value.source_kind == FiniteBatchSourceKindV2::HistoricalPaged {
+        matches!(value.page_count, Some(page_count) if page_count > 0)
+            && value.pages_exhausted == Some(true)
+            && value.page_set_sha256.as_deref().is_some_and(valid_sha256)
+    } else {
+        value.page_count.is_none()
+            && value.pages_exhausted.is_none()
+            && value.page_set_sha256.is_none()
+    }
+}
+
 impl FiniteBatchCompletionV2 {
     fn validate(&self, source: &MarketDataSourceV1, manifest: &DatasetManifestV2) -> bool {
-        if self.source_kind == FiniteBatchSourceKindV2::Unspecified
-            || !stable_identity(&self.input_identity, 256)
-            || !valid_sha256(&self.input_sha256)
-            || self.input_size_bytes == 0
-            || self.input_record_count == 0
-            || self.input_record_count != self.consumed_record_count
-            || !valid_sha256(&self.reviewed_policy_sha256)
+        if !finite_batch_receipt_fields_valid(self)
             || !valid_sha256(&self.seal_receipt_sha256)
-            || self.data_cutoff_exclusive > self.sealed_at
-            || self.sealed_at > self.completed_at
+            || !finite_batch_seal_receipt_sha256(self)
+                .is_ok_and(|receipt_sha256| receipt_sha256 == self.seal_receipt_sha256)
             || manifest
                 .time_range
                 .as_ref()
                 .is_some_and(|range| range.end_exclusive > self.data_cutoff_exclusive)
         {
-            return false;
-        }
-
-        let paged = self.source_kind == FiniteBatchSourceKindV2::HistoricalPaged;
-        let page_evidence_valid = if paged {
-            matches!(self.page_count, Some(value) if value > 0)
-                && self.pages_exhausted == Some(true)
-                && self.page_set_sha256.as_deref().is_some_and(valid_sha256)
-        } else {
-            self.page_count.is_none()
-                && self.pages_exhausted.is_none()
-                && self.page_set_sha256.is_none()
-        };
-        if !page_evidence_valid {
             return false;
         }
 
@@ -765,7 +919,9 @@ mod tests {
     use super::{
         DATASET_MANIFEST_SCHEMA_VERSION_V2, DatasetManifestV2, DatasetManifestV2Error,
         MAX_DATASET_MANIFEST_V2_JSON_BYTES, MAX_PROVIDER_WATERMARK_ALLOWED_LATENESS_NS,
-        ProtoTimestampV2, parse_dataset_manifest_v2_json,
+        ProtoTimestampV2, dataset_completion_evidence_v2_protojson_bytes,
+        dataset_completion_evidence_v2_sha256, finite_batch_seal_receipt_protojson_bytes,
+        finite_batch_seal_receipt_sha256, parse_dataset_manifest_v2_json,
     };
     use serde_json::{Value, json};
 
@@ -805,6 +961,134 @@ mod tests {
             "2026-10-08T14:31:02.123456789Z"
         );
         assert!(encoded.get("completion").is_none());
+    }
+
+    #[test]
+    fn finite_batch_receipt_projection_matches_cross_language_bytes_and_sha256() {
+        let value = fixture();
+        let Some(finite_batch) = value.completion_evidence.finite_batch.as_ref() else {
+            panic!("finite batch fixture must select its oneof case");
+        };
+        let payload = finite_batch_seal_receipt_protojson_bytes(finite_batch).unwrap();
+        assert_eq!(
+            payload.as_slice(),
+            include_bytes!("../../../schemas/fixtures/finite-batch-seal-receipt-v2.protojson")
+        );
+        assert!(!payload.ends_with(b"\n"));
+        assert!(!String::from_utf8_lossy(&payload).contains("sealReceiptSha256"));
+        let digest = finite_batch_seal_receipt_sha256(finite_batch).unwrap();
+        assert_eq!(
+            digest,
+            std::str::from_utf8(include_bytes!(
+                "../../../schemas/fixtures/finite-batch-seal-receipt-v2.sha256"
+            ))
+            .unwrap()
+            .trim()
+        );
+        assert_eq!(digest, finite_batch.seal_receipt_sha256);
+    }
+
+    #[test]
+    fn finite_batch_receipt_preserves_max_uint64_and_omits_absent_page_fields() {
+        let value = fixture();
+        let mut finite_batch = value.completion_evidence.finite_batch.unwrap();
+        finite_batch.source_kind = super::FiniteBatchSourceKindV2::HistoricalNonPaged;
+        finite_batch.input_size_bytes = u64::MAX;
+        finite_batch.input_record_count = u64::MAX;
+        finite_batch.consumed_record_count = u64::MAX;
+        finite_batch.page_count = None;
+        finite_batch.pages_exhausted = None;
+        finite_batch.page_set_sha256 = None;
+
+        let payload = finite_batch_seal_receipt_protojson_bytes(&finite_batch).unwrap();
+        assert_eq!(
+            payload.as_slice(),
+            include_bytes!(
+                "../../../schemas/fixtures/finite-batch-seal-receipt-v2-nonpaged-u64.protojson"
+            )
+        );
+        assert_eq!(
+            finite_batch_seal_receipt_sha256(&finite_batch).unwrap(),
+            std::str::from_utf8(include_bytes!(
+                "../../../schemas/fixtures/finite-batch-seal-receipt-v2-nonpaged-u64.sha256"
+            ))
+            .unwrap()
+            .trim()
+        );
+        let encoded = String::from_utf8(payload).unwrap();
+        assert!(encoded.contains("\"inputSizeBytes\":\"18446744073709551615\""));
+        assert!(encoded.contains("\"inputRecordCount\":\"18446744073709551615\""));
+        assert!(!encoded.contains("pageCount"));
+        assert!(!encoded.contains("pagesExhausted"));
+        assert!(!encoded.contains("pageSetSha256"));
+    }
+
+    #[test]
+    fn finite_batch_receipt_hash_is_required_to_match_the_non_circular_projection() {
+        let mut value = fixture_value();
+        value["completionEvidence"]["finiteBatch"]["sealReceiptSha256"] = json!("e".repeat(64));
+        assert!(matches!(
+            parse_value(&value),
+            Err(DatasetManifestV2Error::InvalidManifest(
+                crate::DatasetManifestError::InvalidCompletion
+            ))
+        ));
+    }
+
+    #[test]
+    fn completion_evidence_projection_hashes_match_all_shared_oneof_goldens() {
+        let hashes: Value = serde_json::from_slice(include_bytes!(
+            "../../../schemas/fixtures/dataset-completion-evidence-v2-sha256.json"
+        ))
+        .unwrap();
+        for (fixture_bytes, evidence_name) in [
+            (
+                include_bytes!("../../../schemas/fixtures/dataset-manifest-v2.json").as_slice(),
+                "finite_batch",
+            ),
+            (
+                include_bytes!(
+                    "../../../schemas/fixtures/dataset-manifest-v2-provider-watermark.json"
+                )
+                .as_slice(),
+                "provider_watermark",
+            ),
+            (
+                include_bytes!(
+                    "../../../schemas/fixtures/dataset-manifest-v2-diagnostic-stream.json"
+                )
+                .as_slice(),
+                "diagnostic_stream",
+            ),
+            (
+                include_bytes!(
+                    "../../../schemas/fixtures/dataset-manifest-v2-provider-watermark-zero-lateness.json"
+                )
+                .as_slice(),
+                "provider_watermark_zero_lateness",
+            ),
+        ] {
+            let manifest = parse_dataset_manifest_v2_json(fixture_bytes).unwrap();
+            let payload = dataset_completion_evidence_v2_protojson_bytes(&manifest).unwrap();
+            assert!(!payload.ends_with(b"\n"));
+            if evidence_name == "provider_watermark_zero_lateness" {
+                assert_eq!(
+                    payload.as_slice(),
+                    include_bytes!(
+                        "../../../schemas/fixtures/dataset-completion-evidence-v2-provider-zero-lateness.protojson"
+                    )
+                    .as_slice()
+                );
+                assert!(payload
+                    .windows(b"\"allowedLatenessNs\":\"0\"".len())
+                    .any(|window| window == b"\"allowedLatenessNs\":\"0\""));
+            }
+            assert_eq!(
+                dataset_completion_evidence_v2_sha256(&manifest).unwrap(),
+                hashes[evidence_name].as_str().unwrap(),
+                "completion oneof projection changed: {evidence_name}"
+            );
+        }
     }
 
     #[test]

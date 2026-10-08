@@ -1,13 +1,15 @@
 {
   "schemaVersion": 2,
-  "datasetId": "qqq-sip-2026-10-08-finite-v2",
+  "datasetId": "qqq-sip-2026-10-08-nonpaged-v2",
   "source": {
     "provider": "alpaca",
     "feed": "sip",
     "entitlement": "unknown",
     "numericEncoding": "NUMERIC_ENCODING_DECIMAL_TOKEN"
   },
-  "symbols": ["QQQ"],
+  "symbols": [
+    "QQQ"
+  ],
   "timeRange": {
     "startInclusive": "2026-10-08T14:30:00.100Z",
     "endExclusive": "2026-10-08T14:31:00Z"
@@ -15,8 +17,8 @@
   "sourceTimestampMissingRows": "0",
   "rowCount": "1",
   "object": {
-    "objectName": "qqq-sip-2026-10-08.parquet",
-    "objectId": "local-test:qqq-sip-2026-10-08",
+    "objectName": "qqq-sip-nonpaged-2026-10-08.parquet",
+    "objectId": "local-test:qqq-sip-nonpaged-2026-10-08",
     "sizeBytes": "4096",
     "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "parquetSchemaSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -29,20 +31,17 @@
   },
   "completionEvidence": {
     "finiteBatch": {
-      "sourceKind": "FINITE_BATCH_SOURCE_KIND_HISTORICAL_PAGED",
-      "inputIdentity": "alpaca-sip-query-2026-10-08-v1",
-      "inputSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "sourceKind": "FINITE_BATCH_SOURCE_KIND_HISTORICAL_NON_PAGED",
+      "inputIdentity": "alpaca-sip-query-2026-10-08-nonpaged-v1",
+      "inputSha256": "1111111111111111111111111111111111111111111111111111111111111111",
       "inputSizeBytes": "8192",
       "inputRecordCount": "1",
       "consumedRecordCount": "1",
       "reviewedPolicySha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-      "sealReceiptSha256": "1f8534e9f80bd2087e37d746b0abef4bb333c8c5554a3eb2f9eacb3984e87415",
+      "sealReceiptSha256": "3b77c332f2d4021623612351f5d28576ea0b3bf145d853f7625a7aa30bcc38fe",
       "dataCutoffExclusive": "2026-10-08T14:31:00Z",
       "sealedAt": "2026-10-08T14:31:01.123456789Z",
-      "completedAt": "2026-10-08T14:31:02.123456789Z",
-      "pageCount": "1",
-      "pagesExhausted": true,
-      "pageSetSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      "completedAt": "2026-10-08T14:31:02.123456789Z"
     }
   }
 }
