@@ -372,7 +372,7 @@
     {
       "path": "crates/market-contracts/src/prediction_validation.rs",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "e3282721bee695ea6006735e079fd01c1921b07ca88d58e7a8de624014ba60b9"
+      "sha256": "1c69440ad9b2e83df3887db782e3a6b6798c432383cbb0e7e1b1895d1d7dd2bc"
     },
     {
       "path": "crates/market-contracts/src/raw_frame.rs",
@@ -392,7 +392,7 @@
     {
       "path": "crates/market-contracts/tests/prediction_protojson.rs",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "ff0f3dcb0a0f6e101edd237bbb90e6a17892c098c36fb1adca67f63cca6bc794"
+      "sha256": "ac5a0425e235b71ae4bb3f33e5308f74845f24d9b2005c13f49360c0786097dc"
     },
     {
       "path": "crates/pricing/Cargo.toml",

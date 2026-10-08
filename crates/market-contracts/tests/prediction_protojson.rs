@@ -173,3 +173,24 @@ fn malformed_bindings_and_unbounded_documents_are_rejected() {
     let oversized = vec![b' '; MAX_PREDICTION_ENVELOPE_V1_JSON_BYTES + 1];
     assert!(parse_prediction_envelope_v1_protojson(&oversized).is_err());
 }
+
+#[test]
+fn large_reason_code_sets_are_bounded_and_reject_a_trailing_duplicate() {
+    let mut document: Value = serde_json::from_slice(EXPORTED_FIXTURE).unwrap();
+    let reasons = (0..100_000)
+        .map(|index| Value::String(format!("reason-{index:06}")))
+        .collect::<Vec<_>>();
+    document["quality"]["reasonCodes"] = Value::Array(reasons);
+    let bytes = serde_json::to_vec(&document).unwrap();
+    assert!(bytes.len() < MAX_PREDICTION_ENVELOPE_V1_JSON_BYTES);
+
+    let mut duplicate: Value = serde_json::from_slice(&bytes).unwrap();
+    let values = duplicate["quality"]["reasonCodes"]
+        .as_array_mut()
+        .expect("reason codes are an array");
+    let repeated = values[0].clone();
+    values.push(repeated);
+    let duplicate_bytes = serde_json::to_vec(&duplicate).unwrap();
+    assert!(duplicate_bytes.len() < MAX_PREDICTION_ENVELOPE_V1_JSON_BYTES);
+    assert!(parse_prediction_envelope_v1_protojson(&duplicate_bytes).is_err());
+}

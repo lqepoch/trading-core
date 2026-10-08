@@ -1,5 +1,7 @@
 //! Structural checks for the existing read-only research prediction contract.
 
+use std::collections::HashSet;
+
 use crate::{
     DecimalString, MarketDataSourceV1, NumericEncodingV1, PredictionEnvelopeV1Error,
     PredictionQualityStatusV1,
@@ -137,12 +139,9 @@ fn validate_quality(value: &PredictionQualityV1) -> Result<(), PredictionEnvelop
             "non-PASS quality requires at least one reason code",
         ));
     }
-    for (index, reason) in value.reason_codes.iter().enumerate() {
-        if !valid_identity(reason)
-            || value.reason_codes[..index]
-                .iter()
-                .any(|earlier| earlier == reason)
-        {
+    let mut unique_reasons = HashSet::new();
+    for reason in &value.reason_codes {
+        if !valid_identity(reason) || !unique_reasons.insert(reason.as_str()) {
             return Err(invalid("quality reason codes must be valid and unique"));
         }
     }
