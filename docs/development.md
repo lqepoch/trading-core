@@ -10,6 +10,8 @@ The shared ProtoJSON helpers resolve either canonical camelCase JSON names or pr
 
 To regenerate one language independently, run `npm --prefix typescript run generate` or `scripts/generate-python-proto.sh`. Python uses the ignored local environment at `python/.venv`. Generated modules are checked in; do not hand-edit them. Change the Protobuf source, regenerate both language bindings, and keep the Rust, Python, and TypeScript fixture checks passing together.
 
+TypeScript consumers install the repository's private root npm Git package using a reviewed 40-character commit SHA. The root `prepare` lifecycle uses the nested `typescript/package-lock.json` to build JavaScript and declarations from the checked-in generated bindings; npm packs the whitelisted `typescript/dist` output, package metadata, README, and licenses, while excluding source and tests. The package is not published to an npm registry. Use `scripts/test-typescript-package-consumer.sh <sha>` to verify a clean external install, type import, uint64 parsing, and rejection behavior. The package exposes the prediction ProtoJSON parser and generated message type for Node server/BFF consumers; it is a structural contract parser, not a qualification or evidence-authority check.
+
 ## Cross-target Rust checks
 
 The public core has no native provider SDK or FFI dependency. Install the Windows GNU and macOS targets for the pinned toolchain, then run:

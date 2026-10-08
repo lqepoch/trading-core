@@ -1,0 +1,36 @@
+{
+  "name": "@lqepoch/trading-core-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pinned generated TypeScript consumers for LQEpoch trading-core contracts",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lqepoch/trading-core.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "typescript/dist/contracts/**",
+    "typescript/dist/gen/**",
+    "typescript/dist/index.*",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
+    "NOTICE.md"
+  ],
+  "types": "./typescript/dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./typescript/dist/index.d.ts",
+      "import": "./typescript/dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.16.0"
+  },
+  "scripts": {
+    "prepare": "npm --prefix typescript ci && npm --prefix typescript run build"
+  }
+}
