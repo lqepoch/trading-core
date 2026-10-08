@@ -636,8 +636,14 @@ class SharedContractFixturesTest(unittest.TestCase):
         raw_schema_sha = trusted_parquet_schema_sha256("lqepoch.market_raw_frame.v1")
         raw_hash_condition = manifest_schema["allOf"][0]["then"]["properties"]["object"][
             "properties"
-        ]["parquet_schema_sha256"]["const"]
-        self.assertEqual(raw_hash_condition, raw_schema_sha)
+        ]["parquet_schema_sha256"]["enum"]
+        self.assertEqual(
+            raw_hash_condition,
+            [
+                raw_schema_sha,
+                trusted_parquet_schema_sha256("lqepoch.market_raw_frame.v2"),
+            ],
+        )
 
     def test_raw_byte_encodings_are_bound_only_to_their_registered_frame_schemas(self) -> None:
         from lqepoch_contracts.parquet_schema import trusted_parquet_schema_sha256

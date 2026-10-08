@@ -27,8 +27,11 @@ class PyArrowSchemaTest(unittest.TestCase):
             "lqepoch.us_equity_trade_bar_1m.v1",
             "lqepoch.us_equity_trade_bar_1m.v2",
             "lqepoch.market_raw_frame.v1",
+            "lqepoch.market_raw_frame.v2",
             "lqepoch.market_raw_json_frame.v1",
+            "lqepoch.market_raw_json_frame.v2",
             "lqepoch.market_event.v2",
+            "lqepoch.market_event.v3",
         ):
             with self.subTest(schema_id=schema_id):
                 schema = pyarrow_schema_for_trusted_schema(schema_id)
@@ -43,6 +46,17 @@ class PyArrowSchemaTest(unittest.TestCase):
 
         raw_json_schema = pyarrow_schema_for_trusted_schema("lqepoch.market_raw_json_frame.v1")
         self.assertEqual(raw_json_schema.field("frame_bytes").type, pa.binary())
+
+        raw_v2_schema = pyarrow_schema_for_trusted_schema("lqepoch.market_raw_frame.v2")
+        self.assertEqual(raw_v2_schema.field("frame_bytes").type, pa.binary())
+        self.assertEqual(raw_v2_schema.field("source_generation").type, pa.uint64())
+        self.assertEqual(raw_v2_schema.field("canonical_generation").type, pa.uint64())
+        self.assertFalse(raw_v2_schema.field("capture_instance_id").nullable)
+        raw_json_v2_schema = pyarrow_schema_for_trusted_schema("lqepoch.market_raw_json_frame.v2")
+        self.assertEqual(raw_json_v2_schema.field("frame_bytes").type, pa.binary())
+        event_v3_schema = pyarrow_schema_for_trusted_schema("lqepoch.market_event.v3")
+        self.assertEqual(event_v3_schema.field("raw_frame_source_generation").type, pa.uint64())
+        self.assertTrue(event_v3_schema.field("raw_frame_capture_instance_id").nullable)
 
         bar_schema = pyarrow_schema_for_trusted_schema("lqepoch.us_equity_trade_bar_1m.v1")
         self.assertEqual(bar_schema.field("trade_date").type, pa.string())

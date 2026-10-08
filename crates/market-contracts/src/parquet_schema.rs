@@ -28,6 +28,12 @@ pub const MARKET_RAW_FRAME_PARQUET_SCHEMA_ID: &str = "lqepoch.market_raw_frame.v
 pub const MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_ID: &str = "lqepoch.market_raw_json_frame.v1";
 /// Storage schema ID for normalized market events with raw-frame correlation.
 pub const MARKET_EVENT_PARQUET_SCHEMA_V2_ID: &str = "lqepoch.market_event.v2";
+/// Trusted schema ID for byte-exact MessagePack frames bound to a capture instance.
+pub const MARKET_RAW_FRAME_PARQUET_SCHEMA_V2_ID: &str = "lqepoch.market_raw_frame.v2";
+/// Trusted schema ID for byte-exact JSON frames bound to a capture instance.
+pub const MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_V2_ID: &str = "lqepoch.market_raw_json_frame.v2";
+/// Storage schema ID for normalized events with capture-instance correlation.
+pub const MARKET_EVENT_PARQUET_SCHEMA_V3_ID: &str = "lqepoch.market_event.v3";
 
 /// Validate a row-level SHA-256 logical value as lowercase hexadecimal.
 pub fn validate_sha256_hex(value: &str) -> bool {

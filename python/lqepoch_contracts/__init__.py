@@ -20,6 +20,16 @@ from .protojson import (
     validate_bar_v2_completion_evidence_reference,
     validate_us_equity_trade_bar_v2_against_manifest,
 )
+from .raw_frame import (
+    MARKET_EVENT_V3_SCHEMA_ID,
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+    MARKET_RAW_JSON_FRAME_V2_SCHEMA_ID,
+    validate_capture_instance_id_v2,
+    validate_event_against_raw_frame_row_v2,
+    validate_market_event_row_v3,
+    validate_raw_event_chunk_v2,
+    validate_raw_frame_row_v2,
+)
 
 __all__ = [
     "load_trusted_parquet_schema_registry",
@@ -38,4 +48,12 @@ __all__ = [
     "validate_bar_v2_completion_evidence_reference",
     "parse_us_equity_trade_bar_v2_protojson",
     "validate_us_equity_trade_bar_v2_against_manifest",
+    "MARKET_EVENT_V3_SCHEMA_ID",
+    "MARKET_RAW_FRAME_V2_SCHEMA_ID",
+    "MARKET_RAW_JSON_FRAME_V2_SCHEMA_ID",
+    "validate_capture_instance_id_v2",
+    "validate_raw_frame_row_v2",
+    "validate_market_event_row_v3",
+    "validate_event_against_raw_frame_row_v2",
+    "validate_raw_event_chunk_v2",
 ]

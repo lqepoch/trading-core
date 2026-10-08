@@ -747,7 +747,10 @@
                 "object": {
                   "properties": {
                     "parquet_schema_sha256": {
-                      "const": "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6"
+                      "enum": [
+                        "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6",
+                        "85ad0ee5a29ce165a48f459fae6d85c58a12a5c4ed387f6844884af1ef0351ea"
+                      ]
                     }
                   }
                 }
@@ -765,7 +768,10 @@
                 "object": {
                   "properties": {
                     "parquet_schema_sha256": {
-                      "const": "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6"
+                      "enum": [
+                        "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6",
+                        "85ad0ee5a29ce165a48f459fae6d85c58a12a5c4ed387f6844884af1ef0351ea"
+                      ]
                     }
                   },
                   "required": [
@@ -815,7 +821,10 @@
                 "object": {
                   "properties": {
                     "parquet_schema_sha256": {
-                      "const": "86c266ec8e38b4d3eed507a41e10aeeb2c3cfa8fe183d6b7e4b9013fb3d94041"
+                      "enum": [
+                        "86c266ec8e38b4d3eed507a41e10aeeb2c3cfa8fe183d6b7e4b9013fb3d94041",
+                        "bbb0b248a36a820a3587793ff4da41dc3e3e5852a75ce1b05401b45d3245385e"
+                      ]
                     }
                   }
                 }
@@ -833,7 +842,10 @@
                 "object": {
                   "properties": {
                     "parquet_schema_sha256": {
-                      "const": "86c266ec8e38b4d3eed507a41e10aeeb2c3cfa8fe183d6b7e4b9013fb3d94041"
+                      "enum": [
+                        "86c266ec8e38b4d3eed507a41e10aeeb2c3cfa8fe183d6b7e4b9013fb3d94041",
+                        "bbb0b248a36a820a3587793ff4da41dc3e3e5852a75ce1b05401b45d3245385e"
+                      ]
                     }
                   },
                   "required": [
@@ -1938,7 +1950,10 @@
                 "object": {
                   "properties": {
                     "parquet_schema_sha256": {
-                      "const": "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6"
+                      "enum": [
+                        "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6",
+                        "85ad0ee5a29ce165a48f459fae6d85c58a12a5c4ed387f6844884af1ef0351ea"
+                      ]
                     }
                   }
                 }
@@ -1973,7 +1988,10 @@
                 "object": {
                   "properties": {
                     "parquet_schema_sha256": {
-                      "const": "86c266ec8e38b4d3eed507a41e10aeeb2c3cfa8fe183d6b7e4b9013fb3d94041"
+                      "enum": [
+                        "86c266ec8e38b4d3eed507a41e10aeeb2c3cfa8fe183d6b7e4b9013fb3d94041",
+                        "bbb0b248a36a820a3587793ff4da41dc3e3e5852a75ce1b05401b45d3245385e"
+                      ]
                     }
                   }
                 }
@@ -1983,6 +2001,84 @@
                   "time_range"
                 ]
               }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "object": {
+                  "properties": {
+                    "parquet_schema_sha256": {
+                      "enum": [
+                        "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6",
+                        "85ad0ee5a29ce165a48f459fae6d85c58a12a5c4ed387f6844884af1ef0351ea"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "parquet_schema_sha256"
+                  ]
+                }
+              },
+              "required": [
+                "object"
+              ]
+            },
+            "then": {
+              "properties": {
+                "source": {
+                  "properties": {
+                    "numeric_encoding": {
+                      "const": "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES"
+                    }
+                  },
+                  "required": [
+                    "numeric_encoding"
+                  ]
+                }
+              },
+              "required": [
+                "source"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "object": {
+                  "properties": {
+                    "parquet_schema_sha256": {
+                      "enum": [
+                        "86c266ec8e38b4d3eed507a41e10aeeb2c3cfa8fe183d6b7e4b9013fb3d94041",
+                        "bbb0b248a36a820a3587793ff4da41dc3e3e5852a75ce1b05401b45d3245385e"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "parquet_schema_sha256"
+                  ]
+                }
+              },
+              "required": [
+                "object"
+              ]
+            },
+            "then": {
+              "properties": {
+                "source": {
+                  "properties": {
+                    "numeric_encoding": {
+                      "const": "NUMERIC_ENCODING_RAW_JSON_BYTES"
+                    }
+                  },
+                  "required": [
+                    "numeric_encoding"
+                  ]
+                }
+              },
+              "required": [
+                "source"
+              ]
             }
           }
         ]
