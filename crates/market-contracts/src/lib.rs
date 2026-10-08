@@ -19,9 +19,11 @@ pub use dataset_v2::{
     DATASET_MANIFEST_SCHEMA_VERSION_V2, DatasetCompletionEvidenceV2, DatasetManifestV2,
     DatasetManifestV2Error, DatasetObjectV2, DatasetSourceV2, DatasetStorageVerificationV2,
     DatasetTimeRangeV2, DiagnosticStreamCompletionV2, FiniteBatchCompletionV2,
-    FiniteBatchSourceKindV2, MAX_DATASET_MANIFEST_V2_JSON_BYTES, MAX_DATASET_MANIFEST_V2_SYMBOLS,
+    FiniteBatchSealReceiptV2, FiniteBatchSourceKindV2, MAX_DATASET_MANIFEST_V2_JSON_BYTES,
+    MAX_DATASET_MANIFEST_V2_SYMBOLS, MAX_FINITE_BATCH_SEAL_RECEIPT_V2_JSON_BYTES,
     MAX_PROVIDER_WATERMARK_ALLOWED_LATENESS_NS, NumericEncodingProtoJsonV2, ProtoTimestampV2,
-    ProviderWatermarkCompletionV2, parse_dataset_manifest_v2_json,
+    ProviderWatermarkCompletionV2, finite_batch_seal_receipt_protojson_bytes,
+    finite_batch_seal_receipt_sha256, parse_dataset_manifest_v2_json,
 };
 pub use legacy::{
     Bar, ContractError, MarketEvent, OccContract, OptionSnapshot, Right, StockSnapshot, parse_occ,

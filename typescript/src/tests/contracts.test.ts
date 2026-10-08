@@ -2,10 +2,12 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
-import { toJsonString } from "@bufbuild/protobuf";
+import { create, fromJson, toJsonString } from "@bufbuild/protobuf";
 import type { JsonValue } from "@bufbuild/protobuf";
 import {
   parseCanonicalUint64Json,
+  finiteBatchSealReceiptProtojsonBytes,
+  finiteBatchSealReceiptSha256,
   parseDatasetManifestProtoJson,
   parseDatasetManifestV2Json,
   parseDatasetManifestV2ProtoJson,
@@ -23,6 +25,10 @@ import {
   validateOptionalParquetSchemaMetadata,
   type SchemaDescriptor,
 } from "../contracts/schema-fingerprint.js";
+import {
+  FiniteBatchCompletionV2Schema,
+  FiniteBatchSourceKindV2,
+} from "../gen/lqepoch/dataset/v2/manifest_pb.js";
 import { MarketEventEnvelopeV1Schema } from "../gen/lqepoch/market/v1/market_pb.js";
 
 function readFixture<T>(path: string): T {
@@ -139,6 +145,55 @@ assert(
   datasetV2Message.completionEvidence.evidence.value.completedAt?.nanos === 123_456_789,
   "dataset v2 nanosecond timestamp was truncated",
 );
+if (datasetV2Message.completionEvidence.evidence.case !== "finiteBatch") {
+  throw new Error("dataset v2 finite receipt fixture selected the wrong oneof case");
+}
+const finiteBatchReceipt = datasetV2Message.completionEvidence.evidence.value;
+const receiptBytes = finiteBatchSealReceiptProtojsonBytes(finiteBatchReceipt);
+const expectedReceiptBytes = readFileSync(
+  resolve(process.cwd(), "..", "schemas/fixtures/finite-batch-seal-receipt-v2.protojson"),
+);
+const expectedReceiptSha256 = readFileSync(
+  resolve(process.cwd(), "..", "schemas/fixtures/finite-batch-seal-receipt-v2.sha256"),
+  "ascii",
+).trim();
+assert(Buffer.from(receiptBytes).equals(expectedReceiptBytes), "finite receipt ProtoJSON bytes changed");
+assert(receiptBytes.at(-1) !== 10, "finite receipt projection unexpectedly has a trailing LF");
+assert(!new TextDecoder().decode(receiptBytes).includes("sealReceiptSha256"), "finite receipt is self-referential");
+assert(finiteBatchSealReceiptSha256(finiteBatchReceipt) === expectedReceiptSha256, "finite receipt SHA changed");
+assert(finiteBatchReceipt.sealReceiptSha256 === expectedReceiptSha256, "manifest receipt SHA changed");
+const nonpagedReceipt = create(FiniteBatchCompletionV2Schema, {
+  ...finiteBatchReceipt,
+  sourceKind: FiniteBatchSourceKindV2.FINITE_BATCH_SOURCE_KIND_HISTORICAL_NON_PAGED,
+  inputSizeBytes: 18_446_744_073_709_551_615n,
+  inputRecordCount: 18_446_744_073_709_551_615n,
+  consumedRecordCount: 18_446_744_073_709_551_615n,
+  pageCount: undefined,
+  pagesExhausted: undefined,
+  pageSetSha256: undefined,
+});
+const nonpagedReceiptBytes = finiteBatchSealReceiptProtojsonBytes(nonpagedReceipt);
+const expectedNonpagedReceiptBytes = readFileSync(
+  resolve(process.cwd(), "..", "schemas/fixtures/finite-batch-seal-receipt-v2-nonpaged-u64.protojson"),
+);
+const expectedNonpagedReceiptSha256 = readFileSync(
+  resolve(process.cwd(), "..", "schemas/fixtures/finite-batch-seal-receipt-v2-nonpaged-u64.sha256"),
+  "ascii",
+).trim();
+assert(Buffer.from(nonpagedReceiptBytes).equals(expectedNonpagedReceiptBytes), "non-paged max-u64 receipt bytes changed");
+assert(
+  finiteBatchSealReceiptSha256(nonpagedReceipt) === expectedNonpagedReceiptSha256,
+  "non-paged max-u64 receipt SHA changed",
+);
+assert(!new TextDecoder().decode(nonpagedReceiptBytes).includes("pageCount"), "non-paged receipt emitted pageCount");
+const invalidReceiptHash = structuredClone(datasetV2Json) as Record<string, unknown>;
+const invalidReceiptEvidence = invalidReceiptHash.completionEvidence as Record<string, unknown>;
+const invalidReceiptFinite = invalidReceiptEvidence.finiteBatch as Record<string, unknown>;
+invalidReceiptFinite.sealReceiptSha256 = "e".repeat(64);
+rejects(
+  () => parseDatasetManifestV2ProtoJson(invalidReceiptHash),
+  "dataset v2 accepted a seal hash that did not match the canonical projection",
+);
 for (const path of [
   "schemas/fixtures/dataset-manifest-v2-snake.json",
   "schemas/fixtures/dataset-manifest-v2-provider-watermark-snake.json",
@@ -187,6 +242,9 @@ for (const testCase of timestampV2Fixture.valid) {
   const completion = candidate.completionEvidence as Record<string, unknown>;
   const finite = completion.finiteBatch as Record<string, unknown>;
   finite.completedAt = testCase.value;
+  finite.sealReceiptSha256 = finiteBatchSealReceiptSha256(
+    fromJson(FiniteBatchCompletionV2Schema, finite as JsonValue),
+  );
   parseDatasetManifestV2ProtoJson(candidate);
 }
 for (const testCase of timestampV2Fixture.invalid) {
@@ -640,6 +698,9 @@ const validateDatasetHttpJson = ajv.compile({
 const validateDatasetV2HttpJson = ajv.compile({
   $ref: "lqepoch-openapi#/components/schemas/DatasetManifestV2",
 });
+const validateFiniteBatchReceiptHttpJson = ajv.compile({
+  $ref: "lqepoch-openapi#/components/schemas/FiniteBatchSealReceiptV2",
+});
 function toOpenApiSnakeCase(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(toOpenApiSnakeCase);
   if (value !== null && typeof value === "object") {
@@ -654,6 +715,14 @@ function toOpenApiSnakeCase(value: unknown): unknown {
 }
 const datasetV2HttpJson = toOpenApiSnakeCase(datasetV2Json) as Record<string, unknown>;
 assert(validateDatasetV2HttpJson(datasetV2HttpJson), "OpenAPI rejects the finite-batch V2 fixture");
+const receiptHttpJson = toOpenApiSnakeCase(
+  JSON.parse(readFileSync(resolve(process.cwd(), "..", "schemas/fixtures/finite-batch-seal-receipt-v2.protojson"), "utf8")),
+) as Record<string, unknown>;
+assert(validateFiniteBatchReceiptHttpJson(receiptHttpJson), "OpenAPI rejects the finite-batch receipt projection");
+assert(
+  !validateFiniteBatchReceiptHttpJson({ ...receiptHttpJson, seal_receipt_sha256: "e".repeat(64) }),
+  "OpenAPI accepted a self-referential finite-batch receipt projection",
+);
 const datasetV2DiagnosticHttpJson = toOpenApiSnakeCase(datasetV2DiagnosticJson) as Record<string, unknown>;
 assert(
   validateDatasetV2HttpJson(datasetV2DiagnosticHttpJson),

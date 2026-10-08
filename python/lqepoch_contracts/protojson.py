@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections.abc import Mapping
@@ -20,6 +21,7 @@ from .uint64_json import validate_uint64_json_paths
 MAX_DATASET_MANIFEST_V2_JSON_BYTES = 2 * 1024 * 1024
 MAX_DATASET_MANIFEST_V2_SYMBOLS = 4096
 MAX_PROVIDER_WATERMARK_ALLOWED_LATENESS_NS = 60_000_000_000
+MAX_FINITE_BATCH_SEAL_RECEIPT_V2_JSON_BYTES = 16 * 1024
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _PROTO_TIMESTAMP_V2 = re.compile(
     r"([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})"
@@ -210,6 +212,49 @@ def parse_dataset_manifest_v2_json(
     return parse_dataset_manifest_v2_protojson(value)
 
 
+def finite_batch_seal_receipt_protojson_bytes(
+    value: manifest_v2_pb2.FiniteBatchCompletionV2,
+) -> bytes:
+    """Return core's compact, non-circular ProtoJSON projection with no trailing newline.
+
+    The projection omits ``seal_receipt_sha256``. Matching its SHA only binds these exact fields;
+    it does not authenticate an issuer or establish provider-history completeness.
+    """
+    if not isinstance(value, manifest_v2_pb2.FiniteBatchCompletionV2):
+        raise ValueError("finite batch receipt requires the generated FiniteBatchCompletionV2 message")
+    _validate_finite_batch_receipt_fields(value)
+    projection = manifest_v2_pb2.FiniteBatchSealReceiptV2(
+        source_kind=value.source_kind,
+        input_identity=value.input_identity,
+        input_sha256=value.input_sha256,
+        input_size_bytes=value.input_size_bytes,
+        input_record_count=value.input_record_count,
+        consumed_record_count=value.consumed_record_count,
+        reviewed_policy_sha256=value.reviewed_policy_sha256,
+    )
+    projection.data_cutoff_exclusive.CopyFrom(value.data_cutoff_exclusive)
+    projection.sealed_at.CopyFrom(value.sealed_at)
+    projection.completed_at.CopyFrom(value.completed_at)
+    for field in ("page_count", "pages_exhausted", "page_set_sha256"):
+        if value.HasField(field):
+            setattr(projection, field, getattr(value, field))
+
+    document = json_format.MessageToDict(projection, preserving_proto_field_name=False)
+    encoded = json.dumps(
+        document, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")
+    if len(encoded) > MAX_FINITE_BATCH_SEAL_RECEIPT_V2_JSON_BYTES:
+        raise ValueError("finite batch seal receipt exceeds the configured byte limit")
+    return encoded
+
+
+def finite_batch_seal_receipt_sha256(
+    value: manifest_v2_pb2.FiniteBatchCompletionV2,
+) -> str:
+    """Return lowercase SHA-256 over the shared finite-batch receipt projection."""
+    return hashlib.sha256(finite_batch_seal_receipt_protojson_bytes(value)).hexdigest()
+
+
 def _validate_dataset_manifest_v2(message: manifest_v2_pb2.DatasetManifestV2) -> None:
     if message.schema_version != 2:
         raise ValueError("unsupported dataset manifest v2 schema version")
@@ -323,6 +368,8 @@ def _validate_finite_batch_v2(value: object, source: object, manifest: object) -
         or not _valid_sha256(value.seal_receipt_sha256)
     ):
         raise ValueError("finite batch input receipt is incomplete or inconsistent")
+    if finite_batch_seal_receipt_sha256(value) != value.seal_receipt_sha256:
+        raise ValueError("finite batch seal receipt hash does not match the shared projection")
     timestamps = (value.data_cutoff_exclusive, value.sealed_at, value.completed_at)
     if any(not value.HasField(field) for field in ("data_cutoff_exclusive", "sealed_at", "completed_at")):
         raise ValueError("finite batch requires cutoff, seal, and completion timestamps")
@@ -348,6 +395,42 @@ def _validate_finite_batch_v2(value: object, source: object, manifest: object) -
     synthetic = source.provider == "synthetic" and source.feed == "synthetic"
     if kind == 1 and not synthetic or kind in {2, 3} and synthetic:
         raise ValueError("finite batch source kind does not match source identity")
+
+
+def _validate_finite_batch_receipt_fields(value: object) -> None:
+    kind = value.source_kind
+    if (
+        kind not in {1, 2, 3, 4}
+        or not valid_dataset_id(value.input_identity)
+        or not _valid_sha256(value.input_sha256)
+        or value.input_size_bytes == 0
+        or value.input_record_count == 0
+        or value.input_record_count != value.consumed_record_count
+        or not _valid_sha256(value.reviewed_policy_sha256)
+        or not all(
+            value.HasField(field)
+            for field in ("data_cutoff_exclusive", "sealed_at", "completed_at")
+        )
+        or not _timestamps_ordered(
+            (value.data_cutoff_exclusive, value.sealed_at, value.completed_at)
+        )
+    ):
+        raise ValueError("finite batch receipt projection fields are incomplete or inconsistent")
+    page_presence = (
+        value.HasField("page_count"),
+        value.HasField("pages_exhausted"),
+        value.HasField("page_set_sha256"),
+    )
+    if kind == 2:
+        if (
+            not all(page_presence)
+            or value.page_count == 0
+            or not value.pages_exhausted
+            or not _valid_sha256(value.page_set_sha256)
+        ):
+            raise ValueError("paged finite batch receipt is incomplete")
+    elif any(page_presence):
+        raise ValueError("non-paged finite batch receipt must omit page evidence")
 
 
 def _validate_provider_watermark_v2(value: object, source: object, manifest: object) -> None:

@@ -6,8 +6,10 @@ import copy
 import unittest
 from pathlib import Path
 
+from google.protobuf import json_format
 from google.protobuf.json_format import MessageToDict
 
+from lqepoch.dataset.v2 import manifest_pb2 as manifest_v2_pb2
 from lqepoch_contracts.identities import (
     valid_dataset_id,
     valid_market_symbol,
@@ -17,6 +19,8 @@ from lqepoch_contracts.identities import (
     valid_source_identity,
 )
 from lqepoch_contracts import (
+    finite_batch_seal_receipt_protojson_bytes,
+    finite_batch_seal_receipt_sha256,
     load_trusted_parquet_schema_registry,
     trusted_parquet_schema_descriptor,
     trusted_parquet_schema_sha256,
@@ -38,7 +42,66 @@ def read_json_fixture(relative_path: str) -> object:
     return json.loads((REPO_ROOT / relative_path).read_text(encoding="utf-8"))
 
 
+def refresh_finite_batch_receipt_hash(document: dict[str, object]) -> None:
+    finite_batch = document["completionEvidence"]["finiteBatch"]
+    typed_finite_batch = json_format.ParseDict(
+        finite_batch,
+        manifest_v2_pb2.FiniteBatchCompletionV2(),
+    )
+    finite_batch["sealReceiptSha256"] = finite_batch_seal_receipt_sha256(typed_finite_batch)
+
+
 class SharedContractFixturesTest(unittest.TestCase):
+    def test_finite_batch_receipt_projection_matches_cross_language_bytes_and_sha256(self) -> None:
+        manifest = parse_dataset_manifest_v2_protojson(
+            read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
+        )
+        finite_batch = manifest.completion_evidence.finite_batch
+        payload = finite_batch_seal_receipt_protojson_bytes(finite_batch)
+        expected = (REPO_ROOT / "schemas/fixtures/finite-batch-seal-receipt-v2.protojson").read_bytes()
+        expected_sha256 = (
+            REPO_ROOT / "schemas/fixtures/finite-batch-seal-receipt-v2.sha256"
+        ).read_text(encoding="ascii").strip()
+
+        self.assertEqual(payload, expected)
+        self.assertFalse(payload.endswith(b"\n"))
+        self.assertNotIn(b"sealReceiptSha256", payload)
+        self.assertEqual(hashlib.sha256(payload).hexdigest(), expected_sha256)
+        self.assertEqual(finite_batch_seal_receipt_sha256(finite_batch), expected_sha256)
+        self.assertEqual(finite_batch.seal_receipt_sha256, expected_sha256)
+
+        nonpaged = type(finite_batch)()
+        nonpaged.CopyFrom(finite_batch)
+        nonpaged.source_kind = manifest_v2_pb2.FINITE_BATCH_SOURCE_KIND_HISTORICAL_NON_PAGED
+        nonpaged.input_size_bytes = (1 << 64) - 1
+        nonpaged.input_record_count = (1 << 64) - 1
+        nonpaged.consumed_record_count = (1 << 64) - 1
+        for field in ("page_count", "pages_exhausted", "page_set_sha256"):
+            nonpaged.ClearField(field)
+        nonpaged_payload = finite_batch_seal_receipt_protojson_bytes(nonpaged)
+        nonpaged_expected = (
+            REPO_ROOT / "schemas/fixtures/finite-batch-seal-receipt-v2-nonpaged-u64.protojson"
+        ).read_bytes()
+        nonpaged_expected_sha256 = (
+            REPO_ROOT / "schemas/fixtures/finite-batch-seal-receipt-v2-nonpaged-u64.sha256"
+        ).read_text(encoding="ascii").strip()
+        self.assertEqual(nonpaged_payload, nonpaged_expected)
+        self.assertEqual(hashlib.sha256(nonpaged_payload).hexdigest(), nonpaged_expected_sha256)
+        self.assertNotIn(b"pageCount", nonpaged_payload)
+        self.assertNotIn(b"pagesExhausted", nonpaged_payload)
+        self.assertNotIn(b"pageSetSha256", nonpaged_payload)
+
+        invalid = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
+        invalid["completionEvidence"]["finiteBatch"]["sealReceiptSha256"] = "e" * 64
+        with self.assertRaisesRegex(ValueError, "seal receipt hash"):
+            parse_dataset_manifest_v2_protojson(invalid)
+
+        malformed_receipt = type(finite_batch)()
+        malformed_receipt.CopyFrom(finite_batch)
+        malformed_receipt.page_count = 0
+        with self.assertRaisesRegex(ValueError, "paged finite batch receipt"):
+            finite_batch_seal_receipt_protojson_bytes(malformed_receipt)
+
     def test_dataset_manifest_v2_protojson_is_bounded_and_keeps_completion_evidence_distinct(self) -> None:
         fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
         manifest = parse_dataset_manifest_v2_protojson(fixture)
@@ -63,13 +126,14 @@ class SharedContractFixturesTest(unittest.TestCase):
 
         invalid = copy.deepcopy(fixture)
         invalid["completionEvidence"]["finiteBatch"]["pagesExhausted"] = False
-        with self.assertRaisesRegex(ValueError, "paged finite batches"):
+        with self.assertRaisesRegex(ValueError, "paged finite batch"):
             parse_dataset_manifest_v2_protojson(invalid)
 
         invalid = copy.deepcopy(fixture)
         invalid["completionEvidence"]["finiteBatch"]["dataCutoffExclusive"] = (
             "2026-10-08T14:30:59.999999999Z"
         )
+        refresh_finite_batch_receipt_hash(invalid)
         with self.assertRaisesRegex(ValueError, "cutoff precedes"):
             parse_dataset_manifest_v2_protojson(invalid)
 
@@ -161,6 +225,7 @@ class SharedContractFixturesTest(unittest.TestCase):
         for case in timestamp_cases["valid"]:
             candidate = copy.deepcopy(fixture)
             candidate["completionEvidence"]["finiteBatch"]["completedAt"] = case["value"]
+            refresh_finite_batch_receipt_hash(candidate)
             with self.subTest(case=case["name"]):
                 parse_dataset_manifest_v2_protojson(candidate)
         for case in timestamp_cases["invalid"]:

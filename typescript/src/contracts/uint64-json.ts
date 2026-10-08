@@ -1,4 +1,5 @@
-import { fromJson, type JsonValue } from "@bufbuild/protobuf";
+import { createHash } from "node:crypto";
+import { create, fromJson, toJsonString, type JsonValue } from "@bufbuild/protobuf";
 import {
   MarketEventEnvelopeV1Schema,
   NumericEncodingV1,
@@ -14,6 +15,7 @@ import {
 } from "../gen/lqepoch/prediction/v1/prediction_pb.js";
 import {
   DatasetManifestV2Schema,
+  FiniteBatchSealReceiptV2Schema,
   FiniteBatchSourceKindV2,
   type FiniteBatchCompletionV2,
   type DatasetManifestV2,
@@ -207,6 +209,38 @@ export function parseDatasetManifestV2Json(text: string): DatasetManifestV2 {
   return parseDatasetManifestV2ProtoJson(JSON.parse(text) as unknown);
 }
 
+/** Return the shared compact ProtoJSON bytes hashed by `sealReceiptSha256`, without a final LF. */
+export function finiteBatchSealReceiptProtojsonBytes(
+  value: FiniteBatchCompletionV2,
+): Uint8Array {
+  validateFiniteBatchReceiptProjectionFields(value);
+  const projection = create(FiniteBatchSealReceiptV2Schema, {
+    sourceKind: value.sourceKind,
+    inputIdentity: value.inputIdentity,
+    inputSha256: value.inputSha256,
+    inputSizeBytes: value.inputSizeBytes,
+    inputRecordCount: value.inputRecordCount,
+    consumedRecordCount: value.consumedRecordCount,
+    reviewedPolicySha256: value.reviewedPolicySha256,
+    dataCutoffExclusive: value.dataCutoffExclusive,
+    sealedAt: value.sealedAt,
+    completedAt: value.completedAt,
+    pageCount: value.pageCount,
+    pagesExhausted: value.pagesExhausted,
+    pageSetSha256: value.pageSetSha256,
+  });
+  const bytes = new TextEncoder().encode(toJsonString(FiniteBatchSealReceiptV2Schema, projection));
+  if (bytes.byteLength > 16 * 1024) {
+    throw new RangeError("finite batch seal receipt exceeds the configured byte limit");
+  }
+  return bytes;
+}
+
+/** Return lowercase SHA-256 over the shared finite-batch receipt projection. */
+export function finiteBatchSealReceiptSha256(value: FiniteBatchCompletionV2): string {
+  return createHash("sha256").update(finiteBatchSealReceiptProtojsonBytes(value)).digest("hex");
+}
+
 function validateDatasetManifestV2(message: DatasetManifestV2): void {
   if (message.schemaVersion !== 2) throw new TypeError("unsupported dataset manifest v2 version");
   if (!validDatasetId(message.datasetId)) throw new TypeError("invalid dataset v2 identity");
@@ -342,15 +376,10 @@ function validateFiniteBatchV2(
   feed: string,
   timeRange: DatasetTimeRangeV2 | undefined,
 ): void {
+  const receiptSha256 = finiteBatchSealReceiptSha256(value);
   if (
-    value.sourceKind === FiniteBatchSourceKindV2.FINITE_BATCH_SOURCE_KIND_UNSPECIFIED ||
-    !validDatasetId(value.inputIdentity) ||
-    !SHA256.test(value.inputSha256) ||
-    value.inputSizeBytes === 0n ||
-    value.inputRecordCount === 0n ||
-    value.inputRecordCount !== value.consumedRecordCount ||
-    !SHA256.test(value.reviewedPolicySha256) ||
     !SHA256.test(value.sealReceiptSha256) ||
+    value.sealReceiptSha256 !== receiptSha256 ||
     value.dataCutoffExclusive === undefined ||
     value.sealedAt === undefined ||
     value.completedAt === undefined ||
@@ -384,6 +413,43 @@ function validateFiniteBatchV2(
       value.sourceKind === FiniteBatchSourceKindV2.FINITE_BATCH_SOURCE_KIND_HISTORICAL_NON_PAGED) && synthetic)
   ) {
     throw new TypeError("finite input kind does not match source identity");
+  }
+}
+
+function validateFiniteBatchReceiptProjectionFields(value: FiniteBatchCompletionV2): void {
+  if (
+    ![1, 2, 3, 4].includes(value.sourceKind) ||
+    !validDatasetId(value.inputIdentity) ||
+    !SHA256.test(value.inputSha256) ||
+    value.inputSizeBytes === 0n ||
+    value.inputRecordCount === 0n ||
+    value.inputRecordCount !== value.consumedRecordCount ||
+    !SHA256.test(value.reviewedPolicySha256) ||
+    value.dataCutoffExclusive === undefined ||
+    value.sealedAt === undefined ||
+    value.completedAt === undefined ||
+    compareTimestamp(value.dataCutoffExclusive, value.sealedAt) > 0 ||
+    compareTimestamp(value.sealedAt, value.completedAt) > 0
+  ) {
+    throw new TypeError("finite batch receipt projection fields are incomplete or inconsistent");
+  }
+  const paged = value.sourceKind === FiniteBatchSourceKindV2.FINITE_BATCH_SOURCE_KIND_HISTORICAL_PAGED;
+  if (paged) {
+    if (
+      value.pageCount === undefined ||
+      value.pageCount === 0n ||
+      value.pagesExhausted !== true ||
+      value.pageSetSha256 === undefined ||
+      !SHA256.test(value.pageSetSha256)
+    ) {
+      throw new TypeError("paged finite batch receipt projection is incomplete");
+    }
+  } else if (
+    value.pageCount !== undefined ||
+    value.pagesExhausted !== undefined ||
+    value.pageSetSha256 !== undefined
+  ) {
+    throw new TypeError("non-paged finite batch receipt projection must omit page evidence");
   }
 }
 

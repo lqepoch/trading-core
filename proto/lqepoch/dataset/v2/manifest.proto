@@ -38,6 +38,27 @@ enum FiniteBatchSourceKindV2 {
   FINITE_BATCH_SOURCE_KIND_LOCAL_ARCHIVE = 4;
 }
 
+// Canonical non-circular ProtoJSON receipt projection for a finite batch.
+// The payload omits FiniteBatchCompletionV2.seal_receipt_sha256; that field stores the SHA-256
+// of the exact compact UTF-8 ProtoJSON bytes produced from this projection, with no trailing LF.
+// Hash binding does not establish issuer identity or provider completeness.
+message FiniteBatchSealReceiptV2 {
+  FiniteBatchSourceKindV2 source_kind = 1;
+  string input_identity = 2;
+  string input_sha256 = 3;
+  uint64 input_size_bytes = 4;
+  uint64 input_record_count = 5;
+  uint64 consumed_record_count = 6;
+  string reviewed_policy_sha256 = 7;
+  reserved 8;
+  google.protobuf.Timestamp data_cutoff_exclusive = 9;
+  google.protobuf.Timestamp sealed_at = 10;
+  google.protobuf.Timestamp completed_at = 11;
+  optional uint64 page_count = 12;
+  optional bool pages_exhausted = 13;
+  optional string page_set_sha256 = 14;
+}
+
 // A seal binds processing to a finite immutable input. It does not attest to provider truth or
 // guarantee that a provider exposed every historical record for the requested interval.
 message FiniteBatchCompletionV2 {

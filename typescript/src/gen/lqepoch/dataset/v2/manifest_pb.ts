@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file lqepoch/dataset/v2/manifest.proto.
  */
 export const file_lqepoch_dataset_v2_manifest: GenFile = /*@__PURE__*/
-  fileDesc("CiFscWVwb2NoL2RhdGFzZXQvdjIvbWFuaWZlc3QucHJvdG8SEmxxZXBvY2guZGF0YXNldC52MiJ8ChJEYXRhc2V0VGltZVJhbmdlVjISMwoPc3RhcnRfaW5jbHVzaXZlGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIxCg1lbmRfZXhjbHVzaXZlGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCLHAQoPRGF0YXNldE9iamVjdFYyEhMKC29iamVjdF9uYW1lGAEgASgJEhYKCW9iamVjdF9pZBgCIAEoCUgAiAEBEhIKCnNpemVfYnl0ZXMYAyABKAQSFgoOY29udGVudF9zaGEyNTYYBCABKAkSHQoVcGFycXVldF9zY2hlbWFfc2hhMjU2GAUgASgJEhsKE3BhcnF1ZXRfZm9vdGVyX3Jvd3MYBiABKAQSEQoJdHJhbnNwb3J0GAcgASgJQgwKCl9vYmplY3RfaWQiWAocRGF0YXNldFN0b3JhZ2VWZXJpZmljYXRpb25WMhIXCg9yZWFkYmFja19zaGEyNTYYASABKAkSHwoXdmVyaWZpZWRfYmVmb3JlX3B1Ymxpc2gYAiABKAgiwwQKF0Zpbml0ZUJhdGNoQ29tcGxldGlvblYyEkAKC3NvdXJjZV9raW5kGAEgASgOMisubHFlcG9jaC5kYXRhc2V0LnYyLkZpbml0ZUJhdGNoU291cmNlS2luZFYyEhYKDmlucHV0X2lkZW50aXR5GAIgASgJEhQKDGlucHV0X3NoYTI1NhgDIAEoCRIYChBpbnB1dF9zaXplX2J5dGVzGAQgASgEEhoKEmlucHV0X3JlY29yZF9jb3VudBgFIAEoBBIdChVjb25zdW1lZF9yZWNvcmRfY291bnQYBiABKAQSHgoWcmV2aWV3ZWRfcG9saWN5X3NoYTI1NhgHIAEoCRIbChNzZWFsX3JlY2VpcHRfc2hhMjU2GAggASgJEjkKFWRhdGFfY3V0b2ZmX2V4Y2x1c2l2ZRgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLQoJc2VhbGVkX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIwCgxjb21wbGV0ZWRfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhcKCnBhZ2VfY291bnQYDCABKARIAIgBARIcCg9wYWdlc19leGhhdXN0ZWQYDSABKAhIAYgBARIcCg9wYWdlX3NldF9zaGEyNTYYDiABKAlIAogBAUINCgtfcGFnZV9jb3VudEISChBfcGFnZXNfZXhoYXVzdGVkQhIKEF9wYWdlX3NldF9zaGEyNTYi+QIKHVByb3ZpZGVyV2F0ZXJtYXJrQ29tcGxldGlvblYyEhAKCHByb3ZpZGVyGAEgASgJEgwKBGZlZWQYAiABKAkSIAoYc3Vic2NyaXB0aW9uX2luc3RhbmNlX2lkGAMgASgJEhIKCmdlbmVyYXRpb24YBCABKAQSFgoOZmlyc3Rfc2VxdWVuY2UYBSABKAQSFQoNbGFzdF9zZXF1ZW5jZRgGIAEoBBIWCg5zZXF1ZW5jZV9jb3VudBgHIAEoBBIhChljb250aW51aXR5X3JlY2VpcHRfc2hhMjU2GAggASgJEjwKGGNvbXBsZXRlX3VwX3RvX2V4Y2x1c2l2ZRgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASGwoTYWxsb3dlZF9sYXRlbmVzc19ucxgKIAEoBBIeChZyZXZpZXdlZF9wb2xpY3lfc2hhMjU2GAsgASgJEh0KFXNvdXJjZV9yZWNlaXB0X3NoYTI1NhgMIAEoCSLWAgocRGlhZ25vc3RpY1N0cmVhbUNvbXBsZXRpb25WMhIaChJzb3VyY2VfaW5zdGFuY2VfaWQYASABKAkSEgoKZ2VuZXJhdGlvbhgCIAEoBBIeChZvYnNlcnZlZF9sYXN0X3NlcXVlbmNlGAMgASgEEjcKE2xvY2FsX3BvbGljeV9jdXRvZmYYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEkYKHW9ic2VydmVkX21heF9zb3VyY2VfdGltZXN0YW1wGAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgAiAEBEiAKGGRpYWdub3N0aWNfcG9saWN5X3NoYTI1NhgGIAEoCRIhChlkaWFnbm9zdGljX3JlY2VpcHRfc2hhMjU2GAcgASgJQiAKHl9vYnNlcnZlZF9tYXhfc291cmNlX3RpbWVzdGFtcCKOAgobRGF0YXNldENvbXBsZXRpb25FdmlkZW5jZVYyEkMKDGZpbml0ZV9iYXRjaBgBIAEoCzIrLmxxZXBvY2guZGF0YXNldC52Mi5GaW5pdGVCYXRjaENvbXBsZXRpb25WMkgAEk8KEnByb3ZpZGVyX3dhdGVybWFyaxgCIAEoCzIxLmxxZXBvY2guZGF0YXNldC52Mi5Qcm92aWRlcldhdGVybWFya0NvbXBsZXRpb25WMkgAEk0KEWRpYWdub3N0aWNfc3RyZWFtGAMgASgLMjAubHFlcG9jaC5kYXRhc2V0LnYyLkRpYWdub3N0aWNTdHJlYW1Db21wbGV0aW9uVjJIAEIKCghldmlkZW5jZSLkAwoRRGF0YXNldE1hbmlmZXN0VjISFgoOc2NoZW1hX3ZlcnNpb24YASABKA0SEgoKZGF0YXNldF9pZBgCIAEoCRI1CgZzb3VyY2UYAyABKAsyJS5scWVwb2NoLm1hcmtldC52MS5NYXJrZXREYXRhU291cmNlVjESDwoHc3ltYm9scxgEIAMoCRI/Cgp0aW1lX3JhbmdlGAUgASgLMiYubHFlcG9jaC5kYXRhc2V0LnYyLkRhdGFzZXRUaW1lUmFuZ2VWMkgAiAEBEiUKHXNvdXJjZV90aW1lc3RhbXBfbWlzc2luZ19yb3dzGAYgASgEEhEKCXJvd19jb3VudBgHIAEoBBIzCgZvYmplY3QYCCABKAsyIy5scWVwb2NoLmRhdGFzZXQudjIuRGF0YXNldE9iamVjdFYyEk4KFHN0b3JhZ2VfdmVyaWZpY2F0aW9uGAkgASgLMjAubHFlcG9jaC5kYXRhc2V0LnYyLkRhdGFzZXRTdG9yYWdlVmVyaWZpY2F0aW9uVjISTAoTY29tcGxldGlvbl9ldmlkZW5jZRgKIAEoCzIvLmxxZXBvY2guZGF0YXNldC52Mi5EYXRhc2V0Q29tcGxldGlvbkV2aWRlbmNlVjJCDQoLX3RpbWVfcmFuZ2UqgAIKF0Zpbml0ZUJhdGNoU291cmNlS2luZFYyEigKJEZJTklURV9CQVRDSF9TT1VSQ0VfS0lORF9VTlNQRUNJRklFRBAAEi0KKUZJTklURV9CQVRDSF9TT1VSQ0VfS0lORF9TWU5USEVUSUNfUkVQTEFZEAESLQopRklOSVRFX0JBVENIX1NPVVJDRV9LSU5EX0hJU1RPUklDQUxfUEFHRUQQAhIxCi1GSU5JVEVfQkFUQ0hfU09VUkNFX0tJTkRfSElTVE9SSUNBTF9OT05fUEFHRUQQAxIqCiZGSU5JVEVfQkFUQ0hfU09VUkNFX0tJTkRfTE9DQUxfQVJDSElWRRAEQhoKFmNvbS5scWVwb2NoLmRhdGFzZXQudjJQAWIGcHJvdG8z", [file_google_protobuf_timestamp, file_lqepoch_market_v1_market]);
+  fileDesc("CiFscWVwb2NoL2RhdGFzZXQvdjIvbWFuaWZlc3QucHJvdG8SEmxxZXBvY2guZGF0YXNldC52MiJ8ChJEYXRhc2V0VGltZVJhbmdlVjISMwoPc3RhcnRfaW5jbHVzaXZlGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIxCg1lbmRfZXhjbHVzaXZlGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCLHAQoPRGF0YXNldE9iamVjdFYyEhMKC29iamVjdF9uYW1lGAEgASgJEhYKCW9iamVjdF9pZBgCIAEoCUgAiAEBEhIKCnNpemVfYnl0ZXMYAyABKAQSFgoOY29udGVudF9zaGEyNTYYBCABKAkSHQoVcGFycXVldF9zY2hlbWFfc2hhMjU2GAUgASgJEhsKE3BhcnF1ZXRfZm9vdGVyX3Jvd3MYBiABKAQSEQoJdHJhbnNwb3J0GAcgASgJQgwKCl9vYmplY3RfaWQiWAocRGF0YXNldFN0b3JhZ2VWZXJpZmljYXRpb25WMhIXCg9yZWFkYmFja19zaGEyNTYYASABKAkSHwoXdmVyaWZpZWRfYmVmb3JlX3B1Ymxpc2gYAiABKAgirQQKGEZpbml0ZUJhdGNoU2VhbFJlY2VpcHRWMhJACgtzb3VyY2Vfa2luZBgBIAEoDjIrLmxxZXBvY2guZGF0YXNldC52Mi5GaW5pdGVCYXRjaFNvdXJjZUtpbmRWMhIWCg5pbnB1dF9pZGVudGl0eRgCIAEoCRIUCgxpbnB1dF9zaGEyNTYYAyABKAkSGAoQaW5wdXRfc2l6ZV9ieXRlcxgEIAEoBBIaChJpbnB1dF9yZWNvcmRfY291bnQYBSABKAQSHQoVY29uc3VtZWRfcmVjb3JkX2NvdW50GAYgASgEEh4KFnJldmlld2VkX3BvbGljeV9zaGEyNTYYByABKAkSOQoVZGF0YV9jdXRvZmZfZXhjbHVzaXZlGAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBItCglzZWFsZWRfYXQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjAKDGNvbXBsZXRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFwoKcGFnZV9jb3VudBgMIAEoBEgAiAEBEhwKD3BhZ2VzX2V4aGF1c3RlZBgNIAEoCEgBiAEBEhwKD3BhZ2Vfc2V0X3NoYTI1NhgOIAEoCUgCiAEBQg0KC19wYWdlX2NvdW50QhIKEF9wYWdlc19leGhhdXN0ZWRCEgoQX3BhZ2Vfc2V0X3NoYTI1NkoECAgQCSLDBAoXRmluaXRlQmF0Y2hDb21wbGV0aW9uVjISQAoLc291cmNlX2tpbmQYASABKA4yKy5scWVwb2NoLmRhdGFzZXQudjIuRmluaXRlQmF0Y2hTb3VyY2VLaW5kVjISFgoOaW5wdXRfaWRlbnRpdHkYAiABKAkSFAoMaW5wdXRfc2hhMjU2GAMgASgJEhgKEGlucHV0X3NpemVfYnl0ZXMYBCABKAQSGgoSaW5wdXRfcmVjb3JkX2NvdW50GAUgASgEEh0KFWNvbnN1bWVkX3JlY29yZF9jb3VudBgGIAEoBBIeChZyZXZpZXdlZF9wb2xpY3lfc2hhMjU2GAcgASgJEhsKE3NlYWxfcmVjZWlwdF9zaGEyNTYYCCABKAkSOQoVZGF0YV9jdXRvZmZfZXhjbHVzaXZlGAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBItCglzZWFsZWRfYXQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjAKDGNvbXBsZXRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFwoKcGFnZV9jb3VudBgMIAEoBEgAiAEBEhwKD3BhZ2VzX2V4aGF1c3RlZBgNIAEoCEgBiAEBEhwKD3BhZ2Vfc2V0X3NoYTI1NhgOIAEoCUgCiAEBQg0KC19wYWdlX2NvdW50QhIKEF9wYWdlc19leGhhdXN0ZWRCEgoQX3BhZ2Vfc2V0X3NoYTI1NiL5AgodUHJvdmlkZXJXYXRlcm1hcmtDb21wbGV0aW9uVjISEAoIcHJvdmlkZXIYASABKAkSDAoEZmVlZBgCIAEoCRIgChhzdWJzY3JpcHRpb25faW5zdGFuY2VfaWQYAyABKAkSEgoKZ2VuZXJhdGlvbhgEIAEoBBIWCg5maXJzdF9zZXF1ZW5jZRgFIAEoBBIVCg1sYXN0X3NlcXVlbmNlGAYgASgEEhYKDnNlcXVlbmNlX2NvdW50GAcgASgEEiEKGWNvbnRpbnVpdHlfcmVjZWlwdF9zaGEyNTYYCCABKAkSPAoYY29tcGxldGVfdXBfdG9fZXhjbHVzaXZlGAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIbChNhbGxvd2VkX2xhdGVuZXNzX25zGAogASgEEh4KFnJldmlld2VkX3BvbGljeV9zaGEyNTYYCyABKAkSHQoVc291cmNlX3JlY2VpcHRfc2hhMjU2GAwgASgJItYCChxEaWFnbm9zdGljU3RyZWFtQ29tcGxldGlvblYyEhoKEnNvdXJjZV9pbnN0YW5jZV9pZBgBIAEoCRISCgpnZW5lcmF0aW9uGAIgASgEEh4KFm9ic2VydmVkX2xhc3Rfc2VxdWVuY2UYAyABKAQSNwoTbG9jYWxfcG9saWN5X2N1dG9mZhgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASRgodb2JzZXJ2ZWRfbWF4X3NvdXJjZV90aW1lc3RhbXAYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSACIAQESIAoYZGlhZ25vc3RpY19wb2xpY3lfc2hhMjU2GAYgASgJEiEKGWRpYWdub3N0aWNfcmVjZWlwdF9zaGEyNTYYByABKAlCIAoeX29ic2VydmVkX21heF9zb3VyY2VfdGltZXN0YW1wIo4CChtEYXRhc2V0Q29tcGxldGlvbkV2aWRlbmNlVjISQwoMZmluaXRlX2JhdGNoGAEgASgLMisubHFlcG9jaC5kYXRhc2V0LnYyLkZpbml0ZUJhdGNoQ29tcGxldGlvblYySAASTwoScHJvdmlkZXJfd2F0ZXJtYXJrGAIgASgLMjEubHFlcG9jaC5kYXRhc2V0LnYyLlByb3ZpZGVyV2F0ZXJtYXJrQ29tcGxldGlvblYySAASTQoRZGlhZ25vc3RpY19zdHJlYW0YAyABKAsyMC5scWVwb2NoLmRhdGFzZXQudjIuRGlhZ25vc3RpY1N0cmVhbUNvbXBsZXRpb25WMkgAQgoKCGV2aWRlbmNlIuQDChFEYXRhc2V0TWFuaWZlc3RWMhIWCg5zY2hlbWFfdmVyc2lvbhgBIAEoDRISCgpkYXRhc2V0X2lkGAIgASgJEjUKBnNvdXJjZRgDIAEoCzIlLmxxZXBvY2gubWFya2V0LnYxLk1hcmtldERhdGFTb3VyY2VWMRIPCgdzeW1ib2xzGAQgAygJEj8KCnRpbWVfcmFuZ2UYBSABKAsyJi5scWVwb2NoLmRhdGFzZXQudjIuRGF0YXNldFRpbWVSYW5nZVYySACIAQESJQodc291cmNlX3RpbWVzdGFtcF9taXNzaW5nX3Jvd3MYBiABKAQSEQoJcm93X2NvdW50GAcgASgEEjMKBm9iamVjdBgIIAEoCzIjLmxxZXBvY2guZGF0YXNldC52Mi5EYXRhc2V0T2JqZWN0VjISTgoUc3RvcmFnZV92ZXJpZmljYXRpb24YCSABKAsyMC5scWVwb2NoLmRhdGFzZXQudjIuRGF0YXNldFN0b3JhZ2VWZXJpZmljYXRpb25WMhJMChNjb21wbGV0aW9uX2V2aWRlbmNlGAogASgLMi8ubHFlcG9jaC5kYXRhc2V0LnYyLkRhdGFzZXRDb21wbGV0aW9uRXZpZGVuY2VWMkINCgtfdGltZV9yYW5nZSqAAgoXRmluaXRlQmF0Y2hTb3VyY2VLaW5kVjISKAokRklOSVRFX0JBVENIX1NPVVJDRV9LSU5EX1VOU1BFQ0lGSUVEEAASLQopRklOSVRFX0JBVENIX1NPVVJDRV9LSU5EX1NZTlRIRVRJQ19SRVBMQVkQARItCilGSU5JVEVfQkFUQ0hfU09VUkNFX0tJTkRfSElTVE9SSUNBTF9QQUdFRBACEjEKLUZJTklURV9CQVRDSF9TT1VSQ0VfS0lORF9ISVNUT1JJQ0FMX05PTl9QQUdFRBADEioKJkZJTklURV9CQVRDSF9TT1VSQ0VfS0lORF9MT0NBTF9BUkNISVZFEARCGgoWY29tLmxxZXBvY2guZGF0YXNldC52MlABYgZwcm90bzM", [file_google_protobuf_timestamp, file_lqepoch_market_v1_market]);
 
 /**
  * Source-time coverage remains a half-open interval and never substitutes receive time.
@@ -112,6 +112,88 @@ export const DatasetStorageVerificationV2Schema: GenMessage<DatasetStorageVerifi
   messageDesc(file_lqepoch_dataset_v2_manifest, 2);
 
 /**
+ * Canonical non-circular ProtoJSON receipt projection for a finite batch.
+ * The payload omits FiniteBatchCompletionV2.seal_receipt_sha256; that field stores the SHA-256
+ * of the exact compact UTF-8 ProtoJSON bytes produced from this projection, with no trailing LF.
+ * Hash binding does not establish issuer identity or provider completeness.
+ *
+ * @generated from message lqepoch.dataset.v2.FiniteBatchSealReceiptV2
+ */
+export type FiniteBatchSealReceiptV2 = Message<"lqepoch.dataset.v2.FiniteBatchSealReceiptV2"> & {
+  /**
+   * @generated from field: lqepoch.dataset.v2.FiniteBatchSourceKindV2 source_kind = 1;
+   */
+  sourceKind: FiniteBatchSourceKindV2;
+
+  /**
+   * @generated from field: string input_identity = 2;
+   */
+  inputIdentity: string;
+
+  /**
+   * @generated from field: string input_sha256 = 3;
+   */
+  inputSha256: string;
+
+  /**
+   * @generated from field: uint64 input_size_bytes = 4;
+   */
+  inputSizeBytes: bigint;
+
+  /**
+   * @generated from field: uint64 input_record_count = 5;
+   */
+  inputRecordCount: bigint;
+
+  /**
+   * @generated from field: uint64 consumed_record_count = 6;
+   */
+  consumedRecordCount: bigint;
+
+  /**
+   * @generated from field: string reviewed_policy_sha256 = 7;
+   */
+  reviewedPolicySha256: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp data_cutoff_exclusive = 9;
+   */
+  dataCutoffExclusive?: Timestamp | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp sealed_at = 10;
+   */
+  sealedAt?: Timestamp | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp completed_at = 11;
+   */
+  completedAt?: Timestamp | undefined;
+
+  /**
+   * @generated from field: optional uint64 page_count = 12;
+   */
+  pageCount?: bigint | undefined;
+
+  /**
+   * @generated from field: optional bool pages_exhausted = 13;
+   */
+  pagesExhausted?: boolean | undefined;
+
+  /**
+   * @generated from field: optional string page_set_sha256 = 14;
+   */
+  pageSetSha256?: string | undefined;
+};
+
+/**
+ * Describes the message lqepoch.dataset.v2.FiniteBatchSealReceiptV2.
+ * Use `create(FiniteBatchSealReceiptV2Schema)` to create a new message.
+ */
+export const FiniteBatchSealReceiptV2Schema: GenMessage<FiniteBatchSealReceiptV2> = /*@__PURE__*/
+  messageDesc(file_lqepoch_dataset_v2_manifest, 3);
+
+/**
  * A seal binds processing to a finite immutable input. It does not attest to provider truth or
  * guarantee that a provider exposed every historical record for the requested interval.
  *
@@ -194,7 +276,7 @@ export type FiniteBatchCompletionV2 = Message<"lqepoch.dataset.v2.FiniteBatchCom
  * Use `create(FiniteBatchCompletionV2Schema)` to create a new message.
  */
 export const FiniteBatchCompletionV2Schema: GenMessage<FiniteBatchCompletionV2> = /*@__PURE__*/
-  messageDesc(file_lqepoch_dataset_v2_manifest, 3);
+  messageDesc(file_lqepoch_dataset_v2_manifest, 4);
 
 /**
  * This is an untrusted observation until a fixed composition-root verifier checks the receipt.
@@ -269,7 +351,7 @@ export type ProviderWatermarkCompletionV2 = Message<"lqepoch.dataset.v2.Provider
  * Use `create(ProviderWatermarkCompletionV2Schema)` to create a new message.
  */
 export const ProviderWatermarkCompletionV2Schema: GenMessage<ProviderWatermarkCompletionV2> = /*@__PURE__*/
-  messageDesc(file_lqepoch_dataset_v2_manifest, 4);
+  messageDesc(file_lqepoch_dataset_v2_manifest, 5);
 
 /**
  * Local stream diagnostics can support tests/inspection, never provider-completeness admission.
@@ -318,7 +400,7 @@ export type DiagnosticStreamCompletionV2 = Message<"lqepoch.dataset.v2.Diagnosti
  * Use `create(DiagnosticStreamCompletionV2Schema)` to create a new message.
  */
 export const DiagnosticStreamCompletionV2Schema: GenMessage<DiagnosticStreamCompletionV2> = /*@__PURE__*/
-  messageDesc(file_lqepoch_dataset_v2_manifest, 5);
+  messageDesc(file_lqepoch_dataset_v2_manifest, 6);
 
 /**
  * @generated from message lqepoch.dataset.v2.DatasetCompletionEvidenceV2
@@ -353,7 +435,7 @@ export type DatasetCompletionEvidenceV2 = Message<"lqepoch.dataset.v2.DatasetCom
  * Use `create(DatasetCompletionEvidenceV2Schema)` to create a new message.
  */
 export const DatasetCompletionEvidenceV2Schema: GenMessage<DatasetCompletionEvidenceV2> = /*@__PURE__*/
-  messageDesc(file_lqepoch_dataset_v2_manifest, 6);
+  messageDesc(file_lqepoch_dataset_v2_manifest, 7);
 
 /**
  * Version 2 separates object readback from input/stream completion evidence. A manifest hash
@@ -418,7 +500,7 @@ export type DatasetManifestV2 = Message<"lqepoch.dataset.v2.DatasetManifestV2"> 
  * Use `create(DatasetManifestV2Schema)` to create a new message.
  */
 export const DatasetManifestV2Schema: GenMessage<DatasetManifestV2> = /*@__PURE__*/
-  messageDesc(file_lqepoch_dataset_v2_manifest, 7);
+  messageDesc(file_lqepoch_dataset_v2_manifest, 8);
 
 /**
  * @generated from enum lqepoch.dataset.v2.FiniteBatchSourceKindV2

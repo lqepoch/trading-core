@@ -9,7 +9,16 @@ that proves readback consistency only.
 The oneof has three cases with intentionally different meanings:
 
 - `finite_batch` binds a non-empty finite input by immutable identity, exact byte SHA-256, size,
-  record count, and a receipt. `consumed_record_count` must equal `input_record_count`. A paged
+  record count, and a receipt. `consumed_record_count` must equal `input_record_count`.
+  `seal_receipt_sha256` must equal the SHA-256 of the core-generated
+  `FiniteBatchSealReceiptV2` ProtoJSON projection: the finite-batch fields in protobuf field order,
+  excluding `seal_receipt_sha256`, encoded as compact UTF-8 JSON with canonical uint64 strings and
+  protobuf timestamps, and no trailing newline. Rust, Python, and TypeScript expose the same
+  projection helper and use the shared byte/hash golden in
+  `schemas/fixtures/finite-batch-seal-receipt-v2.*`. This binds the claim fields to one another only;
+  it does not authenticate an issuer or establish provider completeness. Consumers compare receipt
+  artifact bytes with the helper output and verify the manifest's hash before assigning any local
+  structural status. A paged
   historical source must include a positive `page_count`, `pages_exhausted: true`, and the exact
   page-set receipt SHA-256. Those page fields must be absent for synthetic replay, non-paged
   history, and local archives. Timestamps are exact UTC protobuf timestamps with nanoseconds;
@@ -32,8 +41,9 @@ The oneof has three cases with intentionally different meanings:
   diagnostic only.
 
 Hash syntax, identity bounds, oneof presence, timestamp order, and cross-field consistency are
-validated in Rust, Python, and TypeScript. The parsers do not validate receipt issuers and never
-mint provider-completeness authority. A fixed composition-root verifier must retrieve and verify
+validated in Rust, Python, and TypeScript, including finite receipt hash-to-projection binding.
+The parsers do not validate receipt issuers and never mint provider-completeness authority. A fixed
+composition-root verifier must retrieve and verify
 the exact manifest and referenced receipt bytes before issuing any qualification token. Current
 Alpaca streams do not provide the trusted watermark evidence required for that token, so their
 stream completion remains unverified/diagnostic. Entitlement text is also only an observation.

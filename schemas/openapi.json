@@ -1507,6 +1507,67 @@
           }
         }
       },
+      "FiniteBatchSealReceiptV2": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_kind",
+          "input_identity",
+          "input_sha256",
+          "input_size_bytes",
+          "input_record_count",
+          "consumed_record_count",
+          "reviewed_policy_sha256",
+          "data_cutoff_exclusive",
+          "sealed_at",
+          "completed_at"
+        ],
+        "properties": {
+          "source_kind": {
+            "$ref": "#/components/schemas/FiniteBatchSourceKindV2"
+          },
+          "input_identity": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+          },
+          "input_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "input_size_bytes": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "input_record_count": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "consumed_record_count": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "reviewed_policy_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "data_cutoff_exclusive": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "sealed_at": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "completed_at": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "page_count": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "pages_exhausted": {
+            "const": true
+          },
+          "page_set_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          }
+        },
+        "description": "Canonical non-circular ProtoJSON projection whose exact compact UTF-8 bytes, without a trailing LF, are hashed by FiniteBatchCompletionV2.seal_receipt_sha256. Hash binding is not issuer or provider-completeness evidence."
+      },
       "FiniteBatchCompletionV2": {
         "type": "object",
         "additionalProperties": false,
@@ -1549,7 +1610,8 @@
             "$ref": "#/components/schemas/Sha256"
           },
           "seal_receipt_sha256": {
-            "$ref": "#/components/schemas/Sha256"
+            "$ref": "#/components/schemas/Sha256",
+            "description": "SHA-256 of the exact compact ProtoJSON bytes from FiniteBatchSealReceiptV2, excluding this field and with no trailing LF."
           },
           "data_cutoff_exclusive": {
             "$ref": "#/components/schemas/ProtoTimestampV2"
