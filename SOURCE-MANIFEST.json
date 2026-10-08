@@ -303,5 +303,197 @@
       "source_path": "apps/ and provider client/runtime/order-write modules",
       "reason": "Out of core scope; do not migrate OAuth, provider clients, account authority, OMS, runtime wiring, or send-capable CLI."
     }
+  ],
+  "new_code": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "6b6c0181ca96fe113039c8595c1554b0093a3aece2c99c162e7d8f5a8d5173d6",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "NOTICE.md",
+      "sha256": "627ff5693b4053675c3357f798f9e5a9d9389f4a273b344d3da6ee467136a174",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "README.md",
+      "sha256": "eaa0be6b840786d1fd4d04bb3da029c583ae63c4a6cea6853b8a8bc379201812",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "crates/domain/Cargo.toml",
+      "sha256": "1055dbf8c599f304153a144cc9a1757be67a0926639132d66afb0dac78340b71",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "crates/market-contracts/Cargo.toml",
+      "sha256": "42555b40bd156d415d869a977c047900afcd238dbf7c25099cdbfc398303582f",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "crates/market-contracts/src/dataset.rs",
+      "sha256": "f5315cad5682e8d3ca7818f576a927cd5a32a87e087e64454f0fea83fd484614",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "crates/market-contracts/src/lib.rs",
+      "sha256": "a3f741ba426edede0c24fa393c26c0b71f2d0d8d7c97241ae86fca237fcb5cd8",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "crates/market-contracts/src/parquet_schema.rs",
+      "sha256": "60656b6dbcec6fd15308888caea5bbb5f091af61a6436f1fb4c815028a660ac2",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "crates/market-contracts/src/raw_frame.rs",
+      "sha256": "c667f2c74596ffc93e143c61558ea46c9d5f71eae1d1caecf9682d86bb09800b",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "crates/market-contracts/src/v1.rs",
+      "sha256": "9d8ae7b615ef42cccc18e40f38a1a6534f00ac94cf1336f981e99237c28ed81b",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "crates/pricing/Cargo.toml",
+      "sha256": "55d45a7d64724a450fde56f2fa8701cb9d67dc039ae9888d7a540343e3c3aa94",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "deny.toml",
+      "sha256": "b66a5afdbdbe0aa923581f278ad361876eb71e9eb615a2eb8d9593992618131d",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "docs/development.md",
+      "sha256": "8fcfc9779412b4b500324dc416ec79e0c2854899c8dfb723e7e5a20143985077",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "docs/parquet-schema-v1.md",
+      "sha256": "ef5bd9e8d7afa5fc519405bd93a6fbf1cc68546c4711dcab728816a38fb6fc77",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "proto/lqepoch/market/v1/market.proto",
+      "sha256": "3341089c00ff194465af488444e4be2dbdb1024f51b67521a977c4bd54cf447b",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "python/README.md",
+      "sha256": "1b94571ed928a2b8a942b7e45428082f34a0084dffad1990e22bce699819d1f0",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "python/lqepoch/market/v1/market_pb2.py",
+      "sha256": "10cf4395a116c7fd235a55136211d2bc55d7dde7ce909542a5d8ac1c366c9c1a",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "python/lqepoch_contracts/__init__.py",
+      "sha256": "8ecdaa0454c23fe7084cf352c1e8999c30e0ed19c7b8210f4fd4871b59912566",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "python/lqepoch_contracts/parquet_schema.py",
+      "sha256": "f095fa59436d2096e54e668dc76f357037e9adbd7692d3331853972ea8803c1d",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "python/lqepoch_contracts/protojson.py",
+      "sha256": "8d7347665208c6ee927a51463677dc301aae4748da3ba7c20bf19b5ba9fb47cd",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "python/lqepoch_contracts/resources/parquet-schema-registry.json",
+      "sha256": "16de8883251d217432a4475181a07bb8e52516bff79862323b49afec7e40a239",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "python/pyproject.toml",
+      "sha256": "b027ef0d6e3c657494355c0d76ac665d51c81ab5351fd5fe04e6b0fe4091b4df",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "python/tests/test_pyarrow_schema.py",
+      "sha256": "780ab9a42d92aac36b258a23f4ed29099707a5ee3c96ddae6aa12d5435f756da",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "python/tests/test_shared_contract_fixtures.py",
+      "sha256": "54717310cb97d9bf238f6c013aedf7e33aa019e6d148936e5bd7c321ff79156f",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "python/uv.lock",
+      "sha256": "1f65ae114fa7bb665cff8098cd1d3e01c4e2397e3fd59354073f227593bdcf5f",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "sbom.spdx.json",
+      "sha256": "1f94c9991cf003fdb434102d15226b21f741853f67007e7043fdd6125f796a77",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "schemas/fixtures/parquet-schema-registry.json",
+      "sha256": "16de8883251d217432a4475181a07bb8e52516bff79862323b49afec7e40a239",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "schemas/openapi.json",
+      "sha256": "662409f0d91455586e68a8de58fff0b84a1e2130893db7bf21c04c7a166d0f85",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "scripts/generate-sbom.py",
+      "sha256": "207077c7b80580692937781b553fdd31320bc0ab279a2f55531afcfd7a49e4f5",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "scripts/sync-parquet-schema-registry.py",
+      "sha256": "39cc1d2c4b95faffe3241a908808623835ae372c92052ae0df22600fb1f08909",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "scripts/update-new-code-manifest.py",
+      "sha256": "91f9f00498556ec6ec63836581a23c5bd97dc9c7c4e560c05bb650ab52331104",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "scripts/validate-rust.sh",
+      "sha256": "936b5a93d90169a2b6a81c822facf52e6a4d0a514fdc875baf999cd8be1bf3c8",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "scripts/validate-schemas.sh",
+      "sha256": "d6c26a5603c5723bfb3d67d2c15f207f84bd193e03b6de86e65ac9c4d61d5e5f",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "typescript/src/contracts/parquet-schema-registry.ts",
+      "sha256": "839439189b796b32c651717bc954f64fbd643b08867f74a79c853c5284051580",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "typescript/src/contracts/schema-fingerprint.ts",
+      "sha256": "030225da1d5ae3459bdf2f83703dbbfe1c13598e6380d7589a3ed976c84ed89b",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "typescript/src/contracts/uint64-json.ts",
+      "sha256": "3bc79dc1bee8c8a21094a736c636d30028411318e48c636281b49641e86a5b16",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "typescript/src/gen/lqepoch/market/v1/market_pb.ts",
+      "sha256": "c7d81703be853e74d74aadc8a40b7fdb2f1658dbcf235daa2dec391b89494071",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "typescript/src/tests/contracts.test.ts",
+      "sha256": "88557eb5c7a41d5e2d2798a7d1afb93172d68afb05127c3d55caa0aa377aa0a1",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    }
   ]
 }

@@ -11,9 +11,15 @@ requires-python = ">=3.10"
 license = "MIT OR Apache-2.0"
 dependencies = ["protobuf==7.36.2"]
 
+[project.optional-dependencies]
+arrow = ["pyarrow==25.0.1"]
+
 [tool.uv]
 required-version = "==0.12.3"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["lqepoch_contracts*", "lqepoch*"]
+
+[tool.setuptools.package-data]
+lqepoch_contracts = ["resources/*.json"]

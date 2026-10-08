@@ -6,6 +6,7 @@
 pub mod dataset;
 pub mod legacy;
 pub mod parquet_schema;
+pub mod raw_frame;
 pub mod v1;
 pub mod wire_u64;
 
@@ -15,6 +16,18 @@ pub use dataset::{
 };
 pub use legacy::{
     Bar, ContractError, MarketEvent, OccContract, OptionSnapshot, Right, StockSnapshot, parse_occ,
+};
+pub use parquet_schema::{
+    MARKET_EVENT_PARQUET_SCHEMA_ID, MARKET_EVENT_PARQUET_SCHEMA_V2_ID,
+    MARKET_RAW_FRAME_PARQUET_SCHEMA_ID, PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY,
+    PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY, ParquetSchemaDescriptorV1, ParquetSchemaError,
+    ParquetSchemaFieldV1, trusted_parquet_schema, trusted_parquet_schema_metadata,
+    trusted_schema_fingerprint, validate_optional_parquet_schema_metadata,
+};
+pub use raw_frame::{
+    MARKET_RAW_FRAME_SCHEMA_VERSION, MAX_RAW_FRAME_BYTES, MAX_RAW_FRAME_EVENT_COUNT,
+    MarketEventParquetRowV2, RawFrameContractError, RawFrameDispositionV1, RawFrameReferenceV2,
+    RawFrameStorageRecordV1,
 };
 pub use v1::{
     ConnectionState, ControlEventEnvelopeV1, DecimalString, EntitlementState, EventMetadataV1,

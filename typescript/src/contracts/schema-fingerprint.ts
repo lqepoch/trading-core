@@ -1,8 +1,12 @@
 import { createHash } from "node:crypto";
+import { TRUSTED_PARQUET_SCHEMA_REGISTRY } from "./parquet-schema-registry.js";
 
 export const PARQUET_SCHEMA_FINGERPRINT_PREFIX = "LQEpoch-Parquet-Schema-v1\n";
+export const PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY = "lqepoch.schema_descriptor.v1";
+export const PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY = "lqepoch.schema_fingerprint_sha256";
 export const PARQUET_LOGICAL_TYPES = new Set([
-  "bool",
+	"binary",
+	"bool",
   "date_iso8601",
   "decimal_string",
   "sha256_hex",
@@ -114,4 +118,60 @@ export function fingerprintSchemaSha256(descriptor: unknown): string {
     .update(PARQUET_SCHEMA_FINGERPRINT_PREFIX, "utf8")
     .update(canonicalSchemaJson(descriptor), "utf8")
     .digest("hex");
+}
+
+/** Return the exact registry descriptor generated from the root schema fixture. */
+export function trustedParquetSchemaDescriptor(schemaId: string): SchemaDescriptor {
+  const entry = TRUSTED_PARQUET_SCHEMA_REGISTRY.schemas.find(
+    (candidate) => candidate.descriptor.schema_id === schemaId,
+  );
+  if (entry === undefined) throw new TypeError(`unregistered Parquet schema ID: ${schemaId}`);
+  return JSON.parse(JSON.stringify(entry.descriptor)) as SchemaDescriptor;
+}
+
+/** Return the golden fingerprint for a descriptor registered by trading-core. */
+export function trustedParquetSchemaSha256(schemaId: string): string {
+  const entry = TRUSTED_PARQUET_SCHEMA_REGISTRY.schemas.find(
+    (candidate) => candidate.descriptor.schema_id === schemaId,
+  );
+  if (entry === undefined) throw new TypeError(`unregistered Parquet schema ID: ${schemaId}`);
+  return entry.sha256;
+}
+
+/** Return the exact optional Arrow/Parquet metadata pair for a trusted schema. */
+export function trustedParquetSchemaMetadata(schemaId: string): Record<string, string> {
+  const descriptor = trustedParquetSchemaDescriptor(schemaId);
+  return {
+    [PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY]: canonicalSchemaJson(descriptor),
+    [PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY]: fingerprintSchemaSha256(descriptor),
+  };
+}
+
+/** Accept absent registry metadata for old files; if present, require both exact values. */
+export function validateOptionalParquetSchemaMetadata(
+  schemaId: string,
+  metadata: unknown,
+): void {
+  const trusted = trustedParquetSchemaMetadata(schemaId);
+  if (metadata === undefined || metadata === null) return;
+  if (
+    !isRecord(metadata) ||
+    Object.values(metadata).some((value) => typeof value !== "string")
+  ) {
+    throw new TypeError("schema metadata must be a string map");
+  }
+  const hasDescriptor = Object.hasOwn(metadata, PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY);
+  const hasFingerprint = Object.hasOwn(metadata, PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY);
+  if (!hasDescriptor && !hasFingerprint) return;
+  if (!hasDescriptor || !hasFingerprint) {
+    throw new TypeError("schema metadata must include both registered descriptor keys");
+  }
+  if (
+    metadata[PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY] !==
+      trusted[PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY] ||
+    metadata[PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY] !==
+      trusted[PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY]
+  ) {
+    throw new TypeError("schema metadata differs from the registered descriptor or fingerprint");
+  }
 }

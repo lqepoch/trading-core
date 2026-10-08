@@ -15,6 +15,11 @@ from lqepoch_contracts.identities import (
     valid_sorted_symbols,
     valid_source_identity,
 )
+from lqepoch_contracts import (
+    load_trusted_parquet_schema_registry,
+    trusted_parquet_schema_descriptor,
+    trusted_parquet_schema_sha256,
+)
 from lqepoch_contracts.parquet_schema import canonical_schema_json, fingerprint_schema_sha256
 from lqepoch_contracts.protojson import (
     parse_dataset_manifest_protojson,
@@ -141,10 +146,17 @@ class SharedContractFixturesTest(unittest.TestCase):
         self.assertFalse(valid_object_id(negative["local_test_path_traversal"], local_test=True))
 
     def test_parquet_fingerprint_fixture_matches_the_shared_golden_bytes(self) -> None:
-        fixture = read_json_fixture("schemas/fixtures/parquet-schema-v1.json")
+        fixture = read_json_fixture("schemas/fixtures/parquet-schema-registry.json")
+        self.assertEqual(load_trusted_parquet_schema_registry(), fixture)
         self.assertEqual(fixture["fingerprint_prefix"], "LQEpoch-Parquet-Schema-v1\n")
         for golden in [fixture["generic_golden"], *fixture["schemas"]]:
             with self.subTest(schema_id=golden["descriptor"]["schema_id"]):
+                schema_id = golden["descriptor"]["schema_id"]
+                if schema_id != "test.v1":
+                    self.assertEqual(
+                        trusted_parquet_schema_descriptor(schema_id), golden["descriptor"]
+                    )
+                    self.assertEqual(trusted_parquet_schema_sha256(schema_id), golden["sha256"])
                 self.assertEqual(
                     canonical_schema_json(golden["descriptor"]), golden["canonical_json"]
                 )
@@ -171,6 +183,102 @@ class SharedContractFixturesTest(unittest.TestCase):
             ).hexdigest(),
             generic["sha256"],
         )
+
+        openapi = read_json_fixture("schemas/openapi.json")
+        manifest_schema = openapi["components"]["schemas"]["DatasetManifestV1"]
+        raw_schema_sha = trusted_parquet_schema_sha256("lqepoch.market_raw_frame.v1")
+        raw_hash_condition = manifest_schema["allOf"][0]["then"]["properties"]["object"][
+            "properties"
+        ]["parquet_schema_sha256"]["const"]
+        self.assertEqual(raw_hash_condition, raw_schema_sha)
+
+    def test_raw_messagepack_encoding_is_bound_only_to_raw_frame_dataset_schema(self) -> None:
+        from lqepoch_contracts.parquet_schema import trusted_parquet_schema_sha256
+
+        raw_encoding = "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES"
+        raw_schema_hash = trusted_parquet_schema_sha256("lqepoch.market_raw_frame.v1")
+        event = {
+            "schemaVersion": 1,
+            "source": {
+                "provider": "synthetic",
+                "feed": "synthetic",
+                "entitlement": "unknown",
+                "numericEncoding": raw_encoding,
+            },
+            "generation": "1",
+            "sequence": "1",
+            "receivedTimestamp": "2026-10-08T14:30:00Z",
+            "event": {"stockTrade": {"symbol": "QQQ", "price": "1.25", "size": "1"}},
+        }
+        with self.assertRaisesRegex(ValueError, "not a normalized market-event"):
+            parse_market_event_protojson(event)
+
+        manifest = {
+            "schemaVersion": 1,
+            "datasetId": "synthetic-raw-frame-v1",
+            "source": {
+                "provider": "synthetic",
+                "feed": "synthetic",
+                "entitlement": "unknown",
+                "numericEncoding": raw_encoding,
+            },
+            "symbols": ["QQQ"],
+            "sourceTimestampMissingRows": "1",
+            "rowCount": "1",
+            "object": {
+                "objectName": "raw.parquet",
+                "objectId": "local-test:raw-frame",
+                "sizeBytes": "10",
+                "contentSha256": "a" * 64,
+                "parquetSchemaSha256": raw_schema_hash,
+                "parquetFooterRows": "1",
+                "transport": "local_test",
+            },
+            "completion": {
+                "inputEof": True,
+                "readbackSha256": "a" * 64,
+                "verifiedBeforePublish": True,
+            },
+        }
+        self.assertEqual(parse_dataset_manifest_protojson(manifest).source.numeric_encoding, 5)
+
+        for invalid_raw_manifest in (
+            {**manifest, "rowCount": "0", "sourceTimestampMissingRows": "0"},
+            {key: value for key, value in manifest.items() if key != "rowCount"},
+            {**manifest, "sourceTimestampMissingRows": "0"},
+            {**manifest, "timeRange": {"startInclusive": "2026-10-08T00:00:00Z"}},
+        ):
+            with self.subTest(invalid_raw_manifest=invalid_raw_manifest), self.assertRaises(ValueError):
+                parse_dataset_manifest_protojson(invalid_raw_manifest)
+
+        wrong_hash = {**manifest, "object": {**manifest["object"], "parquetSchemaSha256": "b" * 64}}
+        with self.assertRaisesRegex(ValueError, "must be bound to the registered"):
+            parse_dataset_manifest_protojson(wrong_hash)
+
+        wrong_encoding = {
+            **manifest,
+            "source": {
+                **manifest["source"],
+                "numericEncoding": "NUMERIC_ENCODING_DECIMAL_TOKEN",
+            },
+        }
+        with self.assertRaisesRegex(ValueError, "must be bound to the registered"):
+            parse_dataset_manifest_protojson(wrong_encoding)
+
+        prediction = {
+            "source": {
+                "provider": "synthetic",
+                "feed": "synthetic",
+                "entitlement": "unknown",
+                "datasetId": "synthetic-raw-frame-v1",
+                "manifestSha256": "a" * 64,
+                "datasetSha256": "b" * 64,
+                "numericEncoding": raw_encoding,
+            },
+            "forecast": {"sequence": "1"},
+        }
+        with self.assertRaisesRegex(ValueError, "cannot identify a normalized prediction"):
+            parse_prediction_envelope_protojson(prediction)
 
 
 if __name__ == "__main__":

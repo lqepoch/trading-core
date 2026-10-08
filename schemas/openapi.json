@@ -270,7 +270,21 @@
             "const": 1
           },
           "source": {
-            "$ref": "#/components/schemas/MarketDataSourceV1"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MarketDataSourceV1"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "numeric_encoding": {
+                    "not": {
+                      "const": "raw_messagepack_bytes"
+                    }
+                  }
+                }
+              }
+            ]
           },
           "generation": {
             "$ref": "#/components/schemas/PositiveUInt64String"
@@ -479,7 +493,21 @@
             "const": 1
           },
           "source": {
-            "$ref": "#/components/schemas/MarketDataSourceV1"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MarketDataSourceV1"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "numeric_encoding": {
+                    "not": {
+                      "const": "raw_messagepack_bytes"
+                    }
+                  }
+                }
+              }
+            ]
           },
           "generation": {
             "$ref": "#/components/schemas/PositiveUInt64String"
@@ -670,7 +698,77 @@
             "$ref": "#/components/schemas/DatasetCompletionEvidenceV1"
           }
         },
-        "description": "Exactly one immutable Parquet object per manifest. readback_sha256 equals object.content_sha256; footer rows equal row_count. Legacy weekly archive manifests are a different schema and require explicit rejection or conversion."
+        "description": "Exactly one immutable Parquet object per manifest. readback_sha256 equals object.content_sha256; footer rows equal row_count. raw_messagepack_bytes is valid only with the registered lqepoch.market_raw_frame.v1 fingerprint and no source-time range; Rust and shared consumers enforce the cross-field equality. Legacy weekly archive manifests are a different schema and require explicit rejection or conversion.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "source": {
+                  "properties": {
+                    "numeric_encoding": {
+                      "const": "raw_messagepack_bytes"
+                    }
+                  },
+                  "required": [
+                    "numeric_encoding"
+                  ]
+                }
+              },
+              "required": [
+                "source"
+              ]
+            },
+            "then": {
+              "properties": {
+                "object": {
+                  "properties": {
+                    "parquet_schema_sha256": {
+                      "const": "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6"
+                    }
+                  }
+                }
+              },
+              "not": {
+                "required": [
+                  "time_range"
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "object": {
+                  "properties": {
+                    "parquet_schema_sha256": {
+                      "const": "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6"
+                    }
+                  },
+                  "required": [
+                    "parquet_schema_sha256"
+                  ]
+                }
+              },
+              "required": [
+                "object"
+              ]
+            },
+            "then": {
+              "properties": {
+                "source": {
+                  "properties": {
+                    "numeric_encoding": {
+                      "const": "raw_messagepack_bytes"
+                    }
+                  },
+                  "required": [
+                    "numeric_encoding"
+                  ]
+                }
+              }
+            }
+          }
+        ]
       },
       "ForecastHorizonUnitV1": {
         "type": "string",
@@ -758,7 +856,16 @@
             "$ref": "#/components/schemas/Sha256"
           },
           "numeric_encoding": {
-            "$ref": "#/components/schemas/NumericEncodingV1"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NumericEncodingV1"
+              },
+              {
+                "not": {
+                  "const": "raw_messagepack_bytes"
+                }
+              }
+            ]
           }
         },
         "description": "dataset_id equals train_dataset_version and refers to an immutable DatasetManifestV1; manifest_sha256 hashes the exact manifest bytes. numeric_encoding is copied from the bound DatasetManifestV1 source."
@@ -1186,9 +1293,10 @@
           "decimal_token",
           "integer_token",
           "binary_float64_shortest_decimal",
-          "binary_float32_shortest_decimal"
+          "binary_float32_shortest_decimal",
+          "raw_messagepack_bytes"
         ],
-        "description": "Rust/HTTP projection values. Protobuf enum names are NUMERIC_ENCODING_*; UNSPECIFIED is omitted and rejected by validation."
+        "description": "Protobuf enum names are NUMERIC_ENCODING_*; UNSPECIFIED is omitted and rejected. raw_messagepack_bytes is allowed only on a DatasetManifestV1 whose object schema fingerprint identifies lqepoch.market_raw_frame.v1; it is rejected for normalized event and prediction messages."
       }
     }
   }

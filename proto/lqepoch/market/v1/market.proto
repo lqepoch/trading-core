@@ -11,6 +11,9 @@ enum NumericEncodingV1 {
   NUMERIC_ENCODING_INTEGER_TOKEN = 2;
   NUMERIC_ENCODING_BINARY_FLOAT64_SHORTEST_DECIMAL = 3;
   NUMERIC_ENCODING_BINARY_FLOAT32_SHORTEST_DECIMAL = 4;
+  // Marks a dataset manifest whose object stores raw MessagePack bytes, not numeric projections.
+  // Ordinary MarketEventEnvelopeV1 messages must reject this value.
+  NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES = 5;
 }
 
 // Market data source identity. Entitlement remains unknown unless separately evidenced.

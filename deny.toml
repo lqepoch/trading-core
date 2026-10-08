@@ -1,0 +1,31 @@
+# Dependency policy for the current locked Rust workspace. Update the allowlist only after
+# checking the exact dependency metadata and upstream license evidence.
+[advisories]
+# No advisory suppressions. Vulnerabilities and yanked dependencies fail the gate.
+ignore = []
+
+[licenses]
+# Exact SPDX identifiers currently observed in cargo metadata for Cargo.lock.
+allow = [
+  "Apache-2.0",
+  "MIT",
+  "Unicode-3.0",
+  "Unlicense",
+]
+confidence-threshold = 0.8
+
+[licenses.private]
+ignore = false
+registries = []
+
+[bans]
+# Multiple versions are reported for review; legitimate semver splits are not globally banned.
+multiple-versions = "warn"
+wildcards = "deny"
+allow-workspace = false
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

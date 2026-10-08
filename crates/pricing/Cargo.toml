@@ -11,7 +11,7 @@ name = "greek_singleflight"
 harness = false
 
 [dependencies]
-domain = { path = "../domain" }
+domain = { path = "../domain", version = "0.1.0" }
 tokio.workspace = true
 
 [lints]
