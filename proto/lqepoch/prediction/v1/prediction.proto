@@ -1,0 +1,126 @@
+syntax = "proto3";
+
+package lqepoch.prediction.v1;
+
+import "google/protobuf/timestamp.proto";
+import "lqepoch/market/v1/market.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lqepoch.prediction.v1";
+
+message ForecastHorizonV1 {
+  message Unit {
+    enum Value {
+      UNSPECIFIED = 0;
+      ELAPSED_MINUTES = 1;
+      SESSION_CLOSE = 2;
+      TRADING_DAYS = 3;
+    }
+  }
+
+  string schema_name = 1;
+  string horizon_id = 2;
+  string registry_version = 3;
+  optional uint32 value = 4;
+  Unit.Value unit = 5;
+  string label_spec_id = 6;
+}
+
+message PredictionSourceV1 {
+  string provider = 1;
+  string feed = 2;
+  string entitlement = 3;
+  string dataset_id = 4;
+  string manifest_sha256 = 5;
+  string dataset_sha256 = 6;
+  lqepoch.market.v1.NumericEncodingV1 numeric_encoding = 7;
+}
+
+message PredictionQualityV1 {
+  message Status {
+    enum Value {
+      UNSPECIFIED = 0;
+      PASS = 1;
+      UNVERIFIED = 2;
+      BLOCKED_DATA = 3;
+      FAILED = 4;
+    }
+  }
+
+  Status.Value status = 1;
+  optional string receipt_sha256 = 2;
+  repeated string reason_codes = 3;
+}
+
+message PredictionEvidenceV1 {
+  string train_sha256 = 1;
+  string validation_sha256 = 2;
+  string oos_freeze_sha256 = 3;
+  string selection_sha256 = 4;
+  string code_sha256 = 5;
+  string source_manifest_sha256 = 6;
+  optional string oos_sha256 = 7;
+  bool oos_used_for_selection = 8;
+}
+
+// Full existing quant-platform ForecastSnapshotV2 payload, without field remapping.
+message ForecastSnapshotV2 {
+  string schema_version = 1;
+  string owner = 2;
+  string producer = 3;
+  string consumer = 4;
+  string forecast_id = 5;
+  string strategy_id = 6;
+  string symbol = 7;
+  google.protobuf.Timestamp event_time = 8;
+  google.protobuf.Timestamp knowledge_at = 9;
+  google.protobuf.Timestamp available_at = 10;
+  google.protobuf.Timestamp decision_at = 11;
+  string input_resolution = 12;
+  string inference_frequency = 13;
+  string decision_frequency = 14;
+  ForecastHorizonV1 forecast_horizon = 15;
+  google.protobuf.Timestamp valid_from = 16;
+  google.protobuf.Timestamp valid_until = 17;
+  string label_spec_id = 18;
+  string label_spec_sha256 = 19;
+  string return_basis = 20;
+  string price_basis = 21;
+  string raw_score = 22;
+  optional string expected_return_bps = 23;
+  optional string confidence = 24;
+  optional string uncertainty_bps = 25;
+  optional string prediction_interval_sha256 = 26;
+  string model_id = 27;
+  string model_version = 28;
+  string model_sha256 = 29;
+  string feature_set_id = 30;
+  string feature_version = 31;
+  string feature_sha256 = 32;
+  string dataset_sha256 = 33;
+  string universe_id = 34;
+  string session_id = 35;
+  string session_policy = 36;
+  string code_sha256 = 37;
+  uint64 sequence = 38;
+  string evidence_scope = 39;
+  string evidence_origin = 40;
+}
+
+// Read-only research prediction envelope. This message does not grant execution authority.
+message PredictionEnvelopeV1 {
+  string schema_version = 1;
+  string prediction_id = 2;
+  google.protobuf.Timestamp created_at = 3;
+  google.protobuf.Timestamp data_cutoff = 4;
+  string model_id = 5;
+  string model_version = 6;
+  string model_sha256 = 7;
+  string train_dataset_version = 8;
+  string train_dataset_sha256 = 9;
+  ForecastHorizonV1 horizon = 10;
+  PredictionSourceV1 source = 11;
+  PredictionQualityV1 quality = 12;
+  PredictionEvidenceV1 evidence = 13;
+  ForecastSnapshotV2 forecast = 14;
+}

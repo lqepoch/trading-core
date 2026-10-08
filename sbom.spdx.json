@@ -1,0 +1,1881 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "lqepoch-trading-core",
+  "documentNamespace": "https://spdx.org/spdxdocs/lqepoch-trading-core-602541b688aefce73c75c3aeb20e0f7cbcd9c5ebb1998a17d53b37c9a365a6e3",
+  "creationInfo": {
+    "creators": [
+      "Tool: scripts/generate-sbom.py"
+    ],
+    "created": "2026-10-08T00:00:00Z"
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-273aa5f7e0df1714b4b5c482",
+      "name": "@bufbuild/protobuf",
+      "versionInfo": "2.16.0",
+      "downloadLocation": "https://registry.npmjs.org/@bufbuild/protobuf/-/protobuf-2.16.0.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "(Apache-2.0 AND BSD-3-Clause)",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/%40bufbuild%2Fprotobuf@2.16.0"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "1566b4b0f96a606260a53b3a3b105170bfc05b8253d0e20ef96d5a8deae5ba84d587c095d01ed7335aac3424609e44829110a038808a1d1425635ee3aec9b4f9"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-1ab13205e75b111ee90c0e39",
+      "name": "@bufbuild/protoc-gen-es",
+      "versionInfo": "2.16.0",
+      "downloadLocation": "https://registry.npmjs.org/@bufbuild/protoc-gen-es/-/protoc-gen-es-2.16.0.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/%40bufbuild%2Fprotoc-gen-es@2.16.0"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "2db3eb11a19dedb3b129b2479654d1e78dfdf8f663a9de9f33bc720d990356d67e11fcebed331d32a4a11bd4247ff9d857288d4bf48ae6bf498516814c591f67"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-38c5ed297061f7db6fcf2c98",
+      "name": "@bufbuild/protoplugin",
+      "versionInfo": "2.16.0",
+      "downloadLocation": "https://registry.npmjs.org/@bufbuild/protoplugin/-/protoplugin-2.16.0.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/%40bufbuild%2Fprotoplugin@2.16.0"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "dc5758272b37e158459c142c8e257dc2eac1917fc3040090024024fa708a74ed69f11395362ee099a44071b6bee2aabc850abcad856e92ebadc2f182bdde2424"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-3efb1a39633f8436f54f6eee",
+      "name": "@lqepoch/trading-core-contract-consumers",
+      "versionInfo": "UNVERSIONED",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "APPLICATION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/%40lqepoch%2Ftrading-core-contract-consumers"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-23a9adc8c072691b475c4c4e",
+      "name": "@types/node",
+      "versionInfo": "24.19.1",
+      "downloadLocation": "https://registry.npmjs.org/@types/node/-/node-24.19.1.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/%40types%2Fnode@24.19.1"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "692dff0c6d28334e4ad112175cffa12a38a7186e488124951b3b306715b73b4b12de91f8fdfc9c5ee9dd502f57b2cce02829388075f295310aea1c85c55c67a1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-6aff08b98262955dfe6bd0ef",
+      "name": "@typescript/vfs",
+      "versionInfo": "1.6.5",
+      "downloadLocation": "https://registry.npmjs.org/@typescript/vfs/-/vfs-1.6.5.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/%40typescript%2Fvfs@1.6.5"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "8286cb1d02e6bd0189227164df536f80c775b98cd15ec77caa09ceb2cc8b0f4e7947640f9f0d6e6d16c1438f93fb9a82ec8415b985ddbcd0c4d86eed30354783"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-d9b705127b62742e8d4d2199",
+      "name": "ajv",
+      "versionInfo": "8.20.0",
+      "downloadLocation": "https://registry.npmjs.org/ajv/-/ajv-8.20.0.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/ajv@8.20.0"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "4e16e58be3a53a3fa230f60505505f2773a60809da4b2367e0cd6fcfd4fa1a46b926df5b6bf1c8479ea3a32eb9b58ea4c7f142179557341f35f58eff194ac118"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-17ca29b60b3a20bff696b11a",
+      "name": "ajv-formats",
+      "versionInfo": "3.0.1",
+      "downloadLocation": "https://registry.npmjs.org/ajv-formats/-/ajv-formats-3.0.1.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/ajv-formats@3.0.1"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "f2252a979d04511fae51c7514371c3a9ae84572a3776870bf20e5627714d7169aeeb621b90652e7bfa44c8b056f1518a2ae7133e0a9e92ce1f214d43038ca8c1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-41f0cbe6f49388330f3cbe8b",
+      "name": "autocfg",
+      "versionInfo": "1.5.1",
+      "downloadLocation": "https://crates.io/api/v1/crates/autocfg/1.5.1/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/autocfg@1.5.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-a49cf0c5a775307b7368e406",
+      "name": "bitflags",
+      "versionInfo": "2.13.2",
+      "downloadLocation": "https://crates.io/api/v1/crates/bitflags/2.13.2/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/bitflags@2.13.2"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-0a748df31aea20d47263b095",
+      "name": "block-buffer",
+      "versionInfo": "0.10.4",
+      "downloadLocation": "https://crates.io/api/v1/crates/block-buffer/0.10.4/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/block-buffer@0.10.4"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-cd0760faee680b12ef8b7030",
+      "name": "cfg-if",
+      "versionInfo": "1.0.5",
+      "downloadLocation": "https://crates.io/api/v1/crates/cfg-if/1.0.5/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/cfg-if@1.0.5"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-3519045bb4b8a24737bf4833",
+      "name": "chrono",
+      "versionInfo": "0.4.45",
+      "downloadLocation": "https://crates.io/api/v1/crates/chrono/0.4.45/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/chrono@0.4.45"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-bcd8b7c7d2875f07216bf8b5",
+      "name": "cpufeatures",
+      "versionInfo": "0.2.17",
+      "downloadLocation": "https://crates.io/api/v1/crates/cpufeatures/0.2.17/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/cpufeatures@0.2.17"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-d182dd5c73aae8001cf15539",
+      "name": "crypto-common",
+      "versionInfo": "0.1.7",
+      "downloadLocation": "https://crates.io/api/v1/crates/crypto-common/0.1.7/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/crypto-common@0.1.7"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-a829351e11e0fe703c6d2d34",
+      "name": "debug",
+      "versionInfo": "4.4.3",
+      "downloadLocation": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/debug@4.4.3"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "446c305a7c10be455f6af295b76d8518bc3ec5849dcc04709b4aeee83853540dee994e6165cdbc57790ee2cb6062bcab4e52e9baf808f468a28e5b408cd6dca8"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-c92dfeadaf7c683da66c4e62",
+      "name": "digest",
+      "versionInfo": "0.10.7",
+      "downloadLocation": "https://crates.io/api/v1/crates/digest/0.10.7/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/digest@0.10.7"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-e383c0d148c80e80cd30d9eb",
+      "name": "domain",
+      "versionInfo": "0.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "APPLICATION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/domain@0.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-98555ba77149dbbf98a6e69e",
+      "name": "exact-decimal",
+      "versionInfo": "0.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "APPLICATION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/exact-decimal@0.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-f104d4b698e72be7050e87cd",
+      "name": "fast-deep-equal",
+      "versionInfo": "3.1.3",
+      "downloadLocation": "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/fast-deep-equal@3.1.3"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "7f7a90f68432f63d808417bf1fd542f75c0b98a042094fe00ce9ca340606e61b303bb04b2a3d3d1dce4760dcfd70623efb19690c22200da8ad56cd3701347ce1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-7fe2365436e1ec8a178a3ae5",
+      "name": "fast-uri",
+      "versionInfo": "3.1.8",
+      "downloadLocation": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.8.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "BSD-3-Clause",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/fast-uri@3.1.8"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "19932d6544cd4693952040a85f02cd652e7150613e99535b4c1f21ffb4708764c559c05088fcd3832662d39045f543192a42c9bfc5c14494e553bce0f3e65f32"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-31bd8478daf21efc8c8211e6",
+      "name": "generic-array",
+      "versionInfo": "0.14.7",
+      "downloadLocation": "https://crates.io/api/v1/crates/generic-array/0.14.7/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/generic-array@0.14.7"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-20a4721bd8a6048c2214ad21",
+      "name": "getrandom",
+      "versionInfo": "0.3.4",
+      "downloadLocation": "https://crates.io/api/v1/crates/getrandom/0.3.4/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/getrandom@0.3.4"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-b22a1f7a12102d0d19e62c0a",
+      "name": "itoa",
+      "versionInfo": "1.0.18",
+      "downloadLocation": "https://crates.io/api/v1/crates/itoa/1.0.18/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/itoa@1.0.18"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-0be897f3bfa55110323c224d",
+      "name": "json-schema-traverse",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/json-schema-traverse@1.0.0"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "34cf3f3fd9f75e35e12199f594b86415a0024ce5114178d6855e0103f4673aff31be0aadaa9017f483b89914314b1d51968e2dab37aa6f4b0e96bb9a3b2dddba"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-49cdee5076e2c0c3825d3b7a",
+      "name": "libc",
+      "versionInfo": "0.2.190",
+      "downloadLocation": "https://crates.io/api/v1/crates/libc/0.2.190/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/libc@0.2.190"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-18fe668c66a5ec24df153f6f",
+      "name": "lqepoch-trading-core-contracts",
+      "versionInfo": "0.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "APPLICATION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:pypi/lqepoch-trading-core-contracts@0.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-a784db6926eb7aea05637d25",
+      "name": "market-contracts",
+      "versionInfo": "0.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "APPLICATION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/market-contracts@0.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-9c6980a5a4f405fe906e31a8",
+      "name": "memchr",
+      "versionInfo": "2.8.3",
+      "downloadLocation": "https://crates.io/api/v1/crates/memchr/2.8.3/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Unlicense OR MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/memchr@2.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-1447a92aaad0da0a500fcebd",
+      "name": "ms",
+      "versionInfo": "2.1.3",
+      "downloadLocation": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/ms@2.1.3"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "e85973b9b4cb646dc9d9afcd542025784863ceae68c601f268253dc985ef70bb2fa1568726afece715c8ebf5d73fab73ed1f7100eb479d23bfb57b45dd645394"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-d58f8d42fe005088a81cfcf9",
+      "name": "num-traits",
+      "versionInfo": "0.2.19",
+      "downloadLocation": "https://crates.io/api/v1/crates/num-traits/0.2.19/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/num-traits@0.2.19"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-71615b4167bbd1b6f657ac7a",
+      "name": "pin-project-lite",
+      "versionInfo": "0.2.17",
+      "downloadLocation": "https://crates.io/api/v1/crates/pin-project-lite/0.2.17/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/pin-project-lite@0.2.17"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-8c9f28302dbf4accfb198203",
+      "name": "ppv-lite86",
+      "versionInfo": "0.2.21",
+      "downloadLocation": "https://crates.io/api/v1/crates/ppv-lite86/0.2.21/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/ppv-lite86@0.2.21"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-bc4fb05ed963fa838c9917c3",
+      "name": "pricing",
+      "versionInfo": "0.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "APPLICATION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/pricing@0.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-ccabd92ae66666212be2e9df",
+      "name": "proc-macro2",
+      "versionInfo": "1.0.107",
+      "downloadLocation": "https://crates.io/api/v1/crates/proc-macro2/1.0.107/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/proc-macro2@1.0.107"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-bcb249c8bad760a55de003ac",
+      "name": "proptest",
+      "versionInfo": "1.11.0",
+      "downloadLocation": "https://crates.io/api/v1/crates/proptest/1.11.0/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/proptest@1.11.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-625502bb844dfe65c2c7269b",
+      "name": "protobuf",
+      "versionInfo": "7.36.2",
+      "downloadLocation": "https://files.pythonhosted.org/packages/d9/89/5b8517baa72f84a67b8a307ba953c91057af618bf40bf676f3c03551f8f0/protobuf-7.36.2.tar.gz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "BSD-3-Clause",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:pypi/protobuf@7.36.2"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "497d0463ff3316681da6c0b9e8d06cb465d61abce00b613ab42226175644d1bb"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-0f6442d57d05be225bb02deb",
+      "name": "quote",
+      "versionInfo": "1.0.47",
+      "downloadLocation": "https://crates.io/api/v1/crates/quote/1.0.47/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/quote@1.0.47"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-0d0e3a9b52dfb4e770869818",
+      "name": "r-efi",
+      "versionInfo": "5.3.0",
+      "downloadLocation": "https://crates.io/api/v1/crates/r-efi/5.3.0/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0 OR LGPL-2.1-or-later",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/r-efi@5.3.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-85b926ca5aed8ea71ad4f206",
+      "name": "rand",
+      "versionInfo": "0.9.5",
+      "downloadLocation": "https://crates.io/api/v1/crates/rand/0.9.5/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/rand@0.9.5"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-2c38ac952558949ad5e4f0e1",
+      "name": "rand_chacha",
+      "versionInfo": "0.9.0",
+      "downloadLocation": "https://crates.io/api/v1/crates/rand_chacha/0.9.0/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/rand_chacha@0.9.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-63ae2edbbaa3df7b68e5a69f",
+      "name": "rand_core",
+      "versionInfo": "0.9.5",
+      "downloadLocation": "https://crates.io/api/v1/crates/rand_core/0.9.5/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/rand_core@0.9.5"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-9d56e530f8f232ad1f1a48f0",
+      "name": "rand_xorshift",
+      "versionInfo": "0.4.0",
+      "downloadLocation": "https://crates.io/api/v1/crates/rand_xorshift/0.4.0/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/rand_xorshift@0.4.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-22c585733f7202302084ac2c",
+      "name": "regex-syntax",
+      "versionInfo": "0.8.11",
+      "downloadLocation": "https://crates.io/api/v1/crates/regex-syntax/0.8.11/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/regex-syntax@0.8.11"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-03b418835eeb77f67d189015",
+      "name": "require-from-string",
+      "versionInfo": "2.0.2",
+      "downloadLocation": "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/require-from-string@2.0.2"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "5dfd2759ee91b1ece214cbbe029f5b8a251b9a996ae92f7fa7eef0ed85cffc904786b5030d48706bebc0372b9bbaa7d9593bde53ffc36151ac0c6ed128bfef13"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-f2b8eb6ed8331bd9c40e7683",
+      "name": "serde",
+      "versionInfo": "1.0.229",
+      "downloadLocation": "https://crates.io/api/v1/crates/serde/1.0.229/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/serde@1.0.229"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-08cccc74f6fecb9f85c90d56",
+      "name": "serde_core",
+      "versionInfo": "1.0.229",
+      "downloadLocation": "https://crates.io/api/v1/crates/serde_core/1.0.229/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/serde_core@1.0.229"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-db09cb763d5d0002fb927800",
+      "name": "serde_derive",
+      "versionInfo": "1.0.229",
+      "downloadLocation": "https://crates.io/api/v1/crates/serde_derive/1.0.229/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/serde_derive@1.0.229"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-1923d23e1529cf831649de78",
+      "name": "serde_json",
+      "versionInfo": "1.0.151",
+      "downloadLocation": "https://crates.io/api/v1/crates/serde_json/1.0.151/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/serde_json@1.0.151"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-02dc042c422968f167395dd3",
+      "name": "setuptools",
+      "versionInfo": "84.0.0",
+      "downloadLocation": "https://pypi.org/project/setuptools/84.0.0/",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:pypi/setuptools@84.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-be6ca6b456607db4db69e404",
+      "name": "sha2",
+      "versionInfo": "0.10.9",
+      "downloadLocation": "https://crates.io/api/v1/crates/sha2/0.10.9/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/sha2@0.10.9"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-1615627a100e64b9cb561ec2",
+      "name": "syn",
+      "versionInfo": "2.0.119",
+      "downloadLocation": "https://crates.io/api/v1/crates/syn/2.0.119/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/syn@2.0.119"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-6b5d88f681b0a659ef671dbe",
+      "name": "syn",
+      "versionInfo": "3.0.6",
+      "downloadLocation": "https://crates.io/api/v1/crates/syn/3.0.6/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/syn@3.0.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-37cdeafdaa1508a731d6be83",
+      "name": "thiserror",
+      "versionInfo": "2.0.21",
+      "downloadLocation": "https://crates.io/api/v1/crates/thiserror/2.0.21/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/thiserror@2.0.21"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-a180cbdc09de3f2e787f1f51",
+      "name": "thiserror-impl",
+      "versionInfo": "2.0.21",
+      "downloadLocation": "https://crates.io/api/v1/crates/thiserror-impl/2.0.21/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/thiserror-impl@2.0.21"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-58b7d0315385647ffe2835fb",
+      "name": "tokio",
+      "versionInfo": "1.53.1",
+      "downloadLocation": "https://crates.io/api/v1/crates/tokio/1.53.1/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/tokio@1.53.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-a54c638fbe2f4d936cc40c8d",
+      "name": "tokio-macros",
+      "versionInfo": "2.7.2",
+      "downloadLocation": "https://crates.io/api/v1/crates/tokio-macros/2.7.2/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/tokio-macros@2.7.2"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-6cdf3ca9cd53bf9de1e8db74",
+      "name": "typenum",
+      "versionInfo": "1.20.1",
+      "downloadLocation": "https://crates.io/api/v1/crates/typenum/1.20.1/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/typenum@1.20.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-086ad90a74b401f6d6b31b57",
+      "name": "typescript",
+      "versionInfo": "5.4.5",
+      "downloadLocation": "https://registry.npmjs.org/typescript/-/typescript-5.4.5.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/typescript@5.4.5"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "bdc23852946083cd68211505c11d164881cab75d6727b48056560d22ef90a6a7b25cffa0a50272fd9e3e174686c5213832ac23c97bd6fd3ce090b031d80187c1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-7434bfa62313dfe63d112510",
+      "name": "typescript",
+      "versionInfo": "5.9.3",
+      "downloadLocation": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/typescript@5.9.3"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "8e5d6f6733c38a72ebf5e52ddc9feded5e8580d130f508ef04f772b33f4a7d00c3e357d0ac2d98e2f290762694a454f86d795bd511e12e9a7cc2d9ba3394e04b"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-c5e6c2eeecc17f02611ca9d0",
+      "name": "unarray",
+      "versionInfo": "0.1.4",
+      "downloadLocation": "https://crates.io/api/v1/crates/unarray/0.1.4/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/unarray@0.1.4"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-07a4f2c101893c010bed15f7",
+      "name": "undici-types",
+      "versionInfo": "7.24.6",
+      "downloadLocation": "https://registry.npmjs.org/undici-types/-/undici-types-7.24.6.tgz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/undici-types@7.24.6"
+        }
+      ],
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "591356fac2608f9381378ff42691c5aadab38696e75741ae07e3a8cc0f6008bedaf7ddd2994fb5241642ccb37162c6cc7c87832fe953b29843e6337937e9f4ce"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-41ef6b9581495b2faf98d018",
+      "name": "unicode-ident",
+      "versionInfo": "1.0.26",
+      "downloadLocation": "https://crates.io/api/v1/crates/unicode-ident/1.0.26/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "(MIT OR Apache-2.0) AND Unicode-3.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/unicode-ident@1.0.26"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-13f5a7bf98cf131992b82b95",
+      "name": "version_check",
+      "versionInfo": "0.9.5",
+      "downloadLocation": "https://crates.io/api/v1/crates/version_check/0.9.5/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT/Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/version_check@0.9.5"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-e018740aad8fca5302a81cb0",
+      "name": "wasip2",
+      "versionInfo": "1.0.4+wasi-0.2.12",
+      "downloadLocation": "https://crates.io/api/v1/crates/wasip2/1.0.4+wasi-0.2.12/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/wasip2@1.0.4+wasi-0.2.12"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-2644a2286b81c7c6235a8e27",
+      "name": "wit-bindgen",
+      "versionInfo": "0.57.1",
+      "downloadLocation": "https://crates.io/api/v1/crates/wit-bindgen/0.57.1/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/wit-bindgen@0.57.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-356ff4b8cc04dc872f7f40dd",
+      "name": "zerocopy",
+      "versionInfo": "0.8.61",
+      "downloadLocation": "https://crates.io/api/v1/crates/zerocopy/0.8.61/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "BSD-2-Clause OR Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/zerocopy@0.8.61"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-f37bf5fd9cbd06e080590ac3",
+      "name": "zerocopy-derive",
+      "versionInfo": "0.8.61",
+      "downloadLocation": "https://crates.io/api/v1/crates/zerocopy-derive/0.8.61/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "BSD-2-Clause OR Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/zerocopy-derive@0.8.61"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-bfa80998800166cc58abde8f",
+      "name": "zmij",
+      "versionInfo": "1.0.23",
+      "downloadLocation": "https://crates.io/api/v1/crates/zmij/1.0.23/download",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/zmij@1.0.23"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-18fe668c66a5ec24df153f6f"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-3efb1a39633f8436f54f6eee"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-98555ba77149dbbf98a6e69e"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-a784db6926eb7aea05637d25"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-bc4fb05ed963fa838c9917c3"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-e383c0d148c80e80cd30d9eb"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-08cccc74f6fecb9f85c90d56",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-db09cb763d5d0002fb927800"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-0a748df31aea20d47263b095",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-31bd8478daf21efc8c8211e6"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-0f6442d57d05be225bb02deb",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-ccabd92ae66666212be2e9df"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-1615627a100e64b9cb561ec2",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-0f6442d57d05be225bb02deb"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-1615627a100e64b9cb561ec2",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-41ef6b9581495b2faf98d018"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-1615627a100e64b9cb561ec2",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-ccabd92ae66666212be2e9df"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-17ca29b60b3a20bff696b11a",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-d9b705127b62742e8d4d2199"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-18fe668c66a5ec24df153f6f",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-02dc042c422968f167395dd3"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-18fe668c66a5ec24df153f6f",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-625502bb844dfe65c2c7269b"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-1923d23e1529cf831649de78",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-08cccc74f6fecb9f85c90d56"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-1923d23e1529cf831649de78",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-9c6980a5a4f405fe906e31a8"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-1923d23e1529cf831649de78",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-b22a1f7a12102d0d19e62c0a"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-1923d23e1529cf831649de78",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-bfa80998800166cc58abde8f"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-1923d23e1529cf831649de78",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-f2b8eb6ed8331bd9c40e7683"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-1ab13205e75b111ee90c0e39",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-273aa5f7e0df1714b4b5c482"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-1ab13205e75b111ee90c0e39",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-38c5ed297061f7db6fcf2c98"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-20a4721bd8a6048c2214ad21",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-0d0e3a9b52dfb4e770869818"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-20a4721bd8a6048c2214ad21",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-49cdee5076e2c0c3825d3b7a"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-20a4721bd8a6048c2214ad21",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-cd0760faee680b12ef8b7030"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-20a4721bd8a6048c2214ad21",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-e018740aad8fca5302a81cb0"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-23a9adc8c072691b475c4c4e",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-07a4f2c101893c010bed15f7"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-2c38ac952558949ad5e4f0e1",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-63ae2edbbaa3df7b68e5a69f"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-2c38ac952558949ad5e4f0e1",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-8c9f28302dbf4accfb198203"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-31bd8478daf21efc8c8211e6",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-13f5a7bf98cf131992b82b95"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-31bd8478daf21efc8c8211e6",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-6cdf3ca9cd53bf9de1e8db74"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-3519045bb4b8a24737bf4833",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-d58f8d42fe005088a81cfcf9"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-3519045bb4b8a24737bf4833",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-f2b8eb6ed8331bd9c40e7683"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-356ff4b8cc04dc872f7f40dd",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-f37bf5fd9cbd06e080590ac3"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-37cdeafdaa1508a731d6be83",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-a180cbdc09de3f2e787f1f51"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-38c5ed297061f7db6fcf2c98",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-086ad90a74b401f6d6b31b57"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-38c5ed297061f7db6fcf2c98",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-273aa5f7e0df1714b4b5c482"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-38c5ed297061f7db6fcf2c98",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-6aff08b98262955dfe6bd0ef"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-3efb1a39633f8436f54f6eee",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-17ca29b60b3a20bff696b11a"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-3efb1a39633f8436f54f6eee",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-1ab13205e75b111ee90c0e39"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-3efb1a39633f8436f54f6eee",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-23a9adc8c072691b475c4c4e"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-3efb1a39633f8436f54f6eee",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-273aa5f7e0df1714b4b5c482"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-3efb1a39633f8436f54f6eee",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-7434bfa62313dfe63d112510"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-3efb1a39633f8436f54f6eee",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-d9b705127b62742e8d4d2199"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-58b7d0315385647ffe2835fb",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-71615b4167bbd1b6f657ac7a"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-58b7d0315385647ffe2835fb",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-a54c638fbe2f4d936cc40c8d"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-63ae2edbbaa3df7b68e5a69f",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-20a4721bd8a6048c2214ad21"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-6aff08b98262955dfe6bd0ef",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-a829351e11e0fe703c6d2d34"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-6b5d88f681b0a659ef671dbe",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-0f6442d57d05be225bb02deb"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-6b5d88f681b0a659ef671dbe",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-41ef6b9581495b2faf98d018"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-6b5d88f681b0a659ef671dbe",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-ccabd92ae66666212be2e9df"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-85b926ca5aed8ea71ad4f206",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-2c38ac952558949ad5e4f0e1"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-85b926ca5aed8ea71ad4f206",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-63ae2edbbaa3df7b68e5a69f"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-8c9f28302dbf4accfb198203",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-356ff4b8cc04dc872f7f40dd"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-98555ba77149dbbf98a6e69e",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-bcb249c8bad760a55de003ac"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-9d56e530f8f232ad1f1a48f0",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-63ae2edbbaa3df7b68e5a69f"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a180cbdc09de3f2e787f1f51",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-0f6442d57d05be225bb02deb"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a180cbdc09de3f2e787f1f51",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-6b5d88f681b0a659ef671dbe"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a180cbdc09de3f2e787f1f51",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-ccabd92ae66666212be2e9df"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a54c638fbe2f4d936cc40c8d",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-0f6442d57d05be225bb02deb"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a54c638fbe2f4d936cc40c8d",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-6b5d88f681b0a659ef671dbe"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a54c638fbe2f4d936cc40c8d",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-ccabd92ae66666212be2e9df"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a784db6926eb7aea05637d25",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-1923d23e1529cf831649de78"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a784db6926eb7aea05637d25",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-3519045bb4b8a24737bf4833"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a784db6926eb7aea05637d25",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-37cdeafdaa1508a731d6be83"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a784db6926eb7aea05637d25",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-98555ba77149dbbf98a6e69e"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a784db6926eb7aea05637d25",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-be6ca6b456607db4db69e404"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a784db6926eb7aea05637d25",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-e383c0d148c80e80cd30d9eb"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a784db6926eb7aea05637d25",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-f2b8eb6ed8331bd9c40e7683"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-a829351e11e0fe703c6d2d34",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-1447a92aaad0da0a500fcebd"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-bc4fb05ed963fa838c9917c3",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-58b7d0315385647ffe2835fb"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-bc4fb05ed963fa838c9917c3",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-e383c0d148c80e80cd30d9eb"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-bcb249c8bad760a55de003ac",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-22c585733f7202302084ac2c"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-bcb249c8bad760a55de003ac",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-2c38ac952558949ad5e4f0e1"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-bcb249c8bad760a55de003ac",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-85b926ca5aed8ea71ad4f206"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-bcb249c8bad760a55de003ac",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-9d56e530f8f232ad1f1a48f0"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-bcb249c8bad760a55de003ac",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-a49cf0c5a775307b7368e406"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-bcb249c8bad760a55de003ac",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-c5e6c2eeecc17f02611ca9d0"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-bcb249c8bad760a55de003ac",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-d58f8d42fe005088a81cfcf9"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-bcd8b7c7d2875f07216bf8b5",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-49cdee5076e2c0c3825d3b7a"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-be6ca6b456607db4db69e404",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-bcd8b7c7d2875f07216bf8b5"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-be6ca6b456607db4db69e404",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-c92dfeadaf7c683da66c4e62"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-be6ca6b456607db4db69e404",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-cd0760faee680b12ef8b7030"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-c92dfeadaf7c683da66c4e62",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-0a748df31aea20d47263b095"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-c92dfeadaf7c683da66c4e62",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-d182dd5c73aae8001cf15539"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-ccabd92ae66666212be2e9df",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-41ef6b9581495b2faf98d018"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-d182dd5c73aae8001cf15539",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-31bd8478daf21efc8c8211e6"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-d182dd5c73aae8001cf15539",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-6cdf3ca9cd53bf9de1e8db74"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-d58f8d42fe005088a81cfcf9",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-41f0cbe6f49388330f3cbe8b"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-d9b705127b62742e8d4d2199",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-03b418835eeb77f67d189015"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-d9b705127b62742e8d4d2199",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-0be897f3bfa55110323c224d"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-d9b705127b62742e8d4d2199",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-7fe2365436e1ec8a178a3ae5"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-d9b705127b62742e8d4d2199",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-f104d4b698e72be7050e87cd"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-db09cb763d5d0002fb927800",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-0f6442d57d05be225bb02deb"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-db09cb763d5d0002fb927800",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-6b5d88f681b0a659ef671dbe"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-db09cb763d5d0002fb927800",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-ccabd92ae66666212be2e9df"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-e018740aad8fca5302a81cb0",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-2644a2286b81c7c6235a8e27"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-e383c0d148c80e80cd30d9eb",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-98555ba77149dbbf98a6e69e"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-e383c0d148c80e80cd30d9eb",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-bcb249c8bad760a55de003ac"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-f2b8eb6ed8331bd9c40e7683",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-08cccc74f6fecb9f85c90d56"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-f2b8eb6ed8331bd9c40e7683",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-db09cb763d5d0002fb927800"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-f37bf5fd9cbd06e080590ac3",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-0f6442d57d05be225bb02deb"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-f37bf5fd9cbd06e080590ac3",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-1615627a100e64b9cb561ec2"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-f37bf5fd9cbd06e080590ac3",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-ccabd92ae66666212be2e9df"
+    }
+  ]
+}

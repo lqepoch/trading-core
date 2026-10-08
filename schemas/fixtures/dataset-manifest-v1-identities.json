@@ -1,0 +1,21 @@
+{
+  "positive": {
+    "provider": "synthetic",
+    "feed": "synthetic",
+    "source_record_id": "synthetic:row-1",
+    "dataset_id": "dataset:version-1",
+    "padded_occ_symbol": "QQQ   261016C00600000",
+    "drive_object_id": "drive:opaque/id+with@punctuation",
+    "object_name": "dataset.v1.parquet",
+    "local_test_object_id": "local-test:fixture-1"
+  },
+  "negative": {
+    "provider_utf8_over_limit": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+    "dataset_id_latest_selector": "dataset-latest-v1",
+    "dataset_id_parent_token": "dataset..v1",
+    "object_name_wildcard": "dataset*.parquet",
+    "object_name_dot": ".",
+    "local_test_path_traversal": "local-test:../object",
+    "symbol_utf8_over_limit": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+  }
+}

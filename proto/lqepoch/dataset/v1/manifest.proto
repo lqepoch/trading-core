@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package lqepoch.dataset.v1;
+
+import "google/protobuf/timestamp.proto";
+import "lqepoch/market/v1/market.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lqepoch.dataset.v1";
+
+message DatasetTimeRangeV1 {
+  google.protobuf.Timestamp start_inclusive = 1;
+  google.protobuf.Timestamp end_exclusive = 2;
+}
+
+message DatasetCompletionEvidenceV1 {
+  bool input_eof = 1;
+  optional bool source_pages_exhausted = 2;
+  string readback_sha256 = 3;
+  bool verified_before_publish = 4;
+}
+
+message DatasetObjectV1 {
+  string object_name = 1;
+  optional string object_id = 2;
+  uint64 size_bytes = 3;
+  string content_sha256 = 4;
+  string parquet_schema_sha256 = 5;
+  uint64 parquet_footer_rows = 6;
+  string transport = 7;
+}
+
+// One immutable manifest describes exactly one immutable Parquet object.
+message DatasetManifestV1 {
+  uint32 schema_version = 1;
+  string dataset_id = 2;
+  lqepoch.market.v1.MarketDataSourceV1 source = 3;
+  repeated string symbols = 4;
+  optional DatasetTimeRangeV1 time_range = 5;
+  uint64 source_timestamp_missing_rows = 6;
+  uint64 row_count = 7;
+  DatasetObjectV1 object = 8;
+  DatasetCompletionEvidenceV1 completion = 9;
+}

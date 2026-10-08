@@ -1,0 +1,88 @@
+schema_version: "lqepoch-prediction-envelope-v1"
+prediction_id: "qqq-5m-prediction-0001"
+created_at { seconds: 1791469860 }
+data_cutoff { seconds: 1791469740 }
+model_id: "qqq-model"
+model_version: "1.2.3"
+model_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+train_dataset_version: "qqq-sip-2026-10-v1"
+train_dataset_sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+horizon {
+  schema_name: "quant-platform-forecast-horizon-v1"
+  horizon_id: "5m-v1"
+  registry_version: "1.0.0"
+  value: 5
+  unit: ELAPSED_MINUTES
+  label_spec_id: "forward-return-5m-v1"
+}
+source {
+  provider: "synthetic"
+  feed: "synthetic"
+  entitlement: "unknown"
+  numeric_encoding: NUMERIC_ENCODING_DECIMAL_TOKEN
+  dataset_id: "qqq-sip-2026-10-v1"
+  manifest_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  dataset_sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}
+quality {
+  status: UNVERIFIED
+  reason_codes: "synthetic_fixture"
+}
+evidence {
+  train_sha256: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  validation_sha256: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  oos_freeze_sha256: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  selection_sha256: "1111111111111111111111111111111111111111111111111111111111111111"
+  code_sha256: "2222222222222222222222222222222222222222222222222222222222222222"
+  source_manifest_sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  oos_used_for_selection: false
+}
+forecast {
+  schema_version: "quant-platform-forecast-snapshot-v2"
+  owner: "QLIB_RESEARCH"
+  producer: "QLIB"
+  consumer: "LEAN"
+  forecast_id: "forecast-0001"
+  strategy_id: "qqq-momentum-v1"
+  symbol: "QQQ"
+  event_time { seconds: 1791469680 }
+  knowledge_at { seconds: 1791469740 }
+  available_at { seconds: 1791469740 }
+  decision_at { seconds: 1791469740 }
+  input_resolution: "1m"
+  inference_frequency: "1m"
+  decision_frequency: "1m"
+  forecast_horizon {
+    schema_name: "quant-platform-forecast-horizon-v1"
+    horizon_id: "5m-v1"
+    registry_version: "1.0.0"
+    value: 5
+    unit: ELAPSED_MINUTES
+    label_spec_id: "forward-return-5m-v1"
+  }
+  valid_from { seconds: 1791469740 }
+  valid_until { seconds: 1791470040 }
+  label_spec_id: "forward-return-5m-v1"
+  label_spec_sha256: "3333333333333333333333333333333333333333333333333333333333333333"
+  return_basis: "close_to_close_raw"
+  price_basis: "RAW"
+  raw_score: "0.01"
+  expected_return_bps: "1.25"
+  confidence: "0.8"
+  uncertainty_bps: "2.0"
+  prediction_interval_sha256: "4444444444444444444444444444444444444444444444444444444444444444"
+  model_id: "qqq-model"
+  model_version: "1.2.3"
+  model_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  feature_set_id: "qqq-features-v3"
+  feature_version: "3.0.0"
+  feature_sha256: "5555555555555555555555555555555555555555555555555555555555555555"
+  dataset_sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  universe_id: "us-etf-core-v1"
+  session_id: "2026-10-08-regular"
+  session_policy: "us-equity-regular-v1"
+  code_sha256: "2222222222222222222222222222222222222222222222222222222222222222"
+  sequence: 1
+  evidence_scope: "RESEARCH"
+  evidence_origin: "LOCAL"
+}

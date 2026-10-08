@@ -1,0 +1,1195 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "LQEpoch Cross-Language Contracts",
+    "version": "1.0.0",
+    "description": "Versioned JSON projections only. No HTTP endpoint is declared by trading-core. uint64 fields use canonical decimal strings to preserve JavaScript precision; Rust and Python consumers must reject numeric, leading-zero, and overflow forms. Rust validation enforces invariants that JSON Schema cannot express exactly. Numeric encoding is explicit: binary-float shortest-decimal values require a raw-frame SHA and remain unqualified."
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "UtcTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{0,8}[1-9])?Z$",
+        "description": "UTC RFC3339 timestamp with canonical minimal fractional precision."
+      },
+      "ExactDecimalString": {
+        "type": "string",
+        "maxLength": 128,
+        "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?(?:0|[1-9][0-9]*))?$",
+        "description": "Exact bounded JSON-number token encoded as a string; Rust ExactDecimal applies exponent, scale, and coefficient bounds."
+      },
+      "NonNegativeDecimalString": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ExactDecimalString"
+          },
+          {
+            "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?(?:0|[1-9][0-9]*))?$"
+          }
+        ],
+        "description": "Exact non-negative decimal token. Quote values may be zero; trade values must be strictly positive."
+      },
+      "Sha256": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$",
+        "description": "Lowercase hexadecimal SHA-256 digest."
+      },
+      "MarketDataSourceV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "feed",
+          "entitlement",
+          "numeric_encoding"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "feed": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "entitlement": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "authorized",
+              "unauthorized"
+            ],
+            "default": "unknown"
+          },
+          "source_record_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "numeric_encoding": {
+            "$ref": "#/components/schemas/NumericEncodingV1"
+          }
+        },
+        "description": "A synthetic source must use provider=synthetic, feed=synthetic, and numeric_encoding=decimal_token. Binary float values are shortest-decimal projections and are not source-exact or contract-qualified."
+      },
+      "StockQuoteV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "symbol"
+        ],
+        "properties": {
+          "kind": {
+            "const": "stock_quote"
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "bid": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          },
+          "ask": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          },
+          "bid_size": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          },
+          "ask_size": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "bid"
+            ]
+          },
+          {
+            "required": [
+              "ask"
+            ]
+          },
+          {
+            "required": [
+              "bid_size"
+            ]
+          },
+          {
+            "required": [
+              "ask_size"
+            ]
+          }
+        ]
+      },
+      "StockTradeV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "symbol",
+          "price",
+          "size"
+        ],
+        "properties": {
+          "kind": {
+            "const": "stock_trade"
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "price": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          },
+          "size": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          }
+        },
+        "description": "Rust validation rejects zero or negative trade price and size."
+      },
+      "OptionQuoteV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "symbol"
+        ],
+        "properties": {
+          "kind": {
+            "const": "option_quote"
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 21,
+            "description": "Compact or six-column-padded OCC symbol candidate; full contract qualification requires provider evidence."
+          },
+          "bid": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          },
+          "ask": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          },
+          "bid_size": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          },
+          "ask_size": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "bid"
+            ]
+          },
+          {
+            "required": [
+              "ask"
+            ]
+          },
+          {
+            "required": [
+              "bid_size"
+            ]
+          },
+          {
+            "required": [
+              "ask_size"
+            ]
+          }
+        ]
+      },
+      "OptionTradeV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "symbol",
+          "price",
+          "size"
+        ],
+        "properties": {
+          "kind": {
+            "const": "option_trade"
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 21
+          },
+          "price": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          },
+          "size": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          }
+        },
+        "description": "Rust validation parses OCC through domain::OptionSymbol and rejects zero or negative trade price and size."
+      },
+      "MarketEventV1": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/StockQuoteV1"
+          },
+          {
+            "$ref": "#/components/schemas/StockTradeV1"
+          },
+          {
+            "$ref": "#/components/schemas/OptionQuoteV1"
+          },
+          {
+            "$ref": "#/components/schemas/OptionTradeV1"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind"
+        }
+      },
+      "MarketEventEnvelopeV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "source",
+          "generation",
+          "sequence",
+          "received_timestamp",
+          "event"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "source": {
+            "$ref": "#/components/schemas/MarketDataSourceV1"
+          },
+          "generation": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "sequence": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "source_timestamp": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "received_timestamp": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "event": {
+            "$ref": "#/components/schemas/MarketEventV1"
+          },
+          "raw_frame_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          }
+        },
+        "description": "Proto oneof payload maps to the Rust Serde kind-tagged object. uint64 JSON fields are canonical decimal strings; Rust validates event/control semantics. Binary float projection requires raw_frame_sha256 of the original provider frame; source-exact precision and contract qualification are not implied.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "source": {
+                  "properties": {
+                    "numeric_encoding": {
+                      "enum": [
+                        "binary_float64_shortest_decimal",
+                        "binary_float32_shortest_decimal"
+                      ]
+                    }
+                  }
+                }
+              },
+              "required": [
+                "source"
+              ]
+            },
+            "then": {
+              "required": [
+                "raw_frame_sha256"
+              ]
+            }
+          }
+        ]
+      },
+      "RejectedInstrumentV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "symbol",
+          "reason_code"
+        ],
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "ConnectionStatusV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "state"
+        ],
+        "properties": {
+          "kind": {
+            "const": "connection_status"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "connecting",
+              "connected",
+              "disconnected",
+              "failed"
+            ]
+          }
+        },
+        "description": "Connected state does not acknowledge any subscription."
+      },
+      "SubscriptionAckV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "request_id",
+          "subscription_id",
+          "acknowledged",
+          "rejected"
+        ],
+        "properties": {
+          "kind": {
+            "const": "subscription_ack"
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "subscription_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "acknowledged": {
+            "type": "array",
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "rejected": {
+            "type": "array",
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/RejectedInstrumentV1"
+            }
+          }
+        },
+        "anyOf": [
+          {
+            "properties": {
+              "acknowledged": {
+                "minItems": 1
+              }
+            }
+          },
+          {
+            "properties": {
+              "rejected": {
+                "minItems": 1
+              }
+            }
+          }
+        ],
+        "description": "At least one result is required. Combined accepted and rejected counts must be <=32, and symbol identities must be unique and disjoint across arrays; Rust enforces the cross-array rule."
+      },
+      "SubscriptionRejectedV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "request_id",
+          "reason_code"
+        ],
+        "properties": {
+          "kind": {
+            "const": "subscription_rejected"
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "MarketControlEventV1": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ConnectionStatusV1"
+          },
+          {
+            "$ref": "#/components/schemas/SubscriptionAckV1"
+          },
+          {
+            "$ref": "#/components/schemas/SubscriptionRejectedV1"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind"
+        }
+      },
+      "ControlEventEnvelopeV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "source",
+          "generation",
+          "sequence",
+          "received_timestamp",
+          "control"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "source": {
+            "$ref": "#/components/schemas/MarketDataSourceV1"
+          },
+          "generation": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "sequence": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "source_timestamp": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "received_timestamp": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "control": {
+            "$ref": "#/components/schemas/MarketControlEventV1"
+          },
+          "raw_frame_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          }
+        },
+        "description": "Proto oneof payload maps to the Rust Serde kind-tagged object. uint64 JSON fields are canonical decimal strings; Rust validates event/control semantics. Binary float projection requires raw_frame_sha256 of the original provider frame; source-exact precision and contract qualification are not implied.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "source": {
+                  "properties": {
+                    "numeric_encoding": {
+                      "enum": [
+                        "binary_float64_shortest_decimal",
+                        "binary_float32_shortest_decimal"
+                      ]
+                    }
+                  }
+                }
+              },
+              "required": [
+                "source"
+              ]
+            },
+            "then": {
+              "required": [
+                "raw_frame_sha256"
+              ]
+            }
+          }
+        ]
+      },
+      "DatasetTimeRangeV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "start_inclusive",
+          "end_exclusive"
+        ],
+        "properties": {
+          "start_inclusive": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "end_exclusive": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          }
+        },
+        "description": "Half-open source_timestamp range. Receive time never fills absent source timestamps."
+      },
+      "DatasetObjectV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "object_name",
+          "size_bytes",
+          "content_sha256",
+          "parquet_schema_sha256",
+          "parquet_footer_rows",
+          "transport"
+        ],
+        "properties": {
+          "object_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^[A-Za-z0-9_.-]{1,512}$",
+            "description": "ASCII basename only; no path separators, wildcard characters, dot, or dot-dot."
+          },
+          "object_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "Opaque provider identity; never use it as a local path. local-test identifiers have a restricted traversal-safe tail."
+          },
+          "size_bytes": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "parquet_schema_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "parquet_footer_rows": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "rclone_google_drive",
+              "local_test"
+            ]
+          }
+        }
+      },
+      "DatasetCompletionEvidenceV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "input_eof",
+          "readback_sha256",
+          "verified_before_publish"
+        ],
+        "properties": {
+          "input_eof": {
+            "const": true
+          },
+          "source_pages_exhausted": {
+            "const": true,
+            "description": "Paged sources must set true. Non-paged or synthetic sources leave it absent."
+          },
+          "readback_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "verified_before_publish": {
+            "const": true
+          }
+        }
+      },
+      "DatasetManifestV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "dataset_id",
+          "source",
+          "symbols",
+          "source_timestamp_missing_rows",
+          "row_count",
+          "object",
+          "completion"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "dataset_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Immutable identity, not a family/latest selector; Rust also rejects dot-dot and latest/fallback identity tokens.",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/MarketDataSourceV1"
+          },
+          "symbols": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "description": "UTF-8 identity, 1..256 bytes, no edge whitespace/control characters; internal OCC root padding is allowed."
+            },
+            "description": "Lexically sorted, unique symbol identities."
+          },
+          "time_range": {
+            "$ref": "#/components/schemas/DatasetTimeRangeV1"
+          },
+          "source_timestamp_missing_rows": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "row_count": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "object": {
+            "$ref": "#/components/schemas/DatasetObjectV1"
+          },
+          "completion": {
+            "$ref": "#/components/schemas/DatasetCompletionEvidenceV1"
+          }
+        },
+        "description": "Exactly one immutable Parquet object per manifest. readback_sha256 equals object.content_sha256; footer rows equal row_count. Legacy weekly archive manifests are a different schema and require explicit rejection or conversion."
+      },
+      "ForecastHorizonUnitV1": {
+        "type": "string",
+        "enum": [
+          "ELAPSED_MINUTES",
+          "SESSION_CLOSE",
+          "TRADING_DAYS"
+        ]
+      },
+      "ForecastHorizonV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_name",
+          "horizon_id",
+          "registry_version",
+          "unit",
+          "label_spec_id"
+        ],
+        "properties": {
+          "schema_name": {
+            "type": "string",
+            "const": "quant-platform-forecast-horizon-v1"
+          },
+          "horizon_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "registry_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10080
+          },
+          "unit": {
+            "$ref": "#/components/schemas/ForecastHorizonUnitV1"
+          },
+          "label_spec_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "description": "End-of-day session horizons omit value; registry validation binds id, unit, value, and label."
+      },
+      "PredictionSourceV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "feed",
+          "entitlement",
+          "dataset_id",
+          "manifest_sha256",
+          "dataset_sha256",
+          "numeric_encoding"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1
+          },
+          "feed": {
+            "type": "string",
+            "minLength": 1
+          },
+          "entitlement": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "authorized",
+              "unauthorized"
+            ]
+          },
+          "dataset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "manifest_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "dataset_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "numeric_encoding": {
+            "$ref": "#/components/schemas/NumericEncodingV1"
+          }
+        },
+        "description": "dataset_id equals train_dataset_version and refers to an immutable DatasetManifestV1; manifest_sha256 hashes the exact manifest bytes. numeric_encoding is copied from the bound DatasetManifestV1 source."
+      },
+      "PredictionQualityStatusV1": {
+        "type": "string",
+        "enum": [
+          "UNSPECIFIED",
+          "PASS",
+          "UNVERIFIED",
+          "BLOCKED_DATA",
+          "FAILED"
+        ]
+      },
+      "PredictionQualityV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "reason_codes"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/PredictionQualityStatusV1"
+          },
+          "receipt_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "reason_codes": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "PASS"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "required": [
+                "receipt_sha256"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "UNVERIFIED",
+                    "BLOCKED_DATA",
+                    "FAILED"
+                  ]
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "reason_codes": {
+                  "minItems": 1
+                }
+              }
+            }
+          },
+          {
+            "not": {
+              "properties": {
+                "status": {
+                  "const": "UNSPECIFIED"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            }
+          }
+        ]
+      },
+      "PredictionEvidenceV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "train_sha256",
+          "validation_sha256",
+          "oos_freeze_sha256",
+          "selection_sha256",
+          "code_sha256",
+          "source_manifest_sha256",
+          "oos_used_for_selection"
+        ],
+        "properties": {
+          "train_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "validation_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "oos_freeze_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "selection_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "code_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "source_manifest_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "oos_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "oos_used_for_selection": {
+            "const": false
+          }
+        }
+      },
+      "ForecastSnapshotV2": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "owner",
+          "producer",
+          "consumer",
+          "forecast_id",
+          "strategy_id",
+          "symbol",
+          "event_time",
+          "knowledge_at",
+          "available_at",
+          "decision_at",
+          "input_resolution",
+          "inference_frequency",
+          "decision_frequency",
+          "forecast_horizon",
+          "valid_from",
+          "valid_until",
+          "label_spec_id",
+          "label_spec_sha256",
+          "return_basis",
+          "price_basis",
+          "raw_score",
+          "model_id",
+          "model_version",
+          "model_sha256",
+          "feature_set_id",
+          "feature_version",
+          "feature_sha256",
+          "dataset_sha256",
+          "universe_id",
+          "session_id",
+          "session_policy",
+          "code_sha256",
+          "sequence",
+          "evidence_scope",
+          "evidence_origin"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "quant-platform-forecast-snapshot-v2"
+          },
+          "owner": {
+            "const": "QLIB_RESEARCH"
+          },
+          "producer": {
+            "type": "string",
+            "enum": [
+              "QLIB",
+              "RD_AGENT"
+            ]
+          },
+          "consumer": {
+            "const": "LEAN"
+          },
+          "forecast_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "strategy_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "symbol": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9._-]{0,15}$"
+          },
+          "event_time": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "knowledge_at": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "available_at": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "decision_at": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "input_resolution": {
+            "type": "string"
+          },
+          "inference_frequency": {
+            "type": "string"
+          },
+          "decision_frequency": {
+            "type": "string"
+          },
+          "forecast_horizon": {
+            "$ref": "#/components/schemas/ForecastHorizonV1"
+          },
+          "valid_from": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "valid_until": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "label_spec_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label_spec_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "return_basis": {
+            "type": "string",
+            "minLength": 1
+          },
+          "price_basis": {
+            "type": "string",
+            "enum": [
+              "RAW",
+              "SPLIT_ADJUSTED",
+              "TOTAL_RETURN",
+              "TOTAL_RETURN_CASH"
+            ]
+          },
+          "raw_score": {
+            "$ref": "#/components/schemas/ExactDecimalString"
+          },
+          "expected_return_bps": {
+            "$ref": "#/components/schemas/ExactDecimalString"
+          },
+          "confidence": {
+            "$ref": "#/components/schemas/ExactDecimalString"
+          },
+          "uncertainty_bps": {
+            "$ref": "#/components/schemas/ExactDecimalString"
+          },
+          "prediction_interval_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "model_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model_version": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+          },
+          "model_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "feature_set_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "feature_version": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+          },
+          "feature_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "dataset_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "universe_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "session_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "session_policy": {
+            "type": "string",
+            "minLength": 1
+          },
+          "code_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "sequence": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "evidence_scope": {
+            "type": "string",
+            "enum": [
+              "RESEARCH",
+              "BACKTEST",
+              "PAPER",
+              "LIVE"
+            ]
+          },
+          "evidence_origin": {
+            "type": "string",
+            "enum": [
+              "LOCAL",
+              "INJECTED",
+              "SIMULATED_ONLY",
+              "UNVERIFIED",
+              "OPERATOR_SUPPLIED",
+              "COMPONENT_RUNTIME",
+              "PROVIDER_HISTORICAL",
+              "WEBHOOK_SHADOW"
+            ]
+          }
+        },
+        "description": "Causal ordering and elapsed/session endpoint constraints are validated by quant-contracts."
+      },
+      "PredictionEnvelopeV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "prediction_id",
+          "created_at",
+          "data_cutoff",
+          "model_id",
+          "model_version",
+          "model_sha256",
+          "train_dataset_version",
+          "train_dataset_sha256",
+          "horizon",
+          "source",
+          "quality",
+          "evidence",
+          "forecast"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "lqepoch-prediction-envelope-v1"
+          },
+          "prediction_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "data_cutoff": {
+            "$ref": "#/components/schemas/UtcTimestamp"
+          },
+          "model_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model_version": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+          },
+          "model_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "train_dataset_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "train_dataset_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "horizon": {
+            "$ref": "#/components/schemas/ForecastHorizonV1"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PredictionSourceV1"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/PredictionQualityV1"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/PredictionEvidenceV1"
+          },
+          "forecast": {
+            "$ref": "#/components/schemas/ForecastSnapshotV2"
+          }
+        },
+        "description": "This read-only envelope is not execution authority. Quant validation binds model fields, dataset version/hash, manifest hash, horizon, data cutoff and causal clocks to ForecastSnapshotV2."
+      },
+      "UInt64String": {
+        "type": "string",
+        "maxLength": 20,
+        "pattern": "^(0|[1-9][0-9]*)$",
+        "format": "uint64",
+        "description": "Canonical decimal string for protobuf uint64. The uint64 format validator must reject values above 18446744073709551615; parsers must reject JSON numbers and leading zeros."
+      },
+      "PositiveUInt64String": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          {
+            "pattern": "^[1-9][0-9]*$"
+          }
+        ],
+        "description": "Canonical uint64 decimal string greater than zero."
+      },
+      "NumericEncodingV1": {
+        "type": "string",
+        "enum": [
+          "decimal_token",
+          "integer_token",
+          "binary_float64_shortest_decimal",
+          "binary_float32_shortest_decimal"
+        ],
+        "description": "Rust/HTTP projection values. Protobuf enum names are NUMERIC_ENCODING_*; UNSPECIFIED is omitted and rejected by validation."
+      }
+    }
+  }
+}
