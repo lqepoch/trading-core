@@ -8,12 +8,17 @@ import {
   parseCanonicalUint64Json,
   finiteBatchSealReceiptProtojsonBytes,
   finiteBatchSealReceiptSha256,
+  datasetCompletionEvidenceV2ProtojsonBytes,
+  datasetCompletionEvidenceV2Sha256,
   parseDatasetManifestProtoJson,
   parseDatasetManifestV2Json,
   parseDatasetManifestV2ProtoJson,
   parseMarketEventProtoJson,
   parsePredictionEnvelopeProtoJson,
+  parseUsEquityTradeBarV2ProtoJson,
   validateUint64JsonPaths,
+  validateBarV2CompletionEvidenceReference,
+  validateUsEquityTradeBarV2AgainstManifest,
 } from "../contracts/uint64-json.js";
 import {
   canonicalSchemaJson,
@@ -162,6 +167,97 @@ assert(receiptBytes.at(-1) !== 10, "finite receipt projection unexpectedly has a
 assert(!new TextDecoder().decode(receiptBytes).includes("sealReceiptSha256"), "finite receipt is self-referential");
 assert(finiteBatchSealReceiptSha256(finiteBatchReceipt) === expectedReceiptSha256, "finite receipt SHA changed");
 assert(finiteBatchReceipt.sealReceiptSha256 === expectedReceiptSha256, "manifest receipt SHA changed");
+const completionEvidenceHashes = readFixture<Record<string, string>>(
+  "schemas/fixtures/dataset-completion-evidence-v2-sha256.json",
+);
+const finiteEvidenceBytes = datasetCompletionEvidenceV2ProtojsonBytes(datasetV2Message);
+assert(finiteEvidenceBytes.at(-1) !== 10, "completion evidence projection unexpectedly has a trailing LF");
+assert(
+  datasetCompletionEvidenceV2Sha256(datasetV2Message) === completionEvidenceHashes.finite_batch,
+  "finite completion evidence hash differs from the shared golden",
+);
+for (const [path, evidenceCase] of [
+  ["schemas/fixtures/dataset-manifest-v2-provider-watermark.json", "provider_watermark"],
+  ["schemas/fixtures/dataset-manifest-v2-diagnostic-stream.json", "diagnostic_stream"],
+] as const) {
+  const candidate = parseDatasetManifestV2ProtoJson(readFixture<Record<string, unknown>>(path));
+  assert(
+    datasetCompletionEvidenceV2Sha256(candidate) === completionEvidenceHashes[evidenceCase],
+    `${evidenceCase} completion evidence hash differs from the shared golden`,
+  );
+}
+const barV2Json = readFixture<Record<string, unknown>>(
+  "schemas/fixtures/us-equity-trade-bar-v2.json",
+);
+const barV2 = parseUsEquityTradeBarV2ProtoJson(barV2Json);
+validateBarV2CompletionEvidenceReference(barV2, datasetV2Message);
+validateUsEquityTradeBarV2AgainstManifest(barV2, datasetV2Message);
+const barV2Snake = parseUsEquityTradeBarV2ProtoJson(
+  readFixture<Record<string, unknown>>("schemas/fixtures/us-equity-trade-bar-v2-snake.json"),
+);
+assert(barV2Snake.sourceProvider === barV2.sourceProvider, "BarV2 snake_case fixture changed semantics");
+validateUsEquityTradeBarV2AgainstManifest(barV2Snake, datasetV2Message);
+for (const [caseName, manifestName] of [
+  ["provider-watermark", "provider-watermark"],
+  ["diagnostic-stream", "diagnostic-stream"],
+] as const) {
+  const caseBar = parseUsEquityTradeBarV2ProtoJson(
+    readFixture<Record<string, unknown>>(`schemas/fixtures/us-equity-trade-bar-v2-${caseName}.json`),
+  );
+  const caseManifest = parseDatasetManifestV2ProtoJson(
+    readFixture<Record<string, unknown>>(`schemas/fixtures/dataset-manifest-v2-${manifestName}.json`),
+  );
+  validateUsEquityTradeBarV2AgainstManifest(caseBar, caseManifest);
+}
+const badBarEvidence = structuredClone(barV2Json) as Record<string, unknown>;
+badBarEvidence.completionEvidenceSha256 = "e".repeat(64);
+rejects(
+  () => validateBarV2CompletionEvidenceReference(parseUsEquityTradeBarV2ProtoJson(badBarEvidence), datasetV2Message),
+  "BarV2 accepted a different manifest completion digest",
+);
+rejects(
+  () => parseUsEquityTradeBarV2ProtoJson({ ...barV2Json, tradeCount: 4 }),
+  "BarV2 accepted uint64 JSON number",
+);
+for (const [field, invalid] of [
+  ["high", "9.00"],
+  ["open", "0"],
+  ["volume", "-1"],
+  ["barEndExclusiveUtc", "2026-10-08T14:31:00.000000001Z"],
+] as const) {
+  rejects(
+    () => parseUsEquityTradeBarV2ProtoJson({ ...barV2Json, [field]: invalid }),
+    `BarV2 accepted invalid ${field}`,
+  );
+}
+rejects(
+  () => parseUsEquityTradeBarV2ProtoJson({ ...barV2Json, unrecognized: true }),
+  "BarV2 accepted an unknown field",
+);
+rejects(
+  () => parseUsEquityTradeBarV2ProtoJson({ ...barV2Json, schema_version: 2 }),
+  "BarV2 accepted both camelCase and snake_case spellings",
+);
+rejects(
+  () => parseUsEquityTradeBarV2ProtoJson({ ...barV2Json, nbboInputStatus: "x".repeat(65_537) }),
+  "BarV2 accepted a row above its byte limit",
+);
+rejects(
+  () => validateUsEquityTradeBarV2AgainstManifest(
+    parseUsEquityTradeBarV2ProtoJson({ ...barV2Json, sourceProvider: "another-provider" }),
+    datasetV2Message,
+  ),
+  "BarV2 accepted source fields that differ from its manifest",
+);
+const barWithoutPageEvidence = { ...barV2Json };
+delete barWithoutPageEvidence.sourcePagesExhausted;
+rejects(
+  () => validateUsEquityTradeBarV2AgainstManifest(
+    parseUsEquityTradeBarV2ProtoJson(barWithoutPageEvidence),
+    datasetV2Message,
+  ),
+  "BarV2 accepted missing page-exhaustion presence for a paged manifest",
+);
 const nonpagedReceipt = create(FiniteBatchCompletionV2Schema, {
   ...finiteBatchReceipt,
   sourceKind: FiniteBatchSourceKindV2.FINITE_BATCH_SOURCE_KIND_HISTORICAL_NON_PAGED,
@@ -701,6 +797,9 @@ const validateDatasetV2HttpJson = ajv.compile({
 const validateFiniteBatchReceiptHttpJson = ajv.compile({
   $ref: "lqepoch-openapi#/components/schemas/FiniteBatchSealReceiptV2",
 });
+const validateBarV2HttpJson = ajv.compile({
+  $ref: "lqepoch-openapi#/components/schemas/UsEquityTradeBarV2",
+});
 function toOpenApiSnakeCase(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(toOpenApiSnakeCase);
   if (value !== null && typeof value === "object") {
@@ -715,6 +814,22 @@ function toOpenApiSnakeCase(value: unknown): unknown {
 }
 const datasetV2HttpJson = toOpenApiSnakeCase(datasetV2Json) as Record<string, unknown>;
 assert(validateDatasetV2HttpJson(datasetV2HttpJson), "OpenAPI rejects the finite-batch V2 fixture");
+const barV2HttpJson = toOpenApiSnakeCase(barV2Json) as Record<string, unknown>;
+assert(validateBarV2HttpJson(barV2HttpJson), "OpenAPI rejects the BarV2 fixture");
+for (const caseName of ["provider-watermark", "diagnostic-stream"] as const) {
+  const caseHttpJson = toOpenApiSnakeCase(
+    readFixture<Record<string, unknown>>(`schemas/fixtures/us-equity-trade-bar-v2-${caseName}.json`),
+  );
+  assert(validateBarV2HttpJson(caseHttpJson), `OpenAPI rejects the BarV2 ${caseName} fixture`);
+}
+assert(
+  !validateBarV2HttpJson({ ...barV2HttpJson, source_pages_exhausted: false }),
+  "OpenAPI accepted a false page-exhaustion claim",
+);
+assert(
+  !validateBarV2HttpJson({ ...barV2HttpJson, open: "0" }),
+  "OpenAPI accepted a zero trade price",
+);
 const receiptHttpJson = toOpenApiSnakeCase(
   JSON.parse(readFileSync(resolve(process.cwd(), "..", "schemas/fixtures/finite-batch-seal-receipt-v2.protojson"), "utf8")),
 ) as Record<string, unknown>;

@@ -16,6 +16,7 @@ protoc \
   --plugin=protoc-gen-es="$repo_root/typescript/node_modules/.bin/protoc-gen-es" \
   --es_out=target=ts,import_extension=js:src/gen \
   lqepoch/market/v1/market.proto \
+  lqepoch/market/v2/trade_bar.proto \
   lqepoch/dataset/v1/manifest.proto \
   lqepoch/dataset/v2/manifest.proto \
   lqepoch/prediction/v1/prediction.proto

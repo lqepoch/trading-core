@@ -13,6 +13,7 @@ protoc \
   --proto_path=/usr/include \
   --python_out=python \
   lqepoch/market/v1/market.proto \
+  lqepoch/market/v2/trade_bar.proto \
   lqepoch/dataset/v1/manifest.proto \
   lqepoch/dataset/v2/manifest.proto \
   lqepoch/prediction/v1/prediction.proto

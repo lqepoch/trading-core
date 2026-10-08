@@ -25,6 +25,7 @@ class PyArrowSchemaTest(unittest.TestCase):
         for schema_id in (
             "lqepoch.market_event.v1",
             "lqepoch.us_equity_trade_bar_1m.v1",
+            "lqepoch.us_equity_trade_bar_1m.v2",
             "lqepoch.market_raw_frame.v1",
             "lqepoch.market_raw_json_frame.v1",
             "lqepoch.market_event.v2",
@@ -45,6 +46,9 @@ class PyArrowSchemaTest(unittest.TestCase):
 
         bar_schema = pyarrow_schema_for_trusted_schema("lqepoch.us_equity_trade_bar_1m.v1")
         self.assertEqual(bar_schema.field("trade_date").type, pa.string())
+        bar_v2_schema = pyarrow_schema_for_trusted_schema("lqepoch.us_equity_trade_bar_1m.v2")
+        self.assertEqual(bar_v2_schema.field("completion_evidence_sha256").type, pa.string())
+        self.assertFalse(bar_v2_schema.field("completion_evidence_sha256").nullable)
 
     def test_arrow_schema_rejects_date32_for_the_utf8_trade_date_contract(self) -> None:
         import pyarrow as pa

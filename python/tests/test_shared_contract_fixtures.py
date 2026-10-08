@@ -19,6 +19,8 @@ from lqepoch_contracts.identities import (
     valid_source_identity,
 )
 from lqepoch_contracts import (
+    dataset_completion_evidence_v2_protojson_bytes,
+    dataset_completion_evidence_v2_sha256,
     finite_batch_seal_receipt_protojson_bytes,
     finite_batch_seal_receipt_sha256,
     load_trusted_parquet_schema_registry,
@@ -30,6 +32,9 @@ from lqepoch_contracts.protojson import (
     parse_dataset_manifest_protojson,
     parse_dataset_manifest_v2_json,
     parse_dataset_manifest_v2_protojson,
+    parse_us_equity_trade_bar_v2_protojson,
+    validate_bar_v2_completion_evidence_reference,
+    validate_us_equity_trade_bar_v2_against_manifest,
     parse_market_event_protojson,
     parse_prediction_envelope_protojson,
 )
@@ -101,6 +106,98 @@ class SharedContractFixturesTest(unittest.TestCase):
         malformed_receipt.page_count = 0
         with self.assertRaisesRegex(ValueError, "paged finite batch receipt"):
             finite_batch_seal_receipt_protojson_bytes(malformed_receipt)
+
+    def test_completion_oneof_hashes_and_bar_v2_reference_match_shared_goldens(self) -> None:
+        expected_hashes = read_json_fixture(
+            "schemas/fixtures/dataset-completion-evidence-v2-sha256.json"
+        )
+        cases = (
+            ("schemas/fixtures/dataset-manifest-v2.json", "finite_batch"),
+            ("schemas/fixtures/dataset-manifest-v2-provider-watermark.json", "provider_watermark"),
+            ("schemas/fixtures/dataset-manifest-v2-diagnostic-stream.json", "diagnostic_stream"),
+        )
+        for path, evidence_case in cases:
+            with self.subTest(evidence_case=evidence_case):
+                manifest = parse_dataset_manifest_v2_protojson(read_json_fixture(path))
+                payload = dataset_completion_evidence_v2_protojson_bytes(manifest)
+                self.assertFalse(payload.endswith(b"\n"))
+                self.assertEqual(
+                    dataset_completion_evidence_v2_sha256(manifest),
+                    expected_hashes[evidence_case],
+                )
+
+        manifest = parse_dataset_manifest_v2_protojson(
+            read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
+        )
+        row = parse_us_equity_trade_bar_v2_protojson(
+            read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        )
+        validate_bar_v2_completion_evidence_reference(row, manifest)
+        validate_us_equity_trade_bar_v2_against_manifest(row, manifest)
+        snake_row = parse_us_equity_trade_bar_v2_protojson(
+            read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2-snake.json")
+        )
+        self.assertEqual(row, snake_row)
+        validate_us_equity_trade_bar_v2_against_manifest(snake_row, manifest)
+
+        for case in ("provider-watermark", "diagnostic-stream"):
+            with self.subTest(completion_case=case):
+                case_manifest = parse_dataset_manifest_v2_protojson(
+                    read_json_fixture(f"schemas/fixtures/dataset-manifest-v2-{case}.json")
+                )
+                case_row = parse_us_equity_trade_bar_v2_protojson(
+                    read_json_fixture(f"schemas/fixtures/us-equity-trade-bar-v2-{case}.json")
+                )
+                validate_us_equity_trade_bar_v2_against_manifest(case_row, case_manifest)
+        row.completion_evidence_sha256 = "e" * 64
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            validate_us_equity_trade_bar_v2_against_manifest(row, manifest)
+
+        invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        invalid_row["tradeCount"] = 4
+        with self.assertRaisesRegex(ValueError, "uint64 JSON values must be canonical"):
+            parse_us_equity_trade_bar_v2_protojson(invalid_row)
+
+        for field, invalid in (
+            ("high", "9.00"),
+            ("open", "0"),
+            ("volume", "-1"),
+            ("barEndExclusiveUtc", "2026-10-08T14:31:00.000000001Z"),
+        ):
+            with self.subTest(field=field):
+                invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+                invalid_row[field] = invalid
+                with self.assertRaises(ValueError):
+                    parse_us_equity_trade_bar_v2_protojson(invalid_row)
+
+        invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        invalid_row["unrecognized"] = True
+        with self.assertRaises(Exception):
+            parse_us_equity_trade_bar_v2_protojson(invalid_row)
+
+        invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        invalid_row["schema_version"] = 2
+        with self.assertRaisesRegex(ValueError, "both camelCase and snake_case"):
+            parse_us_equity_trade_bar_v2_protojson(invalid_row)
+
+        invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        invalid_row["nbboInputStatus"] = "x" * 65_537
+        with self.assertRaisesRegex(ValueError, "byte limit"):
+            parse_us_equity_trade_bar_v2_protojson(invalid_row)
+
+        invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        invalid_row["sourceProvider"] = "another-provider"
+        with self.assertRaisesRegex(ValueError, "source fields do not match"):
+            validate_us_equity_trade_bar_v2_against_manifest(
+                parse_us_equity_trade_bar_v2_protojson(invalid_row), manifest
+            )
+
+        invalid_row = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        invalid_row.pop("sourcePagesExhausted")
+        with self.assertRaisesRegex(ValueError, "completion fields do not match"):
+            validate_us_equity_trade_bar_v2_against_manifest(
+                parse_us_equity_trade_bar_v2_protojson(invalid_row), manifest
+            )
 
     def test_dataset_manifest_v2_protojson_is_bounded_and_keeps_completion_evidence_distinct(self) -> None:
         fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")

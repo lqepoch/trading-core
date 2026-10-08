@@ -48,6 +48,11 @@ the exact manifest and referenced receipt bytes before issuing any qualification
 Alpaca streams do not provide the trusted watermark evidence required for that token, so their
 stream completion remains unverified/diagnostic. Entitlement text is also only an observation.
 
+BarV2 rows may carry the SHA-256 of the canonical ProtoJSON bytes for this unique completion oneof.
+That reference lets consumers detect a row joined to a different completion claim. The immutable
+manifest still carries the full claim and its seal receipt reference; row-level hashing does not
+replace manifest-byte verification and does not upgrade any structural or diagnostic status.
+
 ProtoJSON and HTTP JSON represent every `uint64` as a canonical decimal string, including values
 above JavaScript's exact-integer range. Rust rejects JSON numbers and non-canonical strings. The
 protobuf timestamp projection preserves nanoseconds; consumers that map it to Python `datetime`

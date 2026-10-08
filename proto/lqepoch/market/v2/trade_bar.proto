@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package lqepoch.market.v2;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lqepoch.market.v2";
+
+// One normalized US equity trade-only one-minute bar. Completion remains manifest-level; each
+// row carries a SHA-256 reference to the canonical DatasetCompletionEvidenceV2 ProtoJSON bytes.
+// This digest binds the row to the evidence projection and does not authenticate its issuer.
+message UsEquityTradeBarV2 {
+  uint32 schema_version = 1; // Must be 2.
+  string source_provider = 2;
+  string source_feed = 3;
+  string source_entitlement = 4;
+  string source_numeric_encoding = 5;
+  string symbol = 6;
+  google.protobuf.Timestamp bar_start_utc = 7;
+  google.protobuf.Timestamp bar_end_exclusive_utc = 8;
+  google.protobuf.Timestamp available_at_utc = 9;
+  string trade_date = 10; // Canonical YYYY-MM-DD UTF-8 text.
+  string session_id = 11;
+  string session_timezone = 12;
+  string session_policy_id = 13;
+  string session_policy_sha256 = 14;
+  google.protobuf.Timestamp session_start_utc = 15;
+  google.protobuf.Timestamp session_end_exclusive_utc = 16;
+  google.protobuf.Timestamp window_start_utc = 17;
+  google.protobuf.Timestamp window_end_exclusive_utc = 18;
+  string open = 19; // Exact decimal text; never a floating-point JSON value.
+  string high = 20;
+  string low = 21;
+  string close = 22;
+  string volume = 23;
+  uint64 trade_count = 24;
+  uint64 quote_events_excluded = 25;
+  uint64 source_timestamp_missing_rows = 26;
+  uint64 sequence_gap_count = 27;
+  uint64 late_event_count = 28;
+  uint64 window_expected_minutes = 29;
+  uint64 window_empty_trade_minutes = 30;
+  google.protobuf.Timestamp source_start_utc = 31;
+  google.protobuf.Timestamp source_end_exclusive_utc = 32;
+  bool window_input_eof = 33;
+  optional bool source_pages_exhausted = 34;
+  string completion_mode = 35; // Informational; typed authority is in the manifest oneof.
+  string nbbo_input_status = 36;
+  string completion_evidence_sha256 = 37; // Lowercase SHA-256 of the manifest oneof projection.
+}

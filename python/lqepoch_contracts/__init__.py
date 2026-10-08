@@ -10,10 +10,15 @@ from .parquet_schema import (
     validate_optional_parquet_schema_metadata,
 )
 from .protojson import (
+    dataset_completion_evidence_v2_protojson_bytes,
+    dataset_completion_evidence_v2_sha256,
     finite_batch_seal_receipt_protojson_bytes,
     finite_batch_seal_receipt_sha256,
     parse_dataset_manifest_v2_json,
     parse_dataset_manifest_v2_protojson,
+    parse_us_equity_trade_bar_v2_protojson,
+    validate_bar_v2_completion_evidence_reference,
+    validate_us_equity_trade_bar_v2_against_manifest,
 )
 
 __all__ = [
@@ -28,4 +33,9 @@ __all__ = [
     "parse_dataset_manifest_v2_protojson",
     "finite_batch_seal_receipt_protojson_bytes",
     "finite_batch_seal_receipt_sha256",
+    "dataset_completion_evidence_v2_protojson_bytes",
+    "dataset_completion_evidence_v2_sha256",
+    "validate_bar_v2_completion_evidence_reference",
+    "parse_us_equity_trade_bar_v2_protojson",
+    "validate_us_equity_trade_bar_v2_against_manifest",
 ]

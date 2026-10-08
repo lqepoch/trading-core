@@ -41,6 +41,12 @@ pub enum DatasetManifestV2Error {
     /// A finite-batch completion cannot be projected to the shared receipt contract.
     #[error("finite batch completion cannot be projected to a seal receipt")]
     InvalidFiniteBatchReceipt,
+    /// A dataset completion evidence value cannot be projected to its bounded canonical bytes.
+    #[error("dataset completion evidence cannot be projected to canonical ProtoJSON")]
+    InvalidCompletionEvidenceProjection,
+    /// A bar row's evidence digest does not match the validated manifest completion evidence.
+    #[error("bar completion evidence digest does not match the dataset manifest")]
+    InvalidCompletionEvidenceReference,
 }
 
 /// A protobuf Timestamp carried as a canonical UTC ProtoJSON string without losing nanoseconds.
@@ -541,6 +547,47 @@ pub fn finite_batch_seal_receipt_sha256(
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 
+/// Return the bounded canonical ProtoJSON projection of a validated manifest's completion oneof.
+///
+/// The complete evidence object is the hash preimage. This projection is intentionally separate
+/// from the enclosing manifest, whose object/readback fields and serialized bytes have their own
+/// identity. Callers must still validate any external issuer or source receipt independently.
+pub fn dataset_completion_evidence_v2_protojson_bytes(
+    manifest: &DatasetManifestV2,
+) -> Result<Vec<u8>, DatasetManifestV2Error> {
+    manifest.validate()?;
+    let bytes = serde_json::to_vec(&manifest.completion_evidence)
+        .map_err(|_| DatasetManifestV2Error::InvalidCompletionEvidenceProjection)?;
+    if bytes.len() > MAX_FINITE_BATCH_SEAL_RECEIPT_V2_JSON_BYTES {
+        return Err(DatasetManifestV2Error::InvalidCompletionEvidenceProjection);
+    }
+    Ok(bytes)
+}
+
+/// Return the canonical evidence projection's lowercase SHA-256 for a validated manifest.
+pub fn dataset_completion_evidence_v2_sha256(
+    manifest: &DatasetManifestV2,
+) -> Result<String, DatasetManifestV2Error> {
+    let bytes = dataset_completion_evidence_v2_protojson_bytes(manifest)?;
+    Ok(format!("{:x}", Sha256::digest(bytes)))
+}
+
+/// Require a BarV2 row's evidence reference to match its validated manifest oneof.
+///
+/// The row digest points to a structural projection only. It does not establish the truth or
+/// authorization of any receipt carried in that evidence.
+pub fn validate_bar_v2_completion_evidence_reference(
+    row_completion_evidence_sha256: &str,
+    manifest: &DatasetManifestV2,
+) -> Result<(), DatasetManifestV2Error> {
+    if !valid_sha256(row_completion_evidence_sha256)
+        || dataset_completion_evidence_v2_sha256(manifest)? != row_completion_evidence_sha256
+    {
+        return Err(DatasetManifestV2Error::InvalidCompletionEvidenceReference);
+    }
+    Ok(())
+}
+
 /// Provider stream watermark observation. Parsing this value never mints a trusted watermark.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -872,7 +919,8 @@ mod tests {
     use super::{
         DATASET_MANIFEST_SCHEMA_VERSION_V2, DatasetManifestV2, DatasetManifestV2Error,
         MAX_DATASET_MANIFEST_V2_JSON_BYTES, MAX_PROVIDER_WATERMARK_ALLOWED_LATENESS_NS,
-        ProtoTimestampV2, finite_batch_seal_receipt_protojson_bytes,
+        ProtoTimestampV2, dataset_completion_evidence_v2_protojson_bytes,
+        dataset_completion_evidence_v2_sha256, finite_batch_seal_receipt_protojson_bytes,
         finite_batch_seal_receipt_sha256, parse_dataset_manifest_v2_json,
     };
     use serde_json::{Value, json};
@@ -985,6 +1033,43 @@ mod tests {
                 crate::DatasetManifestError::InvalidCompletion
             ))
         ));
+    }
+
+    #[test]
+    fn completion_evidence_projection_hashes_match_all_shared_oneof_goldens() {
+        let hashes: Value = serde_json::from_slice(include_bytes!(
+            "../../../schemas/fixtures/dataset-completion-evidence-v2-sha256.json"
+        ))
+        .unwrap();
+        for (fixture_bytes, evidence_name) in [
+            (
+                include_bytes!("../../../schemas/fixtures/dataset-manifest-v2.json").as_slice(),
+                "finite_batch",
+            ),
+            (
+                include_bytes!(
+                    "../../../schemas/fixtures/dataset-manifest-v2-provider-watermark.json"
+                )
+                .as_slice(),
+                "provider_watermark",
+            ),
+            (
+                include_bytes!(
+                    "../../../schemas/fixtures/dataset-manifest-v2-diagnostic-stream.json"
+                )
+                .as_slice(),
+                "diagnostic_stream",
+            ),
+        ] {
+            let manifest = parse_dataset_manifest_v2_json(fixture_bytes).unwrap();
+            let payload = dataset_completion_evidence_v2_protojson_bytes(&manifest).unwrap();
+            assert!(!payload.ends_with(b"\n"));
+            assert_eq!(
+                dataset_completion_evidence_v2_sha256(&manifest).unwrap(),
+                hashes[evidence_name].as_str().unwrap(),
+                "completion oneof projection changed: {evidence_name}"
+            );
+        }
     }
 
     #[test]

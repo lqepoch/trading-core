@@ -15,20 +15,28 @@ import {
 } from "../gen/lqepoch/prediction/v1/prediction_pb.js";
 import {
   DatasetManifestV2Schema,
+  DatasetCompletionEvidenceV2Schema,
   FiniteBatchSealReceiptV2Schema,
   FiniteBatchSourceKindV2,
   type FiniteBatchCompletionV2,
   type DatasetManifestV2,
   type DatasetTimeRangeV2,
 } from "../gen/lqepoch/dataset/v2/manifest_pb.js";
+import {
+  UsEquityTradeBarV2Schema,
+  type UsEquityTradeBarV2,
+} from "../gen/lqepoch/market/v2/trade_bar_pb.js";
 import { trustedParquetSchemaSha256 } from "./schema-fingerprint.js";
 
 const UINT64_MAX = 18_446_744_073_709_551_615n;
+const PROTO_TIMESTAMP_MIN_SECONDS = -62_135_596_800n;
+const PROTO_TIMESTAMP_MAX_SECONDS = 253_402_300_799n;
 const CANONICAL_UINT64 = /^(0|[1-9][0-9]*)$/;
 const MAX_DATASET_MANIFEST_V2_JSON_BYTES = 2 * 1024 * 1024;
 const MAX_DATASET_MANIFEST_V2_SYMBOLS = 4096;
 const MAX_PROVIDER_WATERMARK_ALLOWED_LATENESS_NS = 60_000_000_000n;
 const SHA256 = /^[0-9a-f]{64}$/;
+const EXACT_DECIMAL = /^(-?)(0|[1-9][0-9]*)(?:\.([0-9]+))?(?:[eE]([+-]?[0-9]+))?$/;
 const PROTO_TIMESTAMP_V2 = /^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]{1,9}))?(?:Z|([+-])([0-9]{2}):([0-9]{2}))$/;
 const PROTO_TIMESTAMP_V2_FIELDS = new Set([
   "startInclusive", "start_inclusive", "endExclusive", "end_exclusive",
@@ -36,6 +44,11 @@ const PROTO_TIMESTAMP_V2_FIELDS = new Set([
   "completedAt", "completed_at", "completeUpToExclusive", "complete_up_to_exclusive",
   "localPolicyCutoff", "local_policy_cutoff", "observedMaxSourceTimestamp",
   "observed_max_source_timestamp",
+  "barStartUtc", "bar_start_utc", "barEndExclusiveUtc", "bar_end_exclusive_utc",
+  "availableAtUtc", "available_at_utc", "sessionStartUtc", "session_start_utc",
+  "sessionEndExclusiveUtc", "session_end_exclusive_utc", "windowStartUtc", "window_start_utc",
+  "windowEndExclusiveUtc", "window_end_exclusive_utc", "sourceStartUtc", "source_start_utc",
+  "sourceEndExclusiveUtc", "source_end_exclusive_utc",
 ]);
 const NUMERIC_ENCODING_V2_NAMES = new Set([
   "NUMERIC_ENCODING_DECIMAL_TOKEN",
@@ -239,6 +252,280 @@ export function finiteBatchSealReceiptProtojsonBytes(
 /** Return lowercase SHA-256 over the shared finite-batch receipt projection. */
 export function finiteBatchSealReceiptSha256(value: FiniteBatchCompletionV2): string {
   return createHash("sha256").update(finiteBatchSealReceiptProtojsonBytes(value)).digest("hex");
+}
+
+/** Return bounded compact ProtoJSON bytes for the validated manifest's oneof completion evidence. */
+export function datasetCompletionEvidenceV2ProtojsonBytes(
+  manifest: DatasetManifestV2,
+): Uint8Array {
+  validateDatasetManifestV2(manifest);
+  const evidence = manifest.completionEvidence;
+  if (evidence === undefined) throw new TypeError("dataset completion evidence is required");
+  const bytes = new TextEncoder().encode(
+    toJsonString(DatasetCompletionEvidenceV2Schema, evidence),
+  );
+  if (bytes.byteLength > 16 * 1024) {
+    throw new RangeError("dataset completion evidence exceeds the configured byte limit");
+  }
+  return bytes;
+}
+
+/** Return lowercase SHA-256 of the validated manifest completion oneof projection. */
+export function datasetCompletionEvidenceV2Sha256(manifest: DatasetManifestV2): string {
+  return createHash("sha256").update(datasetCompletionEvidenceV2ProtojsonBytes(manifest)).digest("hex");
+}
+
+/** Parse a lossless BarV2 ProtoJSON row, preserving all uint64 and nanosecond values. */
+export function parseUsEquityTradeBarV2ProtoJson(value: unknown): UsEquityTradeBarV2 {
+  requireProtoJsonFields(value, [
+    "schemaVersion", "sourceProvider", "sourceFeed", "sourceEntitlement",
+    "sourceNumericEncoding", "symbol", "barStartUtc", "barEndExclusiveUtc",
+    "availableAtUtc", "tradeDate", "sessionId", "sessionTimezone", "sessionPolicyId",
+    "sessionPolicySha256", "sessionStartUtc", "sessionEndExclusiveUtc", "windowStartUtc",
+    "windowEndExclusiveUtc", "open", "high", "low", "close", "volume", "tradeCount",
+    "quoteEventsExcluded", "sourceTimestampMissingRows", "sequenceGapCount", "lateEventCount",
+    "windowExpectedMinutes", "windowEmptyTradeMinutes", "sourceStartUtc", "sourceEndExclusiveUtc",
+    "windowInputEof", "completionMode", "nbboInputStatus", "completionEvidenceSha256",
+  ], ["sourcePagesExhausted"]);
+  const encoded = JSON.stringify(value);
+  if (encoded === undefined || new TextEncoder().encode(encoded).byteLength > 64 * 1024) {
+    throw new RangeError("BarV2 JSON exceeds the configured byte limit");
+  }
+  validateProtoTimestampV2Fields(value);
+  validateUint64JsonPaths(value, [
+    ["tradeCount"], ["quoteEventsExcluded"], ["sourceTimestampMissingRows"],
+    ["sequenceGapCount"], ["lateEventCount"], ["windowExpectedMinutes"],
+    ["windowEmptyTradeMinutes"],
+  ]);
+  if (!isRecord(value)) throw new TypeError("BarV2 JSON must be an object");
+  const version = getAliasedValue(value, "schemaVersion", "schema_version");
+  if (typeof version !== "number" || !Number.isInteger(version) || version !== 2) {
+    throw new TypeError("BarV2 schema_version must be the integer 2");
+  }
+  const row = fromJson(UsEquityTradeBarV2Schema, value as JsonValue);
+  if (
+    row.schemaVersion !== 2 ||
+    !SHA256.test(row.completionEvidenceSha256) ||
+    !validMarketSymbol(row.symbol) ||
+    !validIsoDate(row.tradeDate) ||
+    !["unknown", "authorized", "unauthorized"].includes(row.sourceEntitlement) ||
+    ![
+      "decimal_token", "integer_token", "binary_float64_shortest_decimal",
+      "binary_float32_shortest_decimal",
+    ].includes(row.sourceNumericEncoding)
+  ) {
+    throw new TypeError("invalid BarV2 version or completion evidence digest");
+  }
+  validateUsEquityTradeBarV2Shape(row);
+  return row;
+}
+
+/** Require the BarV2 row reference to match the validated manifest completion oneof. */
+export function validateBarV2CompletionEvidenceReference(
+  row: UsEquityTradeBarV2,
+  manifest: DatasetManifestV2,
+): void {
+  if (row.schemaVersion !== 2 || row.completionEvidenceSha256 !== datasetCompletionEvidenceV2Sha256(manifest)) {
+    throw new TypeError("BarV2 completion evidence digest does not match the dataset manifest");
+  }
+}
+
+/** Validate BarV2 row semantics against the manifest that owns source and completion evidence. */
+export function validateUsEquityTradeBarV2AgainstManifest(
+  row: UsEquityTradeBarV2,
+  manifest: DatasetManifestV2,
+): void {
+  validateUsEquityTradeBarV2Shape(row);
+  validateDatasetManifestV2(manifest);
+  const source = manifest.source;
+  if (source === undefined) throw new TypeError("dataset manifest source is required");
+  const encoding = numericEncodingName(source.numericEncoding);
+  if (
+    row.sourceProvider !== source.provider ||
+    row.sourceFeed !== source.feed ||
+    row.sourceEntitlement !== source.entitlement ||
+    row.sourceNumericEncoding !== encoding ||
+    !manifest.symbols.includes(row.symbol) ||
+    row.sourceTimestampMissingRows !== manifest.sourceTimestampMissingRows
+  ) {
+    throw new TypeError("BarV2 source fields do not match the dataset manifest");
+  }
+
+  const completion = manifest.completionEvidence?.evidence;
+  let expectedMode: string;
+  let expectedEof: boolean;
+  let expectedPages: boolean | undefined;
+  switch (completion?.case) {
+    case "finiteBatch":
+      expectedMode = "finite_batch";
+      expectedEof = true;
+      expectedPages = completion.value.sourceKind ===
+        FiniteBatchSourceKindV2.FINITE_BATCH_SOURCE_KIND_HISTORICAL_PAGED;
+      break;
+    case "providerWatermark":
+      expectedMode = "provider_watermark";
+      expectedEof = false;
+      expectedPages = undefined;
+      break;
+    case "diagnosticStream":
+      expectedMode = "diagnostic_stream";
+      expectedEof = false;
+      expectedPages = undefined;
+      break;
+    default:
+      throw new TypeError("dataset manifest has no completion evidence oneof");
+  }
+  if (
+    row.completionMode !== expectedMode ||
+    row.windowInputEof !== expectedEof ||
+    (row.sourcePagesExhausted !== undefined) !== (expectedPages !== undefined) ||
+    (expectedPages !== undefined && row.sourcePagesExhausted !== expectedPages)
+  ) {
+    throw new TypeError("BarV2 completion fields do not match the dataset manifest");
+  }
+
+  validateBarV2CompletionEvidenceReference(row, manifest);
+  const range = manifest.timeRange;
+  if (
+    range?.startInclusive === undefined ||
+    range.endExclusive === undefined ||
+    compareTimestamp(row.sourceStartUtc, range.startInclusive) < 0 ||
+    compareTimestamp(row.sourceEndExclusiveUtc, range.endExclusive) > 0
+  ) {
+    throw new TypeError("BarV2 source bounds exceed or lack the manifest time range");
+  }
+}
+
+function validateUsEquityTradeBarV2Shape(row: UsEquityTradeBarV2): void {
+  if (
+    row.schemaVersion !== 2 ||
+    !validSourceIdentity(row.sourceProvider) ||
+    !validSourceIdentity(row.sourceFeed) ||
+    !["unknown", "authorized", "unauthorized"].includes(row.sourceEntitlement) ||
+    ![
+      "decimal_token", "integer_token", "binary_float64_shortest_decimal",
+      "binary_float32_shortest_decimal",
+    ].includes(row.sourceNumericEncoding) ||
+    !validMarketSymbol(row.symbol) ||
+    !validCoreIdentity(row.sessionId, 128) ||
+    !validSourceIdentity(row.sessionTimezone) ||
+    !validCoreIdentity(row.sessionPolicyId, 256) ||
+    !SHA256.test(row.sessionPolicySha256) ||
+    !["finite_batch", "provider_watermark", "diagnostic_stream"].includes(row.completionMode) ||
+    !validBoundedText(row.nbboInputStatus, 128) ||
+    row.tradeCount === 0n ||
+    row.windowExpectedMinutes === 0n ||
+    row.windowEmptyTradeMinutes > row.windowExpectedMinutes ||
+    row.sourcePagesExhausted === false
+  ) {
+    throw new TypeError("BarV2 identity, count, or completion fields are invalid");
+  }
+
+  const open = parseExactDecimal(row.open);
+  const high = parseExactDecimal(row.high);
+  const low = parseExactDecimal(row.low);
+  const close = parseExactDecimal(row.close);
+  const volume = parseExactDecimal(row.volume);
+  if (
+    open.coefficient <= 0n || high.coefficient <= 0n || low.coefficient <= 0n ||
+    close.coefficient <= 0n || volume.coefficient < 0n ||
+    compareDecimal(high, open) < 0 || compareDecimal(high, close) < 0 ||
+    compareDecimal(high, low) < 0 || compareDecimal(low, open) > 0 ||
+    compareDecimal(low, close) > 0
+  ) {
+    throw new TypeError("BarV2 exact OHLCV values are inconsistent");
+  }
+
+  const timestamps = [
+    row.barStartUtc, row.barEndExclusiveUtc, row.availableAtUtc, row.sessionStartUtc,
+    row.sessionEndExclusiveUtc, row.windowStartUtc, row.windowEndExclusiveUtc,
+    row.sourceStartUtc, row.sourceEndExclusiveUtc,
+  ];
+  if (timestamps.some((value) => value === undefined || !validTimestampValue(value))) {
+    throw new TypeError("BarV2 timestamp fields are required");
+  }
+  const [barStart, barEnd, availableAt, sessionStart, sessionEnd, windowStart, windowEnd, sourceStart, sourceEnd] =
+    timestamps as NonNullable<(typeof timestamps)[number]>[];
+  if (
+    compareTimestamp(sessionStart, sessionEnd) >= 0 ||
+    compareTimestamp(windowStart, windowEnd) >= 0 ||
+    compareTimestamp(windowStart, sessionStart) < 0 ||
+    compareTimestamp(windowEnd, sessionEnd) > 0 ||
+    timestampNanoseconds(barEnd) - timestampNanoseconds(barStart) !== 60_000_000_000n ||
+    compareTimestamp(barStart, windowStart) < 0 ||
+    compareTimestamp(barEnd, windowEnd) > 0 ||
+    compareTimestamp(barStart, sessionStart) < 0 ||
+    compareTimestamp(barEnd, sessionEnd) > 0 ||
+    compareTimestamp(availableAt, barEnd) < 0 ||
+    compareTimestamp(sourceStart, sourceEnd) >= 0
+  ) {
+    throw new TypeError("BarV2 timestamps are inconsistent");
+  }
+}
+
+function parseExactDecimal(value: string): { coefficient: bigint; scale: number } {
+  if (value.length > 128 || !/^[\x00-\x7f]*$/.test(value)) {
+    throw new TypeError("BarV2 decimal exceeds the exact-decimal input bound");
+  }
+  const match = EXACT_DECIMAL.exec(value);
+  if (match === null) throw new TypeError("BarV2 decimal is not a JSON number");
+  const [, sign, integer, fraction = "", exponentText = "0"] = match;
+  const exponent = Number(exponentText);
+  if (!Number.isInteger(exponent) || Math.abs(exponent) > 38) {
+    throw new TypeError("BarV2 decimal exponent is outside the exact-decimal bound");
+  }
+  let digits = `${integer}${fraction}`.replace(/^0+/, "");
+  if (digits.length === 0) return { coefficient: 0n, scale: 0 };
+  let scale = fraction.length - exponent;
+  if (scale < 0) {
+    digits += "0".repeat(-scale);
+    if (digits.length > 128) throw new TypeError("BarV2 decimal coefficient exceeds its bound");
+    scale = 0;
+  }
+  while (scale > 0 && digits.endsWith("0")) {
+    digits = digits.slice(0, -1);
+    scale -= 1;
+  }
+  if (scale > 28) throw new TypeError("BarV2 decimal scale exceeds its bound");
+  const magnitude = BigInt(digits);
+  const signed = sign === "-" ? -magnitude : magnitude;
+  if (signed < -(1n << 127n) || signed > (1n << 127n) - 1n) {
+    throw new TypeError("BarV2 decimal coefficient overflows signed 128-bit");
+  }
+  return { coefficient: signed, scale };
+}
+
+function compareDecimal(left: { coefficient: bigint; scale: number }, right: { coefficient: bigint; scale: number }): number {
+  const scale = Math.max(left.scale, right.scale);
+  const leftValue = left.coefficient * 10n ** BigInt(scale - left.scale);
+  const rightValue = right.coefficient * 10n ** BigInt(scale - right.scale);
+  return leftValue === rightValue ? 0 : leftValue < rightValue ? -1 : 1;
+}
+
+function timestampNanoseconds(value: { readonly seconds: bigint; readonly nanos: number }): bigint {
+  return value.seconds * 1_000_000_000n + BigInt(value.nanos);
+}
+
+function numericEncodingName(value: NumericEncodingV1): string {
+  switch (value) {
+    case NumericEncodingV1.NUMERIC_ENCODING_DECIMAL_TOKEN: return "decimal_token";
+    case NumericEncodingV1.NUMERIC_ENCODING_INTEGER_TOKEN: return "integer_token";
+    case NumericEncodingV1.NUMERIC_ENCODING_BINARY_FLOAT64_SHORTEST_DECIMAL: return "binary_float64_shortest_decimal";
+    case NumericEncodingV1.NUMERIC_ENCODING_BINARY_FLOAT32_SHORTEST_DECIMAL: return "binary_float32_shortest_decimal";
+    default: return "";
+  }
+}
+
+function validCoreIdentity(value: string, maxBytes: number): boolean {
+  return new TextEncoder().encode(value).byteLength <= maxBytes &&
+    /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value) &&
+    !value.includes("..") &&
+    !value.split(/[._:-]/).some((part) => part.toLowerCase() === "latest" || part.toLowerCase() === "fallback");
+}
+
+function validBoundedText(value: string, maxBytes: number): boolean {
+  return value.length > 0 && new TextEncoder().encode(value).byteLength <= maxBytes &&
+    value.trim() === value && !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
 }
 
 function validateDatasetManifestV2(message: DatasetManifestV2): void {
@@ -454,11 +741,23 @@ function validateFiniteBatchReceiptProjectionFields(value: FiniteBatchCompletion
 }
 
 function compareTimestamp(
-  left: { readonly seconds: bigint; readonly nanos: number },
-  right: { readonly seconds: bigint; readonly nanos: number },
+  left: { readonly seconds: bigint; readonly nanos: number } | undefined,
+  right: { readonly seconds: bigint; readonly nanos: number } | undefined,
 ): number {
+  if (!validTimestampValue(left) || !validTimestampValue(right)) {
+    throw new TypeError("protobuf timestamps are outside the supported range");
+  }
   if (left.seconds !== right.seconds) return left.seconds < right.seconds ? -1 : 1;
   return left.nanos === right.nanos ? 0 : left.nanos < right.nanos ? -1 : 1;
+}
+
+function validTimestampValue(
+  value: { readonly seconds: bigint; readonly nanos: number } | undefined,
+): value is { readonly seconds: bigint; readonly nanos: number } {
+  return value !== undefined &&
+    value.seconds >= PROTO_TIMESTAMP_MIN_SECONDS &&
+    value.seconds <= PROTO_TIMESTAMP_MAX_SECONDS &&
+    Number.isInteger(value.nanos) && value.nanos >= 0 && value.nanos <= 999_999_999;
 }
 
 function validDatasetId(value: string): boolean {
@@ -476,6 +775,17 @@ function validSortedSymbols(values: readonly string[]): boolean {
     value.length > 0 && new TextEncoder().encode(value).byteLength <= 256 &&
     value.trim() === value && !/[\u0000-\u001f\u007f-\u009f]/u.test(value)
   ) && values.every((value, index) => index === 0 || compareUtf8(values[index - 1]!, value) < 0);
+}
+
+function validMarketSymbol(value: string): boolean {
+  return value.length > 0 && new TextEncoder().encode(value).byteLength <= 256 &&
+    value.trim() === value && !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
+}
+
+function validIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
 }
 
 function compareUtf8(left: string, right: string): number {
@@ -505,6 +815,27 @@ function getAliasedRecord(value: unknown, camel: string, snake: string): Record<
   if (!isRecord(value)) return undefined;
   const field = value[camel] ?? value[snake];
   return isRecord(field) ? field : undefined;
+}
+
+function requireProtoJsonFields(
+  value: unknown,
+  camelFields: readonly string[],
+  optionalCamelFields: readonly string[] = [],
+): void {
+  if (!isRecord(value)) throw new TypeError("ProtoJSON row must be an object");
+  rejectDuplicateProtoFieldSpellings(value);
+  for (const camel of camelFields) {
+    if (!hasAliasedField(value, camel)) {
+      throw new TypeError(`missing required ProtoJSON field: ${camel}`);
+    }
+  }
+  const allowed = new Set([...camelFields, ...optionalCamelFields].flatMap((camel) => [
+    camel,
+    camel.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`),
+  ]));
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) throw new TypeError(`unknown ProtoJSON row field: ${key}`);
+  }
 }
 
 function hasAliasedField(value: Record<string, unknown>, camel: string): boolean {
