@@ -1,0 +1,22 @@
+{
+  "source_numeric_encoding": [
+    {
+      "name": "known-numeric-value-is-not-this-contract-json-shape",
+      "value": 1
+    },
+    {
+      "name": "unknown-numeric-value",
+      "value": 123
+    }
+  ],
+  "finite_source_kind": [
+    {
+      "name": "known-numeric-value-is-not-this-contract-json-shape",
+      "value": 3
+    },
+    {
+      "name": "unknown-numeric-value",
+      "value": 123
+    }
+  ]
+}

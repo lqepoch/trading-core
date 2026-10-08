@@ -27,6 +27,28 @@ const MAX_DATASET_MANIFEST_V2_JSON_BYTES = 2 * 1024 * 1024;
 const MAX_DATASET_MANIFEST_V2_SYMBOLS = 4096;
 const MAX_PROVIDER_WATERMARK_ALLOWED_LATENESS_NS = 60_000_000_000n;
 const SHA256 = /^[0-9a-f]{64}$/;
+const PROTO_TIMESTAMP_V2 = /^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]{1,9}))?(?:Z|([+-])([0-9]{2}):([0-9]{2}))$/;
+const PROTO_TIMESTAMP_V2_FIELDS = new Set([
+  "startInclusive", "start_inclusive", "endExclusive", "end_exclusive",
+  "dataCutoffExclusive", "data_cutoff_exclusive", "sealedAt", "sealed_at",
+  "completedAt", "completed_at", "completeUpToExclusive", "complete_up_to_exclusive",
+  "localPolicyCutoff", "local_policy_cutoff", "observedMaxSourceTimestamp",
+  "observed_max_source_timestamp",
+]);
+const NUMERIC_ENCODING_V2_NAMES = new Set([
+  "NUMERIC_ENCODING_DECIMAL_TOKEN",
+  "NUMERIC_ENCODING_INTEGER_TOKEN",
+  "NUMERIC_ENCODING_BINARY_FLOAT64_SHORTEST_DECIMAL",
+  "NUMERIC_ENCODING_BINARY_FLOAT32_SHORTEST_DECIMAL",
+  "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES",
+  "NUMERIC_ENCODING_RAW_JSON_BYTES",
+]);
+const FINITE_SOURCE_KIND_V2_NAMES = new Set([
+  "FINITE_BATCH_SOURCE_KIND_SYNTHETIC_REPLAY",
+  "FINITE_BATCH_SOURCE_KIND_HISTORICAL_PAGED",
+  "FINITE_BATCH_SOURCE_KIND_HISTORICAL_NON_PAGED",
+  "FINITE_BATCH_SOURCE_KIND_LOCAL_ARCHIVE",
+]);
 
 export type JsonPath = readonly string[];
 
@@ -127,6 +149,8 @@ export function parseDatasetManifestV2ProtoJson(value: unknown): DatasetManifest
     throw new RangeError("dataset manifest v2 JSON exceeds the configured byte limit");
   }
   rejectDuplicateProtoFieldSpellings(value);
+  validateProtoTimestampV2Fields(value);
+  validateDatasetManifestV2EnumNames(value);
   const completion = getAliasedRecord(value, "completionEvidence", "completion_evidence");
   if (completion === undefined) throw new TypeError("dataset v2 requires completion evidence");
   const cases = ["finiteBatch", "providerWatermark", "diagnosticStream"] as const;
@@ -420,6 +444,70 @@ function getAliasedRecord(value: unknown, camel: string, snake: string): Record<
 function hasAliasedField(value: Record<string, unknown>, camel: string): boolean {
   const snake = camel.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
   return camel in value || snake in value;
+}
+
+function getAliasedValue(value: Record<string, unknown>, camel: string, snake: string): unknown {
+  return camel in value ? value[camel] : value[snake];
+}
+
+function validateDatasetManifestV2EnumNames(value: unknown): void {
+  const source = getAliasedRecord(value, "source", "source");
+  if (source !== undefined) {
+    const encoding = getAliasedValue(source, "numericEncoding", "numeric_encoding");
+    if (typeof encoding !== "string" || !NUMERIC_ENCODING_V2_NAMES.has(encoding)) {
+      throw new TypeError("dataset v2 enum fields must use supported ProtoJSON names");
+    }
+  }
+
+  const completion = getAliasedRecord(value, "completionEvidence", "completion_evidence");
+  const finite = completion === undefined
+    ? undefined
+    : getAliasedRecord(completion, "finiteBatch", "finite_batch");
+  if (finite !== undefined) {
+    const sourceKind = getAliasedValue(finite, "sourceKind", "source_kind");
+    if (typeof sourceKind !== "string" || !FINITE_SOURCE_KIND_V2_NAMES.has(sourceKind)) {
+      throw new TypeError("dataset v2 enum fields must use supported ProtoJSON names");
+    }
+  }
+}
+
+function validateProtoTimestampV2Fields(value: unknown, depth = 0): void {
+  if (depth > 64) throw new RangeError("dataset v2 JSON nesting exceeds its bound");
+  if (Array.isArray(value)) {
+    for (const nested of value) validateProtoTimestampV2Fields(nested, depth + 1);
+    return;
+  }
+  if (!isRecord(value)) return;
+  for (const [key, nested] of Object.entries(value)) {
+    if (PROTO_TIMESTAMP_V2_FIELDS.has(key) && nested !== null) {
+      if (typeof nested !== "string") {
+        throw new TypeError("protobuf timestamp must be an RFC3339 string");
+      }
+      const match = PROTO_TIMESTAMP_V2.exec(nested);
+      if (match === null) {
+        throw new TypeError("protobuf timestamp must preserve at most 9 fractional digits");
+      }
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      const hour = Number(match[4]);
+      const minute = Number(match[5]);
+      const second = Number(match[6]);
+      const offsetHour = match[9] === undefined ? undefined : Number(match[9]);
+      const offsetMinute = match[10] === undefined ? undefined : Number(match[10]);
+      const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+      const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      if (
+        year === 0 || month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]! ||
+        hour > 23 || minute > 59 || second > 59 ||
+        (offsetHour !== undefined && (offsetHour > 23 || offsetMinute! > 59))
+      ) {
+        throw new TypeError("protobuf timestamp contains an out-of-range component");
+      }
+    } else {
+      validateProtoTimestampV2Fields(nested, depth + 1);
+    }
+  }
 }
 
 function rejectDuplicateProtoFieldSpellings(value: unknown, depth = 0): void {

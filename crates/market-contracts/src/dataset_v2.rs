@@ -49,6 +49,9 @@ pub struct ProtoTimestampV2 {
 impl ProtoTimestampV2 {
     /// Parse an RFC3339 timestamp, normalize it to UTC, and retain nanosecond precision.
     pub fn parse(value: &str) -> Result<Self, DatasetManifestV2Error> {
+        if !valid_proto_timestamp_v2_input(value) {
+            return Err(DatasetManifestV2Error::InvalidTimestamp);
+        }
         let parsed = DateTime::parse_from_rfc3339(value)
             .map_err(|_| DatasetManifestV2Error::InvalidTimestamp)?;
         let instant = parsed.with_timezone(&Utc);
@@ -67,6 +70,75 @@ impl ProtoTimestampV2 {
     fn to_v1_timestamp(&self) -> Result<UtcTimestamp, DatasetManifestV2Error> {
         UtcTimestamp::parse(&self.canonical).map_err(|_| DatasetManifestV2Error::InvalidTimestamp)
     }
+}
+
+fn valid_proto_timestamp_v2_input(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if !(20..=35).contains(&bytes.len())
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b'T'
+        || bytes[13] != b':'
+        || bytes[16] != b':'
+        || !bytes[..4].iter().all(u8::is_ascii_digit)
+        || !bytes[5..7].iter().all(u8::is_ascii_digit)
+        || !bytes[8..10].iter().all(u8::is_ascii_digit)
+        || !bytes[11..13].iter().all(u8::is_ascii_digit)
+        || !bytes[14..16].iter().all(u8::is_ascii_digit)
+        || !bytes[17..19].iter().all(u8::is_ascii_digit)
+    {
+        return false;
+    }
+    let Some(hour) = two_ascii_digits(&bytes[11..13]) else {
+        return false;
+    };
+    let Some(minute) = two_ascii_digits(&bytes[14..16]) else {
+        return false;
+    };
+    let Some(second) = two_ascii_digits(&bytes[17..19]) else {
+        return false;
+    };
+    if hour > 23 || minute > 59 || second > 59 {
+        return false;
+    }
+
+    let mut zone_start = 19;
+    if bytes.get(zone_start) == Some(&b'.') {
+        zone_start += 1;
+        let fraction_start = zone_start;
+        while bytes.get(zone_start).is_some_and(u8::is_ascii_digit) {
+            zone_start += 1;
+        }
+        let fraction_digits = zone_start - fraction_start;
+        if !(1..=9).contains(&fraction_digits) {
+            return false;
+        }
+    }
+
+    let zone = &bytes[zone_start..];
+    if zone == b"Z" {
+        return true;
+    }
+    if zone.len() != 6 || (zone[0] != b'+' && zone[0] != b'-') || zone[3] != b':' {
+        return false;
+    }
+    let Some(offset_hour) = two_ascii_digits(&zone[1..3]) else {
+        return false;
+    };
+    let Some(offset_minute) = two_ascii_digits(&zone[4..6]) else {
+        return false;
+    };
+    offset_hour <= 23 && offset_minute <= 59
+}
+
+fn two_ascii_digits(value: &[u8]) -> Option<u8> {
+    let [tens, ones] = value else {
+        return None;
+    };
+    if !tens.is_ascii_digit() || !ones.is_ascii_digit() {
+        return None;
+    }
+    Some((tens - b'0') * 10 + ones - b'0')
 }
 
 impl PartialEq for ProtoTimestampV2 {
@@ -238,6 +310,7 @@ impl DatasetTimeRangeV2 {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DatasetObjectV2 {
     /// Stable object basename, not a directory path.
+    #[serde(alias = "object_name")]
     pub object_name: String,
     /// Opaque provider identity or explicit `local-test:` identity.
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "object_id")]
@@ -381,13 +454,13 @@ pub struct ProviderWatermarkCompletionV2 {
     #[serde(with = "crate::wire_u64")]
     pub generation: u64,
     /// First sequence covered by the continuity receipt, inclusive.
-    #[serde(with = "crate::wire_u64")]
+    #[serde(alias = "first_sequence", with = "crate::wire_u64")]
     pub first_sequence: u64,
     /// Last sequence covered by the continuity receipt, inclusive.
-    #[serde(with = "crate::wire_u64")]
+    #[serde(alias = "last_sequence", with = "crate::wire_u64")]
     pub last_sequence: u64,
     /// Number of contiguous sequence values covered by the receipt.
-    #[serde(with = "crate::wire_u64")]
+    #[serde(alias = "sequence_count", with = "crate::wire_u64")]
     pub sequence_count: u64,
     /// SHA-256 receipt for the contiguous sequence interval.
     #[serde(alias = "continuity_receipt_sha256")]
@@ -545,6 +618,8 @@ impl ProviderWatermarkCompletionV2 {
             && self.allowed_lateness_ns <= MAX_PROVIDER_WATERMARK_ALLOWED_LATENESS_NS
             && valid_sha256(&self.reviewed_policy_sha256)
             && valid_sha256(&self.source_receipt_sha256)
+            && self.provider != "synthetic"
+            && self.feed != "synthetic"
             && manifest.source_timestamp_missing_rows == 0
             && covers_manifest_time
     }
@@ -565,6 +640,7 @@ impl DiagnosticStreamCompletionV2 {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DatasetManifestV2 {
     /// This contract accepts only version 2.
+    #[serde(alias = "schema_version")]
     pub schema_version: u32,
     /// Immutable logical dataset version identity, never a path.
     #[serde(alias = "dataset_id")]
@@ -732,6 +808,43 @@ mod tests {
     }
 
     #[test]
+    fn complete_snake_case_fixtures_parse_and_dual_spellings_are_rejected() {
+        for bytes in [
+            include_bytes!("../../../schemas/fixtures/dataset-manifest-v2-snake.json").as_slice(),
+            include_bytes!(
+                "../../../schemas/fixtures/dataset-manifest-v2-provider-watermark-snake.json"
+            )
+            .as_slice(),
+        ] {
+            parse_dataset_manifest_v2_json(bytes).unwrap();
+        }
+
+        let mut schema_version = fixture_value();
+        schema_version["schema_version"] = schema_version["schemaVersion"].clone();
+        assert!(parse_value(&schema_version).is_err());
+
+        let mut object_name = fixture_value();
+        object_name["object"]["object_name"] = object_name["object"]["objectName"].clone();
+        assert!(parse_value(&object_name).is_err());
+
+        let provider_fixture =
+            include_bytes!("../../../schemas/fixtures/dataset-manifest-v2-provider-watermark.json");
+        for (camel, snake) in [
+            ("firstSequence", "first_sequence"),
+            ("lastSequence", "last_sequence"),
+            ("sequenceCount", "sequence_count"),
+        ] {
+            let mut value: Value = serde_json::from_slice(provider_fixture).unwrap();
+            value["completionEvidence"]["providerWatermark"][snake] =
+                value["completionEvidence"]["providerWatermark"][camel].clone();
+            assert!(
+                parse_value(&value).is_err(),
+                "accepted both {camel} spellings"
+            );
+        }
+    }
+
+    #[test]
     fn protobuf_timestamp_canonicalization_keeps_nanos_and_orders_by_instant() {
         let zero = ProtoTimestampV2::parse("2026-10-08T14:30:00Z").unwrap();
         let one_ns = ProtoTimestampV2::parse("2026-10-08T14:30:00.000000001Z").unwrap();
@@ -748,6 +861,22 @@ mod tests {
                 .unwrap(),
             "\"2026-10-08T14:30:00.000001Z\""
         );
+    }
+
+    #[test]
+    fn protobuf_timestamp_rejects_precision_loss_and_leap_seconds() {
+        let fixture: Value = serde_json::from_slice(include_bytes!(
+            "../../../schemas/fixtures/proto-timestamp-v2.json"
+        ))
+        .unwrap();
+        for case in fixture["valid"].as_array().unwrap() {
+            let value = case["value"].as_str().unwrap();
+            assert!(ProtoTimestampV2::parse(value).is_ok(), "{}", case["name"]);
+        }
+        for case in fixture["invalid"].as_array().unwrap() {
+            let value = case["value"].as_str().unwrap();
+            assert!(ProtoTimestampV2::parse(value).is_err(), "{}", case["name"]);
+        }
     }
 
     #[test]
@@ -790,6 +919,14 @@ mod tests {
         let mut value: Value = serde_json::from_slice(provider_fixture).unwrap();
         value["completionEvidence"]["providerWatermark"]["sequenceCount"] = json!("4");
         assert!(parse_value(&value).is_err());
+
+        let mut synthetic: Value = serde_json::from_slice(provider_fixture).unwrap();
+        synthetic["source"]["provider"] = json!("synthetic");
+        synthetic["source"]["feed"] = json!("synthetic");
+        synthetic["source"]["numericEncoding"] = json!("NUMERIC_ENCODING_DECIMAL_TOKEN");
+        synthetic["completionEvidence"]["providerWatermark"]["provider"] = json!("synthetic");
+        synthetic["completionEvidence"]["providerWatermark"]["feed"] = json!("synthetic");
+        assert!(parse_value(&synthetic).is_err());
 
         let mut value: Value = serde_json::from_slice(provider_fixture).unwrap();
         value["completionEvidence"]["providerWatermark"]["allowedLatenessNs"] =
@@ -890,5 +1027,23 @@ mod tests {
             parse_dataset_manifest_v2_json(&vec![b' '; MAX_DATASET_MANIFEST_V2_JSON_BYTES + 1]),
             Err(DatasetManifestV2Error::JsonTooLarge)
         ));
+    }
+
+    #[test]
+    fn protojson_enums_require_known_string_names_instead_of_numeric_values() {
+        let cases: Value = serde_json::from_slice(include_bytes!(
+            "../../../schemas/fixtures/dataset-manifest-v2-enum-invalid.json"
+        ))
+        .unwrap();
+        for case in cases["source_numeric_encoding"].as_array().unwrap() {
+            let mut value = fixture_value();
+            value["source"]["numericEncoding"] = case["value"].clone();
+            assert!(parse_value(&value).is_err(), "accepted {}", case["name"]);
+        }
+        for case in cases["finite_source_kind"].as_array().unwrap() {
+            let mut value = fixture_value();
+            value["completionEvidence"]["finiteBatch"]["sourceKind"] = case["value"].clone();
+            assert!(parse_value(&value).is_err(), "accepted {}", case["name"]);
+        }
     }
 }

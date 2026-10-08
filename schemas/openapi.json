@@ -1367,7 +1367,7 @@
       "ProtoTimestampV2": {
         "type": "string",
         "format": "date-time",
-        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3}|\\.\\d{6}|\\.\\d{9})?Z$",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5][0-9](?:\\.\\d{3}|\\.\\d{6}|\\.\\d{9})?Z$",
         "description": "Canonical UTC ProtoJSON timestamp. Fraction precision is 0, 3, 6, or 9 digits; the V2 Rust projection preserves nanoseconds."
       },
       "NumericEncodingProtoJsonV2": {

@@ -139,6 +139,86 @@ assert(
   datasetV2Message.completionEvidence.evidence.value.completedAt?.nanos === 123_456_789,
   "dataset v2 nanosecond timestamp was truncated",
 );
+for (const path of [
+  "schemas/fixtures/dataset-manifest-v2-snake.json",
+  "schemas/fixtures/dataset-manifest-v2-provider-watermark-snake.json",
+]) {
+  assert(
+    parseDatasetManifestV2ProtoJson(readFixture<Record<string, unknown>>(path)).schemaVersion === 2,
+    `full snake-case fixture failed: ${path}`,
+  );
+}
+
+for (const [path, mutate] of [
+  ["schema_version", (candidate: Record<string, unknown>) => {
+    candidate.schema_version = candidate.schemaVersion;
+  }],
+  ["object_name", (candidate: Record<string, unknown>) => {
+    const object = candidate.object as Record<string, unknown>;
+    object.object_name = object.objectName;
+  }],
+] as const) {
+  const candidate = structuredClone(datasetV2Json) as Record<string, unknown>;
+  mutate(candidate);
+  rejects(() => parseDatasetManifestV2ProtoJson(candidate), `accepted dual spellings for ${path}`);
+}
+
+const datasetV2WatermarkForAliases = readFixture<Record<string, unknown>>(
+  "schemas/fixtures/dataset-manifest-v2-provider-watermark.json",
+);
+for (const [camel, snake] of [
+  ["firstSequence", "first_sequence"],
+  ["lastSequence", "last_sequence"],
+  ["sequenceCount", "sequence_count"],
+] as const) {
+  const candidate = structuredClone(datasetV2WatermarkForAliases) as Record<string, unknown>;
+  const completion = candidate.completionEvidence as Record<string, unknown>;
+  const watermark = completion.providerWatermark as Record<string, unknown>;
+  watermark[snake] = watermark[camel];
+  rejects(() => parseDatasetManifestV2ProtoJson(candidate), `accepted both ${camel} spellings`);
+}
+
+const timestampV2Fixture = readFixture<{
+  valid: Array<{ name: string; value: string }>;
+  invalid: Array<{ name: string; value: string }>;
+}>("schemas/fixtures/proto-timestamp-v2.json");
+for (const testCase of timestampV2Fixture.valid) {
+  const candidate = structuredClone(datasetV2Json) as Record<string, unknown>;
+  const completion = candidate.completionEvidence as Record<string, unknown>;
+  const finite = completion.finiteBatch as Record<string, unknown>;
+  finite.completedAt = testCase.value;
+  parseDatasetManifestV2ProtoJson(candidate);
+}
+for (const testCase of timestampV2Fixture.invalid) {
+  const candidate = structuredClone(datasetV2Json) as Record<string, unknown>;
+  const completion = candidate.completionEvidence as Record<string, unknown>;
+  const finite = completion.finiteBatch as Record<string, unknown>;
+  finite.completedAt = testCase.value;
+  rejects(() => parseDatasetManifestV2ProtoJson(candidate), `accepted ${testCase.name}`);
+}
+
+const enumInvalidFixture = readFixture<{
+  source_numeric_encoding: Array<{ name: string; value: number }>;
+  finite_source_kind: Array<{ name: string; value: number }>;
+}>("schemas/fixtures/dataset-manifest-v2-enum-invalid.json");
+for (const testCase of enumInvalidFixture.source_numeric_encoding) {
+  const candidate = structuredClone(datasetV2Json) as Record<string, unknown>;
+  (candidate.source as Record<string, unknown>).numericEncoding = testCase.value;
+  rejects(
+    () => parseDatasetManifestV2ProtoJson(candidate),
+    `accepted numeric source enum ${testCase.name}`,
+  );
+}
+for (const testCase of enumInvalidFixture.finite_source_kind) {
+  const candidate = structuredClone(datasetV2Json) as Record<string, unknown>;
+  const completion = candidate.completionEvidence as Record<string, unknown>;
+  (completion.finiteBatch as Record<string, unknown>).sourceKind = testCase.value;
+  rejects(
+    () => parseDatasetManifestV2ProtoJson(candidate),
+    `accepted numeric finite enum ${testCase.name}`,
+  );
+}
+
 const datasetV2DiagnosticJson = readFixture<Record<string, unknown>>(
   "schemas/fixtures/dataset-manifest-v2-diagnostic-stream.json",
 );
@@ -233,6 +313,19 @@ assert(
   datasetV2WatermarkMessage.completionEvidence?.evidence.case === "providerWatermark" &&
     datasetV2WatermarkMessage.completionEvidence.evidence.value.sequenceCount === 5n,
   "dataset v2 provider watermark sequence count changed",
+);
+const syntheticWatermark = structuredClone(datasetV2Watermark) as Record<string, unknown>;
+const syntheticSource = syntheticWatermark.source as Record<string, unknown>;
+syntheticSource.provider = "synthetic";
+syntheticSource.feed = "synthetic";
+syntheticSource.numericEncoding = "NUMERIC_ENCODING_DECIMAL_TOKEN";
+const syntheticCompletion = syntheticWatermark.completionEvidence as Record<string, unknown>;
+const syntheticProvider = syntheticCompletion.providerWatermark as Record<string, unknown>;
+syntheticProvider.provider = "synthetic";
+syntheticProvider.feed = "synthetic";
+rejects(
+  () => parseDatasetManifestV2ProtoJson(syntheticWatermark),
+  "accepted synthetic source as provider watermark evidence",
 );
 const datasetV2WatermarkBoundary = readFixture<Record<string, unknown>>(
   "schemas/fixtures/dataset-manifest-v2-provider-watermark-u64-boundary.json",

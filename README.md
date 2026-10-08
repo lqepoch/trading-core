@@ -8,6 +8,7 @@ trading-core is the shared source of truth for exact financial values, canonical
 - domain: option candidates and qualified instrument keys, exact prices, quantities, execution identities, and immutable order intents.
 - pricing: bounded European Black-Scholes models, evidence checks, Greeks aggregation, singleflight, and a bounded worker pool.
 - market-contracts: compatibility DTOs plus versioned event, control, and dataset-manifest contracts. DatasetManifestV2 separates stored-object readback from finite-input, provider-watermark, and diagnostic completion evidence. Protobuf owns the cross-language market, dataset, and read-only prediction wire schemas; OpenAPI documents their HTTP JSON projections. Generated Python and TypeScript bindings and strict `uint64` JSON projection helpers are checked in and tested against shared fixtures. V2 completion parsing is structural and never proves receipt authenticity or provider completeness; consumers still validate full domain semantics before treating decoded messages as trusted evidence.
+- DatasetManifestV2 JSON accepts one spelling per field (`camelCase` or protobuf `snake_case`), named enum strings only, and RFC3339 timestamps with at most nine fractional digits; duplicate aliases, numeric enum values, leap-second labels, and timestamp precision loss are rejected consistently by Rust, Python, and TypeScript.
 
 Python research consumers can pin the reusable validators and generated bindings from the `python/` subdirectory to a reviewed Git revision with uv:
 

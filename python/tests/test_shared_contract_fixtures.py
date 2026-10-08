@@ -120,6 +120,83 @@ class SharedContractFixturesTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "raw source encoding"):
             parse_dataset_manifest_v2_protojson(raw)
 
+    def test_dataset_manifest_v2_accepts_complete_snake_case_and_rejects_dual_spellings(self) -> None:
+        for path in (
+            "schemas/fixtures/dataset-manifest-v2-snake.json",
+            "schemas/fixtures/dataset-manifest-v2-provider-watermark-snake.json",
+        ):
+            with self.subTest(path=path):
+                decoded = parse_dataset_manifest_v2_protojson(read_json_fixture(path))
+                self.assertEqual(decoded.schema_version, 2)
+
+        fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
+        duplicate_cases = []
+        candidate = copy.deepcopy(fixture)
+        candidate["schema_version"] = candidate["schemaVersion"]
+        duplicate_cases.append(candidate)
+        candidate = copy.deepcopy(fixture)
+        candidate["object"]["object_name"] = candidate["object"]["objectName"]
+        duplicate_cases.append(candidate)
+        provider = read_json_fixture(
+            "schemas/fixtures/dataset-manifest-v2-provider-watermark.json"
+        )
+        for camel, snake in (
+            ("firstSequence", "first_sequence"),
+            ("lastSequence", "last_sequence"),
+            ("sequenceCount", "sequence_count"),
+        ):
+            candidate = copy.deepcopy(provider)
+            watermark = candidate["completionEvidence"]["providerWatermark"]
+            watermark[snake] = watermark[camel]
+            duplicate_cases.append(candidate)
+        for candidate in duplicate_cases:
+            with self.subTest(candidate=candidate), self.assertRaisesRegex(
+                ValueError, "both camelCase"
+            ):
+                parse_dataset_manifest_v2_protojson(candidate)
+
+    def test_dataset_manifest_v2_timestamps_are_lossless_and_reject_leap_seconds(self) -> None:
+        timestamp_cases = read_json_fixture("schemas/fixtures/proto-timestamp-v2.json")
+        fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
+        for case in timestamp_cases["valid"]:
+            candidate = copy.deepcopy(fixture)
+            candidate["completionEvidence"]["finiteBatch"]["completedAt"] = case["value"]
+            with self.subTest(case=case["name"]):
+                parse_dataset_manifest_v2_protojson(candidate)
+        for case in timestamp_cases["invalid"]:
+            candidate = copy.deepcopy(fixture)
+            candidate["completionEvidence"]["finiteBatch"]["completedAt"] = case["value"]
+            with self.subTest(case=case["name"]), self.assertRaises(ValueError):
+                parse_dataset_manifest_v2_protojson(candidate)
+
+    def test_dataset_manifest_v2_rejects_numeric_enum_encodings_and_synthetic_watermarks(self) -> None:
+        enum_cases = read_json_fixture("schemas/fixtures/dataset-manifest-v2-enum-invalid.json")
+        fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
+        for case in enum_cases["source_numeric_encoding"]:
+            candidate = copy.deepcopy(fixture)
+            candidate["source"]["numericEncoding"] = case["value"]
+            with self.subTest(case=case["name"]), self.assertRaisesRegex(ValueError, "enum fields"):
+                parse_dataset_manifest_v2_protojson(candidate)
+        for case in enum_cases["finite_source_kind"]:
+            candidate = copy.deepcopy(fixture)
+            candidate["completionEvidence"]["finiteBatch"]["sourceKind"] = case["value"]
+            with self.subTest(case=case["name"]), self.assertRaisesRegex(ValueError, "enum fields"):
+                parse_dataset_manifest_v2_protojson(candidate)
+
+        synthetic = read_json_fixture(
+            "schemas/fixtures/dataset-manifest-v2-provider-watermark.json"
+        )
+        synthetic["source"].update(
+            provider="synthetic",
+            feed="synthetic",
+            numericEncoding="NUMERIC_ENCODING_DECIMAL_TOKEN",
+        )
+        synthetic["completionEvidence"]["providerWatermark"].update(
+            provider="synthetic", feed="synthetic"
+        )
+        with self.assertRaisesRegex(ValueError, "synthetic source"):
+            parse_dataset_manifest_v2_protojson(synthetic)
+
     def test_dataset_manifest_v2_provider_watermark_is_structural_not_authoritative(self) -> None:
         manifest = read_json_fixture("schemas/fixtures/dataset-manifest-v2-provider-watermark.json")
         decoded = parse_dataset_manifest_v2_protojson(manifest)

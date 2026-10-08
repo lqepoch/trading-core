@@ -21,6 +21,48 @@ MAX_DATASET_MANIFEST_V2_JSON_BYTES = 2 * 1024 * 1024
 MAX_DATASET_MANIFEST_V2_SYMBOLS = 4096
 MAX_PROVIDER_WATERMARK_ALLOWED_LATENESS_NS = 60_000_000_000
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+_PROTO_TIMESTAMP_V2 = re.compile(
+    r"([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})"
+    r"(?:\.([0-9]{1,9}))?(?:Z|([+-])([0-9]{2}):([0-9]{2}))\Z"
+)
+_PROTO_TIMESTAMP_V2_FIELDS = frozenset(
+    {
+        "startInclusive",
+        "start_inclusive",
+        "endExclusive",
+        "end_exclusive",
+        "dataCutoffExclusive",
+        "data_cutoff_exclusive",
+        "sealedAt",
+        "sealed_at",
+        "completedAt",
+        "completed_at",
+        "completeUpToExclusive",
+        "complete_up_to_exclusive",
+        "localPolicyCutoff",
+        "local_policy_cutoff",
+        "observedMaxSourceTimestamp",
+        "observed_max_source_timestamp",
+    }
+)
+_NUMERIC_ENCODING_V2_NAMES = frozenset(
+    {
+        "NUMERIC_ENCODING_DECIMAL_TOKEN",
+        "NUMERIC_ENCODING_INTEGER_TOKEN",
+        "NUMERIC_ENCODING_BINARY_FLOAT64_SHORTEST_DECIMAL",
+        "NUMERIC_ENCODING_BINARY_FLOAT32_SHORTEST_DECIMAL",
+        "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES",
+        "NUMERIC_ENCODING_RAW_JSON_BYTES",
+    }
+)
+_FINITE_SOURCE_KIND_V2_NAMES = frozenset(
+    {
+        "FINITE_BATCH_SOURCE_KIND_SYNTHETIC_REPLAY",
+        "FINITE_BATCH_SOURCE_KIND_HISTORICAL_PAGED",
+        "FINITE_BATCH_SOURCE_KIND_HISTORICAL_NON_PAGED",
+        "FINITE_BATCH_SOURCE_KIND_LOCAL_ARCHIVE",
+    }
+)
 
 RAW_ENCODING_SCHEMA_IDS = {
     "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES": "lqepoch.market_raw_frame.v1",
@@ -94,6 +136,8 @@ def parse_dataset_manifest_v2_protojson(
         raise ValueError("dataset manifest v2 JSON exceeds the configured byte limit")
 
     _reject_duplicate_proto_field_spellings(document)
+    _validate_proto_timestamp_v2_fields(document)
+    _validate_dataset_manifest_v2_enum_names(document)
     completion = _mapping_field(document, "completionEvidence", "completion_evidence")
     if completion is None:
         raise ValueError("dataset manifest v2 requires completion evidence")
@@ -354,6 +398,49 @@ def _timestamps_ordered(values: tuple[object, object, object]) -> bool:
 
 def _valid_sha256(value: str) -> bool:
     return _SHA256.fullmatch(value) is not None
+
+
+def _validate_proto_timestamp_v2_fields(value: object) -> None:
+    if isinstance(value, Mapping):
+        for key, nested in value.items():
+            if key in _PROTO_TIMESTAMP_V2_FIELDS and nested is not None:
+                if not isinstance(nested, str):
+                    raise ValueError("protobuf timestamp must be an RFC3339 string")
+                match = _PROTO_TIMESTAMP_V2.fullmatch(nested)
+                if match is None:
+                    raise ValueError("protobuf timestamp must preserve at most 9 fractional digits")
+                year, _, _, hour, minute, second, _, _, offset_hour, offset_minute = match.groups()
+                if (
+                    int(year) == 0
+                    or int(hour) > 23
+                    or int(minute) > 59
+                    or int(second) > 59
+                    or offset_hour is not None
+                    and (int(offset_hour) > 23 or int(offset_minute) > 59)
+                ):
+                    raise ValueError("protobuf timestamp contains an out-of-range time component")
+            else:
+                _validate_proto_timestamp_v2_fields(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            _validate_proto_timestamp_v2_fields(nested)
+
+
+def _validate_dataset_manifest_v2_enum_names(document: Mapping[str, object]) -> None:
+    source = _mapping_field(document, "source", "source")
+    if source is not None:
+        numeric_encoding = source.get("numericEncoding", source.get("numeric_encoding"))
+        if not isinstance(numeric_encoding, str) or numeric_encoding not in _NUMERIC_ENCODING_V2_NAMES:
+            raise ValueError("dataset v2 enum fields must use supported ProtoJSON names")
+
+    completion = _mapping_field(document, "completionEvidence", "completion_evidence")
+    if completion is None:
+        return
+    finite = _mapping_field(completion, "finiteBatch", "finite_batch")
+    if finite is not None:
+        source_kind = finite.get("sourceKind", finite.get("source_kind"))
+        if not isinstance(source_kind, str) or source_kind not in _FINITE_SOURCE_KIND_V2_NAMES:
+            raise ValueError("dataset v2 enum fields must use supported ProtoJSON names")
 
 
 def _mapping_field(document: Mapping[str, object], camel: str, snake: str) -> Mapping[str, object] | None:
