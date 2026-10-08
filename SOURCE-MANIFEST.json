@@ -152,9 +152,10 @@
       "source_path": "crates/pricing/AGENTS.md",
       "target_path": "crates/pricing/AGENTS.md",
       "source_sha256": "3c9ae5e6c9026adcf5b2df61697155eefdfc5df7e24a0cf892c0827304d7b60b",
-      "target_sha256": "60f219f21a6aa0d5165ebfb76a143a977c566a700b3d07cfcdb5974c00c5c713",
+      "target_sha256": "48adb9fc2cba7eb34d57e619221eae9439bd424c92bc528511c2df617a647557",
       "changes": [
-        "Replaced private-repository validation links and issue references with this repository's local safety boundary and validation command."
+        "Replaced private-repository validation links and issue references with this repository's local safety boundary and validation command.",
+        "Updated pricing instructions to document the public offline diagnostic API while keeping positive-time production American pricing fail-closed and non-authoritative."
       ]
     },
     {
@@ -163,10 +164,11 @@
       "source_path": "crates/pricing/README.md",
       "target_path": "crates/pricing/README.md",
       "source_sha256": "1597efe6f3dc920d51ea00650cb56230e38001651e2ce8c9c4b0ba2b0608fcd7",
-      "target_sha256": "b538f742336702d3f1298641a9ef8afef392a834b7124b9aced17e2511a27d98",
+      "target_sha256": "9df63834bb025ea042ffcd55470fe9d3aebd2af87e53b0db88790d704167701c",
       "changes": [
         "Removed references to private upstream issue numbers; clarified that provider resolution and runtime wiring are outside this crate.",
-        "Added synthetic QuantLib v1.43 oracle results and reproduction guidance; documentation only, with no production pricing behavior change."
+        "Added synthetic QuantLib v1.43 oracle results and reproduction guidance; the oracle remains research-only and copies no QuantLib source.",
+        "Documented the bounded public offline American CRR diagnostic API as accuracy-unverified, diagnostic-only, and non-tradable; production pricing and IV remain unavailable."
       ]
     },
     {
@@ -193,8 +195,10 @@
       "source_path": "crates/pricing/src/lib.rs",
       "target_path": "crates/pricing/src/lib.rs",
       "source_sha256": "e44703b940ea50be476852dac1a7c231ebb0a92fdfa4baefd477a4f59d3c87f0",
-      "target_sha256": "e44703b940ea50be476852dac1a7c231ebb0a92fdfa4baefd477a4f59d3c87f0",
-      "changes": []
+      "target_sha256": "604eaa3a38e5b546d4892d19b5ae7eddc6f3dd9edcb78dcd2646d5cb3dd60250",
+      "changes": [
+        "Re-exported the typed offline American CRR diagnostic API and result/error types; this does not enable production pricing."
+      ]
     },
     {
       "repository": "lqepoch/schwab_auto_bot",
@@ -247,9 +251,9 @@
       "source_path": "crates/pricing/src/solver/american_crr.rs",
       "target_path": "crates/pricing/src/solver/american_crr.rs",
       "source_sha256": "39622ca53789a4e5e3159b6776cf2beb034efb8ce737a0ec28a03817030c7624",
-      "target_sha256": "1a0d7353b89d18c48922c4ebc451b407239c055f8c396ad262f3a5420f34365f",
+      "target_sha256": "d38aff1ba0a25df8cc5907a059c03abcc724680d6e75f5b5742675ccdeff76df",
       "changes": [
-        "Extended the existing #[cfg(test)] experimental candidate module with bounded N/(N+1) study helpers and synthetic QuantLib oracle regressions; production pricing implementation remains unchanged."
+        "Extended only the experimental candidate/test module with synthetic QuantLib finite-difference probes and bounded Richardson/Greek/IV research; the production American solver remains unchanged."
       ]
     },
     {
@@ -258,8 +262,10 @@
       "source_path": "crates/pricing/src/solver.rs",
       "target_path": "crates/pricing/src/solver.rs",
       "source_sha256": "b43b86e853e47e5a43e8df7528170b6c1c7bebdc2c75132b06cbe5bc21c9a8e6",
-      "target_sha256": "b43b86e853e47e5a43e8df7528170b6c1c7bebdc2c75132b06cbe5bc21c9a8e6",
-      "changes": []
+      "target_sha256": "0af163d16de361009fe3b21a48b1a565b5023201015b919d68fc036c8fb72877",
+      "changes": [
+        "Added the public bounded offline diagnostic entrypoint and its typed tests; production solve_american_crr remains fail-closed for positive-time American pricing."
+      ]
     },
     {
       "repository": "lqepoch/schwab_auto_bot",
@@ -320,8 +326,8 @@
     },
     {
       "path": "README.md",
-      "sha256": "8e98d30858f88dd23f410d6d20303b38d979949fb6f63eb00e7d40c396bc3d24",
-      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+      "sha256": "78fc607078623c90b7760a7e4c26d6d477dbad079513e7f5919b419fbebc475c",
+      "origin": "Updated repository safety documentation for the public offline American diagnostic API; positive-time production pricing remains unavailable and the diagnostic is unverified/non-tradable."
     },
     {
       "path": "crates/domain/Cargo.toml",
@@ -380,13 +386,28 @@
     },
     {
       "path": "crates/pricing/README.md",
-      "origin": "CHG-2026-001 authored pricing-oracle documentation additions; QuantLib v1.43 is test-only and no QuantLib source code is copied.",
-      "sha256": "b538f742336702d3f1298641a9ef8afef392a834b7124b9aced17e2511a27d98"
+      "origin": "CHG-2026-001 pricing documentation covering finite synthetic QuantLib v1.43 evidence and the bounded public offline diagnostic API; production American pricing and IV remain unavailable, and no QuantLib source code is copied.",
+      "sha256": "9df63834bb025ea042ffcd55470fe9d3aebd2af87e53b0db88790d704167701c"
     },
     {
       "path": "crates/pricing/src/solver/american_crr.rs",
-      "origin": "CHG-2026-001 authored test-only CRR oracle comparison code; QuantLib v1.43 is test-only and no QuantLib source code is copied.",
-      "sha256": "1a0d7353b89d18c48922c4ebc451b407239c055f8c396ad262f3a5420f34365f"
+      "origin": "CHG-2026-001 authored test-only CRR oracle comparison and bounded Richardson/Greek/IV research helpers; QuantLib v1.43 is used only as a synthetic oracle and no QuantLib source code is copied.",
+      "sha256": "d38aff1ba0a25df8cc5907a059c03abcc724680d6e75f5b5742675ccdeff76df"
+    },
+    {
+      "path": "crates/pricing/src/solver/american_crr/offline_diagnostic.rs",
+      "sha256": "eb1970137ec067d715427a1a821fff582ab8421d42fa8b921b5dd69360e79bce",
+      "origin": "Newly authored bounded public offline American CRR diagnostic API; result is accuracy-unverified, diagnostic-only, and not-tradable, with no production SolverOutcome or IV authority and no upstream source copied."
+    },
+    {
+      "path": "crates/pricing/tests/fixtures/american_quantlib_v143_fd.csv",
+      "sha256": "ae1c75dbcdefeeea31479486ffff8377a825d861975fb34cb995f96520f63c6f",
+      "origin": "Synthetic finite-difference reference output generated by the newly authored harness against pinned QuantLib v1.43; inputs are synthetic and no QuantLib source code is copied."
+    },
+    {
+      "path": "crates/pricing/tests/fixtures/american_quantlib_v143_fd_manifest.json",
+      "sha256": "6e5f72aa1a7b975b895b5f7182c521839b9653839a861e3c2299635132eef906",
+      "origin": "New provenance record for the synthetic finite-difference fixture, exact probe sources, pinned QuantLib version/library hash, and study limits; no QuantLib source code is copied."
     },
     {
       "path": "crates/pricing/tests/fixtures/american_quantlib_v143_grid.csv",
@@ -404,6 +425,16 @@
       "sha256": "9b4e7bbcc67ea933411adae5ea20ef5070a9cba6ed11b812ea2a94435a6457e9"
     },
     {
+      "path": "crates/pricing/tests/oracle/american_quantlib_v143_fd.cpp",
+      "sha256": "696443a1fe5e5db6b37c5633b91a1982e2159a4d6fbf8d32e29dc4152f6489c5",
+      "origin": "Newly authored finite-difference harness using pinned QuantLib v1.43 APIs and synthetic inputs; no QuantLib source code is copied."
+    },
+    {
+      "path": "crates/pricing/tests/oracle/convert_quantlib_fd_jsonl.py",
+      "sha256": "4aa89e6c3fbca212b7d77d6b6fd377ee8a8c6cf3b2a8905cb6e763c1b75683c2",
+      "origin": "Newly authored converter for the synthetic QuantLib finite-difference output; no QuantLib source code is copied."
+    },
+    {
       "path": "crates/pricing/tests/oracle/convert_quantlib_jsonl.py",
       "origin": "Newly authored converter for synthetic oracle output; no QuantLib source code is copied.",
       "sha256": "b1c69e286ebdc264159682835a765e27cff550cbf6b7532ed23bd2cefeeb86b0"
@@ -415,8 +446,8 @@
     },
     {
       "path": "docs/PRICING-ORACLE.md",
-      "origin": "CHG-2026-001 authored finite-sample pricing-oracle evidence documentation; no QuantLib source code is copied.",
-      "sha256": "82e1320dd6d141b164e69719c8e1400c596c940dab18145898438778aac0dd88"
+      "origin": "CHG-2026-001 finite-sample pricing-oracle evidence and bounded offline diagnostic documentation; all results remain unverified and non-tradable, and no QuantLib source code is copied.",
+      "sha256": "16f25fdcc21086a92b025e6d8e3a8e6c324b8f50f024cd6409a4994683d6bcc6"
     },
     {
       "path": "docs/dataset-completion-v2.md",
