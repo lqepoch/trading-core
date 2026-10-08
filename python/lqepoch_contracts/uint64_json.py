@@ -21,11 +21,20 @@ def parse_uint64_json(value: object) -> int:
 
 
 def validate_uint64_json_paths(document: object, paths: Sequence[JsonPath]) -> None:
-    """Validate required uint64 JSON fields before a ProtoJSON parser sees them."""
+    """Validate required uint64 JSON fields before ProtoJSON accepts either field spelling."""
     for path in paths:
         current: object = document
         for component in path:
-            if not isinstance(current, Mapping) or component not in current:
+            snake_case = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", component).lower()
+            spellings = (component,) if snake_case == component else (component, snake_case)
+            if not isinstance(current, Mapping):
                 raise ValueError(f"missing uint64 JSON field: {'.'.join(path)}")
-            current = current[component]
+            present = [spelling for spelling in spellings if spelling in current]
+            if len(present) != 1:
+                if len(present) > 1:
+                    raise ValueError(
+                        f"uint64 JSON field uses multiple ProtoJSON spellings: {'.'.join(path)}"
+                    )
+                raise ValueError(f"missing uint64 JSON field: {'.'.join(path)}")
+            current = current[present[0]]
         parse_uint64_json(current)

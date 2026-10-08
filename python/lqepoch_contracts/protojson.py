@@ -23,9 +23,11 @@ RAW_ENCODING_SCHEMA_IDS = {
 
 def parse_market_event_protojson(document: Mapping[str, object]) -> market_pb2.MarketEventEnvelopeV1:
     validate_uint64_json_paths(document, (("generation",), ("sequence",)))
-    if _raw_encoding_schema_id(document) is not None:
+    _reject_duplicate_numeric_encoding_aliases(document)
+    message = json_format.ParseDict(document, market_pb2.MarketEventEnvelopeV1())
+    if _raw_schema_id_for_value(message.source.numeric_encoding) is not None:
         raise ValueError("raw byte-frame encodings are not normalized market-event encodings")
-    return json_format.ParseDict(document, market_pb2.MarketEventEnvelopeV1())
+    return message
 
 
 def parse_dataset_manifest_protojson(document: Mapping[str, object]) -> manifest_pb2.DatasetManifestV1:
@@ -38,13 +40,10 @@ def parse_dataset_manifest_protojson(document: Mapping[str, object]) -> manifest
             ("object", "parquetFooterRows"),
         ),
     )
-    raw_schema_id = _raw_encoding_schema_id(document)
-    object_document = document.get("object")
-    schema_sha256 = (
-        object_document.get("parquetSchemaSha256")
-        if isinstance(object_document, Mapping)
-        else None
-    )
+    _reject_duplicate_numeric_encoding_aliases(document)
+    message = json_format.ParseDict(document, manifest_pb2.DatasetManifestV1())
+    raw_schema_id = _raw_schema_id_for_value(message.source.numeric_encoding)
+    schema_sha256 = message.object.parquet_schema_sha256
     raw_schema_hashes = {
         trusted_parquet_schema_sha256(schema_id)
         for schema_id in RAW_ENCODING_SCHEMA_IDS.values()
@@ -57,35 +56,36 @@ def parse_dataset_manifest_protojson(document: Mapping[str, object]) -> manifest
             f"{raw_schema_id} encoding must be bound to its registered Parquet schema"
         )
     if raw_schema_id is not None:
-        row_count = document.get("rowCount")
-        missing_rows = document.get("sourceTimestampMissingRows")
         if (
-            "timeRange" in document
-            or "time_range" in document
-            or row_count == "0"
-            or row_count != missing_rows
+            message.HasField("time_range")
+            or message.row_count == 0
+            or message.row_count != message.source_timestamp_missing_rows
         ):
             raise ValueError(
                 "raw-frame manifests require rows, no source-time range, and every frame timestamp missing"
             )
-    return json_format.ParseDict(document, manifest_pb2.DatasetManifestV1())
+    return message
 
 
 def parse_prediction_envelope_protojson(
     document: Mapping[str, object],
 ) -> prediction_pb2.PredictionEnvelopeV1:
     validate_uint64_json_paths(document, (("forecast", "sequence"),))
-    source = document.get("source")
-    if isinstance(source, Mapping) and _raw_schema_id_for_value(source.get("numericEncoding")):
+    _reject_duplicate_numeric_encoding_aliases(document)
+    message = json_format.ParseDict(document, prediction_pb2.PredictionEnvelopeV1())
+    if _raw_schema_id_for_value(message.source.numeric_encoding) is not None:
         raise ValueError("raw byte-frame encodings cannot identify a normalized prediction source")
-    return json_format.ParseDict(document, prediction_pb2.PredictionEnvelopeV1())
+    return message
 
 
-def _raw_encoding_schema_id(document: Mapping[str, object]) -> str | None:
+def _reject_duplicate_numeric_encoding_aliases(document: Mapping[str, object]) -> None:
     source = document.get("source")
-    if not isinstance(source, Mapping):
-        return None
-    return _raw_schema_id_for_value(source.get("numericEncoding"))
+    if (
+        isinstance(source, Mapping)
+        and "numericEncoding" in source
+        and "numeric_encoding" in source
+    ):
+        raise ValueError("source numeric encoding must not use both ProtoJSON field spellings")
 
 
 def _raw_schema_id_for_value(value: object) -> str | None:

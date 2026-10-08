@@ -41,10 +41,21 @@ export function validateUint64JsonPaths(value: unknown, paths: readonly JsonPath
   for (const path of paths) {
     let current: unknown = value;
     for (const part of path) {
-      if (typeof current !== "object" || current === null || !(part in current)) {
+      if (!isRecord(current)) {
         throw new TypeError(`missing uint64 JSON field: ${path.join(".")}`);
       }
-      current = (current as Record<string, unknown>)[part];
+      const record = current;
+      const snakeCase = part.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+      const spellings = snakeCase === part ? [part] : [part, snakeCase];
+      const present = spellings.filter((spelling) => spelling in record);
+      if (present.length !== 1) {
+        throw new TypeError(
+          present.length > 1
+            ? `uint64 JSON field uses multiple ProtoJSON spellings: ${path.join(".")}`
+            : `missing uint64 JSON field: ${path.join(".")}`,
+        );
+      }
+      current = record[present[0]!];
     }
     parseCanonicalUint64Json(current);
   }
@@ -52,10 +63,12 @@ export function validateUint64JsonPaths(value: unknown, paths: readonly JsonPath
 
 export function parseMarketEventProtoJson(value: unknown): MarketEventEnvelopeV1 {
   validateUint64JsonPaths(value, [["generation"], ["sequence"]]);
-  if (rawFrameSchemaId(value) !== undefined) {
+  rejectDuplicateNumericEncodingAliases(value);
+  const message = fromJson(MarketEventEnvelopeV1Schema, value as JsonValue);
+  if (rawFrameSchemaId(message.source?.numericEncoding) !== undefined) {
     throw new TypeError("raw byte-frame encodings are not normalized market-event encodings");
   }
-  return fromJson(MarketEventEnvelopeV1Schema, value as JsonValue);
+  return message;
 }
 
 export function parseDatasetManifestProtoJson(value: unknown): DatasetManifestV1 {
@@ -65,14 +78,14 @@ export function parseDatasetManifestProtoJson(value: unknown): DatasetManifestV1
     ["object", "sizeBytes"],
     ["object", "parquetFooterRows"],
   ]);
-  const rawSchemaId = rawFrameSchemaId(value);
-  const object = getRecordField(value, "object");
-  const schemaSha256 = object?.parquetSchemaSha256;
+  rejectDuplicateNumericEncodingAliases(value);
+  const message = fromJson(DatasetManifestV1Schema, value as JsonValue);
+  const rawSchemaId = rawFrameSchemaId(message.source?.numericEncoding);
+  const schemaSha256 = message.object?.parquetSchemaSha256;
   const rawSchemaIds = [
     "lqepoch.market_raw_frame.v1",
     "lqepoch.market_raw_json_frame.v1",
   ] as const;
-  const root = isRecord(value) ? value : undefined;
   if (
     (rawSchemaId === undefined &&
       rawSchemaIds.some((schemaId) => schemaSha256 === trustedParquetSchemaSha256(schemaId))) ||
@@ -85,25 +98,25 @@ export function parseDatasetManifestProtoJson(value: unknown): DatasetManifestV1
   }
   if (
     rawSchemaId !== undefined &&
-    (root === undefined ||
-      "timeRange" in root ||
-      "time_range" in root ||
-      root.rowCount === "0" ||
-      root.sourceTimestampMissingRows !== root.rowCount)
+    (message.timeRange !== undefined ||
+      message.rowCount === 0n ||
+      message.sourceTimestampMissingRows !== message.rowCount)
   ) {
     throw new TypeError(
       "raw-frame manifests require rows, no source-time range, and every frame timestamp missing",
     );
   }
-  return fromJson(DatasetManifestV1Schema, value as JsonValue);
+  return message;
 }
 
 export function parsePredictionEnvelopeProtoJson(value: unknown): PredictionEnvelopeV1 {
   validateUint64JsonPaths(value, [["forecast", "sequence"]]);
-  if (rawFrameSchemaId(value) !== undefined) {
+  rejectDuplicateNumericEncodingAliases(value);
+  const message = fromJson(PredictionEnvelopeV1Schema, value as JsonValue);
+  if (rawFrameSchemaId(message.source?.numericEncoding) !== undefined) {
     throw new TypeError("raw byte-frame encodings cannot identify a normalized prediction source");
   }
-  return fromJson(PredictionEnvelopeV1Schema, value as JsonValue);
+  return message;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -116,16 +129,20 @@ function getRecordField(value: unknown, key: string): Record<string, unknown> | 
   return isRecord(field) ? field : undefined;
 }
 
-function rawFrameSchemaId(value: unknown): string | undefined {
-  const source = getRecordField(value, "source");
-  switch (source?.numericEncoding) {
+function rawFrameSchemaId(encoding: NumericEncodingV1 | undefined): string | undefined {
+  switch (encoding) {
     case NumericEncodingV1.NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES:
-    case "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES":
       return "lqepoch.market_raw_frame.v1";
     case NumericEncodingV1.NUMERIC_ENCODING_RAW_JSON_BYTES:
-    case "NUMERIC_ENCODING_RAW_JSON_BYTES":
       return "lqepoch.market_raw_json_frame.v1";
     default:
       return undefined;
+  }
+}
+
+function rejectDuplicateNumericEncodingAliases(value: unknown): void {
+  const source = getRecordField(value, "source");
+  if (source !== undefined && "numericEncoding" in source && "numeric_encoding" in source) {
+    throw new TypeError("source numeric encoding must not use both ProtoJSON field spellings");
   }
 }

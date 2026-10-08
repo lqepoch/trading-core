@@ -18,8 +18,8 @@ lqepoch-trading-core-contracts = { git = "https://github.com/lqepoch/trading-cor
 
 The package contains generated `lqepoch.*` Protobuf messages and reusable `lqepoch_contracts` validation helpers:
 
-- `uint64_json`: strict canonical string parsing and nested JSON field validation before ProtoJSON parsing.
-- `protojson`: market event, dataset manifest, and prediction envelope entry points that validate canonical `uint64` JSON projections before Protobuf parsing. They do not replace full domain-semantic validation by a consumer.
+- `uint64_json`: strict canonical string parsing and nested JSON field validation for camelCase and protobuf snake_case names before ProtoJSON parsing; duplicate spellings are rejected.
+- `protojson`: market event, dataset manifest, and prediction envelope entry points that validate `uint64` projections and selected enum/cross-field invariants after Protobuf resolves field names. They do not replace full domain-semantic validation by a consumer.
 - `identities`: shared UTF-8, immutable dataset, symbol, object basename, and transport identity rules.
 - `parquet_schema`: the shared canonical logical-type grammar and Parquet schema fingerprint algorithm, with the trusted registry loaded from the installed wheel resource. `verify_pyarrow_schema` checks physical Arrow types and validates optional registry metadata when the optional, locked `arrow` extra is installed. Old files with neither registry key remain eligible after physical-schema validation, including files with unrelated metadata; if either registry key is present, both must match.
 

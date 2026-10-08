@@ -55,6 +55,15 @@ for (const testCase of uint64Fixture.valid) {
 for (const testCase of uint64Fixture.invalid) {
   rejects(() => parseCanonicalUint64Json(testCase.value), `accepted ${testCase.name}`);
 }
+validateUint64JsonPaths({ row_count: "1" }, [["rowCount"]]);
+rejects(
+  () => validateUint64JsonPaths({ row_count: 1 }, [["rowCount"]]),
+  "snake-case uint64 accepted a JSON number",
+);
+rejects(
+  () => validateUint64JsonPaths({ rowCount: "1", row_count: "1" }, [["rowCount"]]),
+  "uint64 accepted both ProtoJSON field spellings",
+);
 
 const marketJson = {
   schemaVersion: 1,
@@ -193,6 +202,113 @@ rejects(
 rejects(
   () => parsePredictionEnvelopeProtoJson({ source: rawJsonManifest.source, forecast: { sequence: "1" } }),
   "prediction accepted raw JSON as a numeric encoding",
+);
+
+for (const [encoding, label] of [
+  ["NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES", "MessagePack"],
+  ["NUMERIC_ENCODING_RAW_JSON_BYTES", "JSON"],
+] as const) {
+  const snakeSource = {
+    provider: "synthetic",
+    feed: "synthetic",
+    entitlement: "unknown",
+    numeric_encoding: encoding,
+  };
+  rejects(
+    () => parseMarketEventProtoJson({ ...marketJson, source: snakeSource }),
+    `market event accepted snake-case raw ${label} encoding`,
+  );
+  rejects(
+    () => parsePredictionEnvelopeProtoJson({ source: snakeSource, forecast: { sequence: "1" } }),
+    `prediction accepted snake-case raw ${label} encoding`,
+  );
+}
+rejects(
+  () =>
+    parseMarketEventProtoJson({
+      ...marketJson,
+      source: {
+        ...marketJson.source,
+        numeric_encoding: "NUMERIC_ENCODING_RAW_JSON_BYTES",
+      },
+    }),
+  "market event accepted conflicting numeric-encoding aliases",
+);
+
+const {
+  parquetSchemaSha256: _discardedParquetSchemaSha256,
+  parquetFooterRows: _discardedParquetFooterRows,
+  ...rawJsonSnakeObjectWithoutHash
+} = rawJsonManifest.object;
+const rawJsonSnakeManifest = {
+  ...datasetJson,
+  source: {
+    provider: "synthetic",
+    feed: "synthetic",
+    entitlement: "unknown",
+    numeric_encoding: "NUMERIC_ENCODING_RAW_JSON_BYTES",
+  },
+  row_count: "1",
+  source_timestamp_missing_rows: "1",
+  object: {
+    ...rawJsonSnakeObjectWithoutHash,
+    parquet_schema_sha256: rawJsonSchemaSha256,
+    parquet_footer_rows: "1",
+  },
+};
+const { rowCount: _discardedRowCount, ...rawJsonSnakeManifestWithoutCanonicalRowCount } =
+  rawJsonSnakeManifest;
+const { sourceTimestampMissingRows: _discardedMissingRows, ...rawJsonSnakeManifestCanonical } =
+  rawJsonSnakeManifestWithoutCanonicalRowCount;
+const rawJsonSnakeManifestMessage = parseDatasetManifestProtoJson(rawJsonSnakeManifestCanonical);
+assert(rawJsonSnakeManifestMessage.source?.numericEncoding === 6, "snake-case raw JSON manifest encoding changed");
+rejects(
+  () =>
+    parseDatasetManifestProtoJson({
+      ...rawJsonSnakeManifestCanonical,
+      object: { ...rawJsonSnakeManifestCanonical.object, parquet_schema_sha256: rawSchemaSha256 },
+    }),
+  "raw JSON manifest accepted snake-case MessagePack schema pairing",
+);
+rejects(
+  () =>
+    parseDatasetManifestProtoJson({
+      ...rawJsonSnakeManifestCanonical,
+      source: {
+        provider: "synthetic",
+        feed: "synthetic",
+        entitlement: "unknown",
+        numeric_encoding: "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES",
+      },
+    }),
+  "raw MessagePack manifest accepted a snake-case JSON schema pairing",
+);
+rejects(
+  () =>
+    parseDatasetManifestProtoJson({
+      ...rawManifest,
+      source: {
+        ...rawManifest.source,
+        numeric_encoding: "NUMERIC_ENCODING_RAW_JSON_BYTES",
+      },
+    }),
+  "dataset accepted conflicting numeric-encoding aliases",
+);
+rejects(
+  () =>
+    parseDatasetManifestProtoJson({
+      ...rawJsonSnakeManifestCanonical,
+      row_count: 1,
+    }),
+  "raw JSON manifest accepted snake-case numeric row count",
+);
+rejects(
+  () =>
+    parseDatasetManifestProtoJson({
+      ...rawJsonSnakeManifestCanonical,
+      time_range: {},
+    }),
+  "raw JSON manifest accepted a snake-case source-time range",
 );
 
 const predictionJson = { forecast: { sequence: max } };
