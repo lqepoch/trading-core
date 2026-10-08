@@ -372,7 +372,7 @@
     {
       "path": "crates/market-contracts/src/prediction_validation.rs",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "fe1c500eabe1b5ed6f2a1fc7231a4729b5754759afd4dfe5a412f10fdb505a79"
+      "sha256": "e3282721bee695ea6006735e079fd01c1921b07ca88d58e7a8de624014ba60b9"
     },
     {
       "path": "crates/market-contracts/src/raw_frame.rs",
@@ -392,7 +392,7 @@
     {
       "path": "crates/market-contracts/tests/prediction_protojson.rs",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "8beaa5be5776caf3ca406d07ed700aa512da6fa3ba6c02f2c37e2e4a0ac7566f"
+      "sha256": "ff0f3dcb0a0f6e101edd237bbb90e6a17892c098c36fb1adca67f63cca6bc794"
     },
     {
       "path": "crates/pricing/Cargo.toml",
@@ -482,7 +482,7 @@
     {
       "path": "docs/prediction-envelope-v1.md",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "c67e3fa92cd95d960e180f8a95e0337fe7d0258982018011c3c9a311ead7ab2b"
+      "sha256": "627cb677259f6ced075e028093a6b4343cdcd574b6b746d6e388e25d4f9ce9b4"
     },
     {
       "path": "package.json",
@@ -566,7 +566,7 @@
     },
     {
       "path": "python/lqepoch_contracts/protojson.py",
-      "sha256": "25edb1c33468e5a7bea1e7f5ff5e3e5ea4856d2d7430c98f7f0bd7b1b9a3bf67",
+      "sha256": "a040fcef65ce3bc246c476bb84ff78166a2ef7fb1364dca455e69c42bdc03e18",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -592,7 +592,7 @@
     {
       "path": "python/tests/test_prediction_protojson.py",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "40db311b6dbef20e8816108687ff96235d120fe653ad90b7d524a5f91fe84676"
+      "sha256": "e921fa7cd431bef1475da93d129eb9997432df8bc50e37a8eddea1943ba2fdf5"
     },
     {
       "path": "python/tests/test_pyarrow_schema.py",
@@ -807,7 +807,7 @@
     {
       "path": "schemas/fixtures/prediction-envelope-v1-protojson-cases.json",
       "origin": "New synthetic positive-fixture mutations for cross-language ProtoJSON rejection tests; no source code or market/account data copied.",
-      "sha256": "0e327ba6c9adc1e43fd1a0debb50d4b7aca0da12ae80a513b82b78ab378461b4"
+      "sha256": "b3cbb7d1529f4958e1106662b8f3d523464f0edb109c59d7d9f927591b852613"
     },
     {
       "path": "schemas/fixtures/prediction-envelope-v1-quant-export.json",
@@ -818,6 +818,16 @@
       "path": "schemas/fixtures/prediction-envelope-v1-snake.json",
       "origin": "Synthetic ProtoJSON alias fixture generated from the quant-research@8ef16a4e08174ed55a5ce272afd1a13aa8d90971 exported fixture by converting field spellings to protobuf snake_case; no source code or market/account data copied.",
       "sha256": "93d532c7bcf1ddb0bb91383ac3ab26eeaa7e5543896f9120371d7cd8e280339b"
+    },
+    {
+      "path": "schemas/fixtures/prediction-envelope-v1-wire-default-enums.json",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "6f099ecbc0706a916deb637affca8d3803e92a5bd3d58a1b1146cebe3f587bb6"
+    },
+    {
+      "path": "schemas/fixtures/prediction-envelope-v1-wire-partial-max.json",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "6aa65092c40b380c63ef794362e2352fd5e0fce41a04783dc8e32bc4d9111c9a"
     },
     {
       "path": "schemas/fixtures/proto-timestamp-v2.json",
@@ -956,7 +966,7 @@
     },
     {
       "path": "typescript/src/contracts/uint64-json.ts",
-      "sha256": "d3bed79be55a66ae6566ceca14a7d8eadacff5bd386dd0838129bdfeb95151fa",
+      "sha256": "8ffbc52aa718d8e334a46a9bad3ec521bccabe85d0478d56784c1ab43083c00c",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -981,7 +991,7 @@
     },
     {
       "path": "typescript/src/tests/contracts.test.ts",
-      "sha256": "fc07acb142612d52388594cc01a421d33baf182fe7267d86c248948e041d565e",
+      "sha256": "8dd1095078faae808d21dfab85acda0914fb6e3f7ac6543c673eb21b9812ee22",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {

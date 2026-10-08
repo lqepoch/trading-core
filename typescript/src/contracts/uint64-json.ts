@@ -1066,18 +1066,23 @@ function validatePredictionEnumNames(value: unknown): void {
   const horizon = getRecordField(value, "horizon");
   const forecast = getRecordField(value, "forecast");
   const forecastHorizon = forecast === undefined ? undefined : getAliasedRecord(forecast, "forecastHorizon", "forecast_horizon");
-  if (source === undefined || quality === undefined || horizon === undefined || forecastHorizon === undefined) {
-    throw new TypeError("prediction source, quality, and horizon messages are required");
+  if (source !== undefined && hasAliasedField(source, "numericEncoding")) {
+    requireNamedEnum(source, "numericEncoding", "numeric_encoding", [
+      "NUMERIC_ENCODING_DECIMAL_TOKEN",
+      "NUMERIC_ENCODING_INTEGER_TOKEN",
+      "NUMERIC_ENCODING_BINARY_FLOAT64_SHORTEST_DECIMAL",
+      "NUMERIC_ENCODING_BINARY_FLOAT32_SHORTEST_DECIMAL",
+    ]);
   }
-  requireNamedEnum(source, "numericEncoding", "numeric_encoding", [
-    "NUMERIC_ENCODING_DECIMAL_TOKEN",
-    "NUMERIC_ENCODING_INTEGER_TOKEN",
-    "NUMERIC_ENCODING_BINARY_FLOAT64_SHORTEST_DECIMAL",
-    "NUMERIC_ENCODING_BINARY_FLOAT32_SHORTEST_DECIMAL",
-  ]);
-  requireNamedEnum(quality, "status", "status", ["PASS", "UNVERIFIED", "BLOCKED_DATA", "FAILED"]);
-  requireNamedEnum(horizon, "unit", "unit", ["ELAPSED_MINUTES", "SESSION_CLOSE", "TRADING_DAYS"]);
-  requireNamedEnum(forecastHorizon, "unit", "unit", ["ELAPSED_MINUTES", "SESSION_CLOSE", "TRADING_DAYS"]);
+  if (quality !== undefined && hasAliasedField(quality, "status")) {
+    requireNamedEnum(quality, "status", "status", ["PASS", "UNVERIFIED", "BLOCKED_DATA", "FAILED"]);
+  }
+  if (horizon !== undefined && hasAliasedField(horizon, "unit")) {
+    requireNamedEnum(horizon, "unit", "unit", ["ELAPSED_MINUTES", "SESSION_CLOSE", "TRADING_DAYS"]);
+  }
+  if (forecastHorizon !== undefined && hasAliasedField(forecastHorizon, "unit")) {
+    requireNamedEnum(forecastHorizon, "unit", "unit", ["ELAPSED_MINUTES", "SESSION_CLOSE", "TRADING_DAYS"]);
+  }
 }
 
 function requireNamedEnum(
@@ -1086,9 +1091,6 @@ function requireNamedEnum(
   snake: string,
   accepted: readonly string[],
 ): void {
-  if (!(camel in value) && !(snake in value)) {
-    throw new TypeError("prediction enum fields must be present");
-  }
   const item = value[camel] ?? value[snake];
   if (typeof item !== "string" || !accepted.includes(item)) {
     throw new TypeError("prediction enum fields require supported named ProtoJSON values");

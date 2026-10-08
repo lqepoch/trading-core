@@ -47,16 +47,6 @@ def _set_path(document: dict[str, object], path: list[str], value: object) -> No
     current[path[-1]] = value
 
 
-def _remove_path(document: dict[str, object], path: list[str]) -> None:
-    current = document
-    for segment in path[:-1]:
-        nested = current[segment]
-        if not isinstance(nested, dict):
-            raise AssertionError(f"fixture path segment is not an object: {segment}")
-        current = nested
-    del current[path[-1]]
-
-
 class PredictionProtoJsonTest(unittest.TestCase):
     def test_quant_export_fixture_preserves_maximum_uint64_and_nanoseconds(self) -> None:
         base = _fixture("prediction-envelope-v1-quant-export.json")
@@ -67,6 +57,23 @@ class PredictionProtoJsonTest(unittest.TestCase):
             (FIXTURES / "prediction-envelope-v1-nanosecond.json").read_bytes()
         )
         self.assertEqual(nanos.created_at.nanos, 123_456_789)
+
+    def test_partial_wire_message_preserves_maximum_uint64(self) -> None:
+        partial = _fixture("prediction-envelope-v1-wire-partial-max.json")
+        parsed = parse_prediction_envelope_protojson(partial)
+        self.assertEqual(parsed.forecast.sequence, (1 << 64) - 1)
+        raw = json.dumps(partial, separators=(",", ":"))
+        parsed_raw = parse_prediction_envelope_protojson_json(raw)
+        self.assertEqual(parsed_raw.forecast.sequence, (1 << 64) - 1)
+
+    def test_wire_message_preserves_absent_enum_defaults(self) -> None:
+        parsed = parse_prediction_envelope_protojson(
+            _fixture("prediction-envelope-v1-wire-default-enums.json")
+        )
+        self.assertEqual(parsed.forecast.forecast_horizon.unit, 0)
+        self.assertEqual(parsed.horizon.unit, 0)
+        self.assertEqual(parsed.quality.status, 0)
+        self.assertEqual(parsed.source.numeric_encoding, 0)
 
     def test_snake_case_alias_fixture_is_accepted_and_preserves_identity(self) -> None:
         camel = parse_prediction_envelope_protojson(_fixture("prediction-envelope-v1-quant-export.json"))
@@ -85,13 +92,6 @@ class PredictionProtoJsonTest(unittest.TestCase):
                 continue
             document = copy.deepcopy(fixture)
             _set_path(document, case["path"], case["value"])
-            with self.subTest(case=case["name"]):
-                with self.assertRaises((ValueError, json_format.ParseError)):
-                    parse_prediction_envelope_protojson(document)
-
-        for case in cases["invalid_removed_fields"]:
-            document = copy.deepcopy(fixture)
-            _remove_path(document, case["path"])
             with self.subTest(case=case["name"]):
                 with self.assertRaises((ValueError, json_format.ParseError)):
                     parse_prediction_envelope_protojson(document)

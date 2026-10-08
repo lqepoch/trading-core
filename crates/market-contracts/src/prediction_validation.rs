@@ -23,7 +23,7 @@ pub(crate) fn validate_prediction_envelope(
     }
     require_identity(&value.prediction_id, "prediction_id")?;
     require_identity(&value.model_id, "model_id")?;
-    require_semver(&value.model_version, "model_version")?;
+    require_source_version_token(&value.model_version, "model_version")?;
     require_hash(&value.model_sha256, "model_sha256")?;
     require_dataset_id(&value.train_dataset_version)?;
     require_hash(&value.train_dataset_sha256, "train_dataset_sha256")?;
@@ -77,7 +77,7 @@ impl ForecastHorizonV1 {
     fn validate(&self) -> Result<(), PredictionEnvelopeV1Error> {
         if self.schema_name != HORIZON_SCHEMA
             || !valid_identity(&self.horizon_id)
-            || !valid_semver(&self.registry_version)
+            || !valid_source_version_token(&self.registry_version)
             || !valid_identity(&self.label_spec_id)
             || self
                 .value
@@ -209,8 +209,8 @@ fn validate_forecast(value: &ForecastSnapshotV2) -> Result<(), PredictionEnvelop
     ] {
         require_identity(identity, field)?;
     }
-    require_semver(&value.model_version, "forecast.model_version")?;
-    require_semver(&value.feature_version, "feature_version")?;
+    require_source_version_token(&value.model_version, "forecast.model_version")?;
+    require_source_version_token(&value.feature_version, "feature_version")?;
     if !valid_stock_symbol(&value.symbol)
         || !valid_frequency(&value.input_resolution)
         || !valid_frequency(&value.inference_frequency)
@@ -298,8 +298,11 @@ fn require_identity(value: &str, field: &'static str) -> Result<(), PredictionEn
     }
 }
 
-fn require_semver(value: &str, field: &'static str) -> Result<(), PredictionEnvelopeV1Error> {
-    if valid_semver(value) {
+fn require_source_version_token(
+    value: &str,
+    field: &'static str,
+) -> Result<(), PredictionEnvelopeV1Error> {
+    if valid_source_version_token(value) {
         Ok(())
     } else {
         Err(invalid(field))
@@ -340,7 +343,9 @@ fn valid_identity(value: &str) -> bool {
     })
 }
 
-fn valid_semver(value: &str) -> bool {
+// Mirrors quant-research's current `_SEMVER_RE` plus stable-selector rules. This is its
+// compatibility syntax, not a SemVer 2.0.0 validator; see prediction-envelope-v1.md.
+fn valid_source_version_token(value: &str) -> bool {
     let suffix_start = value.find(['-', '+']).unwrap_or(value.len());
     let core = &value[..suffix_start];
     let mut parts = core.split('.');
@@ -387,7 +392,7 @@ fn invalid(message: &'static str) -> PredictionEnvelopeV1Error {
 
 #[cfg(test)]
 mod tests {
-    use super::{valid_identity, valid_semver};
+    use super::{valid_identity, valid_source_version_token};
 
     #[test]
     fn identity_rules_reject_selectors_and_preserve_supported_punctuation() {
@@ -399,12 +404,24 @@ mod tests {
     }
 
     #[test]
-    fn version_rules_match_the_source_contract_and_reject_empty_suffixes() {
-        for value in ["1.0.0", "1.0.0-rc.1", "1.0.0+build.5"] {
-            assert!(valid_semver(value), "expected valid version: {value}");
+    fn version_rules_match_the_source_compatibility_pattern() {
+        for value in ["1.0.0", "1.0.0-rc.1", "1.0.0+build.5", "01.2.3", "1.2.3-.."] {
+            assert!(
+                valid_source_version_token(value),
+                "expected source-compatible version token: {value}"
+            );
         }
-        for value in ["1.0.0-", "1.0.0+", "1.0", "1.0.0/latest"] {
-            assert!(!valid_semver(value), "expected invalid version: {value}");
+        for value in [
+            "1.0.0-",
+            "1.0.0+",
+            "1.0",
+            "1.0.0/latest",
+            "1.2.3-alpha+build.2",
+        ] {
+            assert!(
+                !valid_source_version_token(value),
+                "expected rejected source version token: {value}"
+            );
         }
     }
 }

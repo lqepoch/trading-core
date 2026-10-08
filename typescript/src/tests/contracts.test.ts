@@ -1271,11 +1271,33 @@ rejects(
 const predictionJson = copyPredictionEnvelopeFixture();
 const predictionMessage = parsePredictionEnvelopeProtoJson(predictionJson);
 assert(predictionMessage.forecast?.sequence === BigInt(max), "prediction sequence lost precision");
+const predictionPartialWireFixture = readFixture<Record<string, unknown>>(
+  "schemas/fixtures/prediction-envelope-v1-wire-partial-max.json",
+);
+assert(
+  parsePredictionEnvelopeProtoJson(predictionPartialWireFixture).forecast?.sequence === BigInt(max),
+  "wire-compatible partial prediction lost max uint64 precision",
+);
 const predictionText = JSON.stringify(predictionJson);
 const predictionTextMessage = parsePredictionEnvelopeProtoJsonText(predictionText);
 assert(
   predictionTextMessage.forecast?.sequence === BigInt(max),
   "raw prediction ProtoJSON text lost max uint64 precision",
+);
+assert(
+  parsePredictionEnvelopeProtoJsonText(JSON.stringify(predictionPartialWireFixture)).forecast?.sequence === BigInt(max),
+  "raw-text wire-compatible partial prediction lost max uint64 precision",
+);
+const predictionDefaultEnumsFixture = readFixture<Record<string, unknown>>(
+  "schemas/fixtures/prediction-envelope-v1-wire-default-enums.json",
+);
+const predictionDefaultEnums = parsePredictionEnvelopeProtoJson(predictionDefaultEnumsFixture);
+assert(
+  predictionDefaultEnums.source?.numericEncoding === 0 &&
+    predictionDefaultEnums.quality?.status === 0 &&
+    predictionDefaultEnums.horizon?.unit === 0 &&
+    predictionDefaultEnums.forecast?.forecastHorizon?.unit === 0,
+  "wire parser did not preserve absent enum defaults",
 );
 rejects(
   () => {
@@ -1338,7 +1360,6 @@ type PredictionProtoJsonTextReplacement = {
 };
 type PredictionProtoJsonCases = {
   invalid_mutations: PredictionProtoJsonMutation[];
-  invalid_removed_fields: Array<{ name: string; path: string[] }>;
   invalid_text_replacements: PredictionProtoJsonTextReplacement[];
 };
 const predictionEnvelope = parsePredictionEnvelopeProtoJson(predictionEnvelopeFixture);
@@ -1402,22 +1423,6 @@ for (const mutation of predictionCases.invalid_mutations) {
   rejects(
     () => parsePredictionEnvelopeProtoJson(document),
     `prediction parser accepted shared invalid case: ${mutation.name}`,
-  );
-}
-for (const removed of predictionCases.invalid_removed_fields) {
-  const document = JSON.parse(JSON.stringify(predictionEnvelopeFixture)) as Record<string, unknown>;
-  let current = document;
-  for (const key of removed.path.slice(0, -1)) {
-    const nested = current[key];
-    if (typeof nested !== "object" || nested === null || Array.isArray(nested)) {
-      throw new Error(`prediction fixture path is not an object: ${key}`);
-    }
-    current = nested as Record<string, unknown>;
-  }
-  delete current[removed.path.at(-1)!];
-  rejects(
-    () => parsePredictionEnvelopeProtoJson(document),
-    `prediction parser accepted missing required field: ${removed.name}`,
   );
 }
 const predictionExportText = readFileSync(

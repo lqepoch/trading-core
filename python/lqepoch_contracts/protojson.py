@@ -1057,23 +1057,29 @@ def _validate_prediction_enum_names(document: Mapping[str, object]) -> None:
         if forecast is not None
         else None
     )
-    if any(value is None for value in (source, quality, horizon, forecast_horizon)):
-        raise ValueError("prediction source, quality, and horizon messages are required")
-
-    _require_named_enum(
-        source,
-        "numericEncoding",
-        "numeric_encoding",
-        {
-            "NUMERIC_ENCODING_DECIMAL_TOKEN",
-            "NUMERIC_ENCODING_INTEGER_TOKEN",
-            "NUMERIC_ENCODING_BINARY_FLOAT64_SHORTEST_DECIMAL",
-            "NUMERIC_ENCODING_BINARY_FLOAT32_SHORTEST_DECIMAL",
-        },
-    )
-    _require_named_enum(quality, "status", "status", {"PASS", "UNVERIFIED", "BLOCKED_DATA", "FAILED"})
-    for item in (horizon, forecast_horizon):
-        _require_named_enum(item, "unit", "unit", {"ELAPSED_MINUTES", "SESSION_CLOSE", "TRADING_DAYS"})
+    if source is not None and _has_field(source, "numericEncoding", "numeric_encoding"):
+        _require_named_enum(
+            source,
+            "numericEncoding",
+            "numeric_encoding",
+            {
+                "NUMERIC_ENCODING_DECIMAL_TOKEN",
+                "NUMERIC_ENCODING_INTEGER_TOKEN",
+                "NUMERIC_ENCODING_BINARY_FLOAT64_SHORTEST_DECIMAL",
+                "NUMERIC_ENCODING_BINARY_FLOAT32_SHORTEST_DECIMAL",
+            },
+        )
+    if quality is not None and _has_field(quality, "status", "status"):
+        _require_named_enum(quality, "status", "status", {"PASS", "UNVERIFIED", "BLOCKED_DATA", "FAILED"})
+    if horizon is not None and _has_field(horizon, "unit", "unit"):
+        _require_named_enum(horizon, "unit", "unit", {"ELAPSED_MINUTES", "SESSION_CLOSE", "TRADING_DAYS"})
+    if forecast_horizon is not None and _has_field(forecast_horizon, "unit", "unit"):
+        _require_named_enum(
+            forecast_horizon,
+            "unit",
+            "unit",
+            {"ELAPSED_MINUTES", "SESSION_CLOSE", "TRADING_DAYS"},
+        )
 
 
 def _require_named_enum(

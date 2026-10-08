@@ -20,6 +20,16 @@ perform every Rust cross-field semantic check. A caller that needs the Rust stru
 must use the Rust projection or implement an explicitly reviewed equivalent; none of these parsers
 authenticates an issuer or reads the referenced files.
 
+The Python and TypeScript ProtoJSON helpers preserve protobuf wire compatibility for partial
+messages: absent submessages or enum fields remain absent/defaulted, while any enum value that is
+present must use a supported named value. The shared `wire-partial-max` fixture is intentionally
+only `forecast.sequence`; Rust rejects it because Rust is the complete-envelope validator and
+requires the full semantic fields. A separate fixture confirms absent enum defaults in present
+messages. Version strings follow the existing
+quant-research producer pattern, not full SemVer 2.0.0: for example, `01.2.3` and `1.2.3-..` are
+accepted by that source pattern, while the valid SemVer 2.0.0 form `1.2.3-alpha+build.2` is not.
+Changing that source syntax requires a separately coordinated contract migration.
+
 This is a structure and identity check, not a research admission decision. It does not resolve the
 quant horizon registry or session calendar, verify manifest/receipt bytes, prove source entitlement
 or historical completeness, establish model quality or alpha, apply consumer freshness/expiry

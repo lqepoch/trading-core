@@ -140,7 +140,7 @@
       "value": "other-model"
     }
   ],
-  "invalid_removed_fields": [
+  "rust_invalid_removed_fields": [
     {
       "name": "missing source message",
       "path": ["source"]

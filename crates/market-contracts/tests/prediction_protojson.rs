@@ -17,7 +17,7 @@ const CASES_FIXTURE: &[u8] =
 #[derive(Deserialize)]
 struct ProtoJsonCases {
     invalid_mutations: Vec<InvalidMutation>,
-    invalid_removed_fields: Vec<RemovedField>,
+    rust_invalid_removed_fields: Vec<RemovedField>,
     invalid_text_replacements: Vec<TextReplacement>,
 }
 
@@ -128,7 +128,7 @@ fn shared_protojson_mutations_fail_closed() {
 #[test]
 fn required_source_quality_and_horizon_enums_cannot_fall_back_to_proto_defaults() {
     let fixture: Value = serde_json::from_slice(EXPORTED_FIXTURE).unwrap();
-    for missing in cases().invalid_removed_fields {
+    for missing in cases().rust_invalid_removed_fields {
         let mut document = fixture.clone();
         remove_path(&mut document, &missing.path);
         assert!(
