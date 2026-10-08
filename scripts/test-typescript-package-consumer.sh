@@ -21,6 +21,10 @@ cp "$repo_root/schemas/fixtures/dataset-manifest-v2-protojson-input-unicode-symb
   "$temporary_consumer/dataset-manifest-v2-input.json"
 cp "$repo_root/schemas/fixtures/dataset-manifest-v2-protojson-unicode-symbol.json" \
   "$temporary_consumer/dataset-manifest-v2-expected.json"
+cp "$repo_root/schemas/fixtures/engine-status-response-v1.json" \
+  "$temporary_consumer/engine-status-response-v1.json"
+cp "$repo_root/schemas/fixtures/synthetic-offline-preview-v1.json" \
+  "$temporary_consumer/synthetic-offline-preview-v1.json"
 cat > "$temporary_consumer/package.json" <<EOF
 {
   "name": "core-contracts-clean-consumer",
@@ -57,9 +61,15 @@ import { readFileSync } from "node:fs";
 import {
   datasetManifestV2ProtojsonBytes,
   DatasetManifestV2Schema,
+  EngineStatusResponseV1Schema,
+  SyntheticOfflinePreviewV1Schema,
+  parseEngineStatusResponseV1ProtoJsonText,
   parsePredictionEnvelopeProtoJson,
   parsePredictionEnvelopeProtoJsonText,
+  parseSyntheticOfflinePreviewV1ProtoJsonText,
+  type EngineStatusResponseV1,
   type PredictionEnvelopeV1,
+  type SyntheticOfflinePreviewV1,
 } from "@lqepoch/trading-core-contracts";
 import { fromJson, type JsonValue } from "@bufbuild/protobuf";
 
@@ -77,6 +87,51 @@ const prediction: PredictionEnvelopeV1 = parsePredictionEnvelopeProtoJsonText(
   `{"forecast":{"sequence":"${max.value}"}}`,
 );
 assert(prediction.forecast?.sequence === 18_446_744_073_709_551_615n, "raw-text prediction sequence lost precision");
+
+const status: EngineStatusResponseV1 = parseEngineStatusResponseV1ProtoJsonText(
+  readFileSync(new URL("../engine-status-response-v1.json", import.meta.url), "utf8"),
+);
+assert(
+  status.service === "offline-persist-preview" &&
+    status.executionEnabled === false &&
+    status.mutationRoutesEnabled === false,
+  "engine status package parser changed the shared read-only fixture",
+);
+const previewText = readFileSync(
+  new URL("../synthetic-offline-preview-v1.json", import.meta.url),
+  "utf8",
+);
+const preview: SyntheticOfflinePreviewV1 = parseSyntheticOfflinePreviewV1ProtoJsonText(previewText);
+assert(EngineStatusResponseV1Schema.typeName === "lqepoch.engine.v1.EngineStatusResponseV1", "engine status schema export changed");
+assert(SyntheticOfflinePreviewV1Schema.typeName === "lqepoch.engine.v1.SyntheticOfflinePreviewV1", "engine preview schema export changed");
+assert(
+  preview.previewKind === "synthetic_session_state" &&
+    preview.executionEnabled === false &&
+    preview.orderMutationsEnabled === false &&
+    preview.disposition === "reconciliation_required",
+  "engine preview package parser changed the shared read-only fixture",
+);
+function rejectsEngineText(text: string, message: string): void {
+  let rejected = false;
+  try {
+    parseSyntheticOfflinePreviewV1ProtoJsonText(text);
+  } catch {
+    rejected = true;
+  }
+  assert(rejected, message);
+}
+rejectsEngineText(
+  previewText.replace('"execution_enabled": false', '"execution_enabled": false, "execution_enabled": true'),
+  "engine preview package parser accepted duplicate JSON keys",
+);
+rejectsEngineText(
+  previewText.replace('"execution_enabled": false', '"execution_enabled": true'),
+  "engine preview package parser accepted enabled execution",
+);
+rejectsEngineText(
+  previewText.replace('"api_version": "v1"', '"apiVersion": "v1"'),
+  "engine preview package parser accepted camelCase aliases",
+);
 
 const manifestInput = JSON.parse(
   readFileSync(new URL("../dataset-manifest-v2-input.json", import.meta.url), "utf8"),

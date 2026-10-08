@@ -2292,6 +2292,174 @@
           }
         },
         "description": "One-minute US equity trade-only bar. uint64 values are canonical decimal strings and timestamps preserve nanoseconds. completion_evidence_sha256 must equal the canonical ProtoJSON SHA-256 of the unique DatasetManifestV2 completion_evidence oneof. The digest is an internal reference and does not authenticate a receipt issuer or qualify provider completeness."
+      },
+      "EngineStatusResponseV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "api_version",
+          "service",
+          "service_readiness",
+          "source_readiness",
+          "mode",
+          "projection_consistency",
+          "execution_enabled",
+          "mutation_routes_enabled",
+          "schema_version",
+          "pending_unknown_count",
+          "pending_unknown_count_capped",
+          "pending_unknown_consumed_risk_count",
+          "pending_unknown_unverified_risk_count"
+        ],
+        "properties": {
+          "api_version": {
+            "type": "string",
+            "const": "v1"
+          },
+          "service": {
+            "type": "string",
+            "const": "offline-persist-preview"
+          },
+          "service_readiness": {
+            "type": "string",
+            "const": "read_only_ready"
+          },
+          "source_readiness": {
+            "type": "string",
+            "const": "unknown"
+          },
+          "mode": {
+            "type": "string",
+            "const": "synthetic_offline"
+          },
+          "projection_consistency": {
+            "type": "string",
+            "const": "best_effort_non_transactional"
+          },
+          "execution_enabled": {
+            "type": "boolean",
+            "const": false
+          },
+          "mutation_routes_enabled": {
+            "type": "boolean",
+            "const": false
+          },
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          },
+          "pending_unknown_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 256
+          },
+          "pending_unknown_count_capped": {
+            "type": "boolean"
+          },
+          "pending_unknown_consumed_risk_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 256
+          },
+          "pending_unknown_unverified_risk_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 256
+          }
+        },
+        "description": "Exact snake_case projection shape emitted by the source-owned offline preview reader. This is a synthetic, bounded, best-effort non-transactional diagnostic; it does not establish account or market readiness, full reconciliation, risk authority, or execution. The bounded sample is at most 256 rows; count partition and cap-flag consistency are enforced by the TypeScript parser. This schema declares no HTTP route."
+      },
+      "SyntheticOfflinePreviewV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "api_version",
+          "preview_kind",
+          "source_mode",
+          "source_provenance",
+          "projection_consistency",
+          "execution_enabled",
+          "order_mutations_enabled",
+          "account_data_loaded",
+          "market_data_connected",
+          "source_schema_version",
+          "pending_unknown_count",
+          "pending_unknown_count_capped",
+          "pending_unknown_consumed_risk_count",
+          "pending_unknown_unverified_risk_count",
+          "disposition"
+        ],
+        "properties": {
+          "api_version": {
+            "type": "string",
+            "const": "v1"
+          },
+          "preview_kind": {
+            "type": "string",
+            "const": "synthetic_session_state"
+          },
+          "source_mode": {
+            "type": "string",
+            "const": "synthetic_offline"
+          },
+          "source_provenance": {
+            "type": "string",
+            "const": "synthetic_only"
+          },
+          "projection_consistency": {
+            "type": "string",
+            "const": "best_effort_non_transactional"
+          },
+          "execution_enabled": {
+            "type": "boolean",
+            "const": false
+          },
+          "order_mutations_enabled": {
+            "type": "boolean",
+            "const": false
+          },
+          "account_data_loaded": {
+            "type": "boolean",
+            "const": false
+          },
+          "market_data_connected": {
+            "type": "boolean",
+            "const": false
+          },
+          "source_schema_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          },
+          "pending_unknown_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 256
+          },
+          "pending_unknown_count_capped": {
+            "type": "boolean"
+          },
+          "pending_unknown_consumed_risk_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 256
+          },
+          "pending_unknown_unverified_risk_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 256
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "unknown_reservation_state",
+              "reconciliation_required",
+              "no_pending_unknown_in_sample"
+            ]
+          }
+        },
+        "description": "Exact snake_case projection shape emitted by the source-owned offline preview reader. This is a synthetic, bounded, best-effort non-transactional diagnostic; it does not establish account or market readiness, full reconciliation, risk authority, or execution. The bounded sample is at most 256 rows; count partition and cap-flag consistency are enforced by the TypeScript parser. This schema declares no HTTP route."
       }
     }
   }

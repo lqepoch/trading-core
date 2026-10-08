@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package lqepoch.engine.v1;
+
+// Read-only status projection emitted by offline-persist-preview.
+// This wire contract is diagnostic, synthetic-only, and non-transactional.
+message EngineStatusResponseV1 {
+  string api_version = 1 [json_name = "api_version"];
+  string service = 2 [json_name = "service"];
+  string service_readiness = 3 [json_name = "service_readiness"];
+  string source_readiness = 4 [json_name = "source_readiness"];
+  string mode = 5 [json_name = "mode"];
+  string projection_consistency = 6 [json_name = "projection_consistency"];
+  bool execution_enabled = 7 [json_name = "execution_enabled"];
+  bool mutation_routes_enabled = 8 [json_name = "mutation_routes_enabled"];
+  uint32 schema_version = 9 [json_name = "schema_version"];
+  uint32 pending_unknown_count = 10 [json_name = "pending_unknown_count"];
+  bool pending_unknown_count_capped = 11 [json_name = "pending_unknown_count_capped"];
+  uint32 pending_unknown_consumed_risk_count = 12
+      [json_name = "pending_unknown_consumed_risk_count"];
+  uint32 pending_unknown_unverified_risk_count = 13
+      [json_name = "pending_unknown_unverified_risk_count"];
+}
+
+// Identity-free preview from the same fixed synthetic offline session.
+// It is not strategy, account, market, risk, or execution authority.
+message SyntheticOfflinePreviewV1 {
+  string api_version = 1 [json_name = "api_version"];
+  string preview_kind = 2 [json_name = "preview_kind"];
+  string source_mode = 3 [json_name = "source_mode"];
+  string source_provenance = 4 [json_name = "source_provenance"];
+  string projection_consistency = 5 [json_name = "projection_consistency"];
+  bool execution_enabled = 6 [json_name = "execution_enabled"];
+  bool order_mutations_enabled = 7 [json_name = "order_mutations_enabled"];
+  bool account_data_loaded = 8 [json_name = "account_data_loaded"];
+  bool market_data_connected = 9 [json_name = "market_data_connected"];
+  uint32 source_schema_version = 10 [json_name = "source_schema_version"];
+  uint32 pending_unknown_count = 11 [json_name = "pending_unknown_count"];
+  bool pending_unknown_count_capped = 12 [json_name = "pending_unknown_count_capped"];
+  uint32 pending_unknown_consumed_risk_count = 13
+      [json_name = "pending_unknown_consumed_risk_count"];
+  uint32 pending_unknown_unverified_risk_count = 14
+      [json_name = "pending_unknown_unverified_risk_count"];
+  string disposition = 15 [json_name = "disposition"];
+}

@@ -14,6 +14,12 @@ import {
   type PredictionEnvelopeV1,
 } from "../gen/lqepoch/prediction/v1/prediction_pb.js";
 import {
+  EngineStatusResponseV1Schema,
+  SyntheticOfflinePreviewV1Schema,
+  type EngineStatusResponseV1,
+  type SyntheticOfflinePreviewV1,
+} from "../gen/lqepoch/engine/v1/offline_preview_pb.js";
+import {
   DatasetManifestV2Schema,
   DatasetCompletionEvidenceV2Schema,
   FiniteBatchSealReceiptV2Schema,
@@ -34,6 +40,7 @@ const PROTO_TIMESTAMP_MIN_SECONDS = -62_135_596_800n;
 const PROTO_TIMESTAMP_MAX_SECONDS = 253_402_300_799n;
 const CANONICAL_UINT64 = /^(0|[1-9][0-9]*)$/;
 const MAX_PROTOJSON_TEXT_BYTES = 2 * 1024 * 1024;
+const MAX_ENGINE_UNKNOWN_SAMPLE = 256;
 const MAX_DATASET_MANIFEST_V2_SYMBOLS = 4096;
 const MAX_PROVIDER_WATERMARK_ALLOWED_LATENESS_NS = 60_000_000_000n;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -1107,6 +1114,164 @@ export function parsePredictionEnvelopeProtoJsonText(text: string): PredictionEn
   const value: unknown = JSON.parse(text);
   rejectDuplicateProtoFieldSpellings(value);
   return parsePredictionEnvelopeProtoJson(value);
+}
+
+const ENGINE_STATUS_FIELDS = [
+  "api_version",
+  "service",
+  "service_readiness",
+  "source_readiness",
+  "mode",
+  "projection_consistency",
+  "execution_enabled",
+  "mutation_routes_enabled",
+  "schema_version",
+  "pending_unknown_count",
+  "pending_unknown_count_capped",
+  "pending_unknown_consumed_risk_count",
+  "pending_unknown_unverified_risk_count",
+] as const;
+
+const SYNTHETIC_PREVIEW_FIELDS = [
+  "api_version",
+  "preview_kind",
+  "source_mode",
+  "source_provenance",
+  "projection_consistency",
+  "execution_enabled",
+  "order_mutations_enabled",
+  "account_data_loaded",
+  "market_data_connected",
+  "source_schema_version",
+  "pending_unknown_count",
+  "pending_unknown_count_capped",
+  "pending_unknown_consumed_risk_count",
+  "pending_unknown_unverified_risk_count",
+  "disposition",
+] as const;
+
+/**
+ * Parse the exact snake_case status JSON emitted by the offline engine reader.
+ * This checks shape and fail-closed diagnostic invariants; it grants no authority.
+ */
+function parseEngineStatusResponseV1ProtoJson(value: unknown): EngineStatusResponseV1 {
+  const row = requireExactProtoJsonFields(value, ENGINE_STATUS_FIELDS);
+  requireLiteral(row, "api_version", "v1");
+  requireLiteral(row, "service", "offline-persist-preview");
+  requireLiteral(row, "service_readiness", "read_only_ready");
+  requireLiteral(row, "source_readiness", "unknown");
+  requireLiteral(row, "mode", "synthetic_offline");
+  requireLiteral(row, "projection_consistency", "best_effort_non_transactional");
+  requireFalse(row, "execution_enabled");
+  requireFalse(row, "mutation_routes_enabled");
+  requireUInt32(row, "schema_version", 1);
+  validateUnknownSample(row);
+  return fromJson(EngineStatusResponseV1Schema, row as JsonValue);
+}
+
+/** Parse untrusted raw HTTP response text without losing duplicate keys or aliases. */
+export function parseEngineStatusResponseV1ProtoJsonText(text: string): EngineStatusResponseV1 {
+  assertBoundedProtoJsonText(text);
+  rejectDuplicateJsonObjectKeys(text);
+  const value: unknown = JSON.parse(text);
+  rejectDuplicateProtoFieldSpellings(value);
+  return parseEngineStatusResponseV1ProtoJson(value);
+}
+
+/**
+ * Parse the exact snake_case synthetic preview emitted by the offline engine reader.
+ * This is a best-effort diagnostic projection, not a state or execution authority.
+ */
+function parseSyntheticOfflinePreviewV1ProtoJson(
+  value: unknown,
+): SyntheticOfflinePreviewV1 {
+  const row = requireExactProtoJsonFields(value, SYNTHETIC_PREVIEW_FIELDS);
+  requireLiteral(row, "api_version", "v1");
+  requireLiteral(row, "preview_kind", "synthetic_session_state");
+  requireLiteral(row, "source_mode", "synthetic_offline");
+  requireLiteral(row, "source_provenance", "synthetic_only");
+  requireLiteral(row, "projection_consistency", "best_effort_non_transactional");
+  requireFalse(row, "execution_enabled");
+  requireFalse(row, "order_mutations_enabled");
+  requireFalse(row, "account_data_loaded");
+  requireFalse(row, "market_data_connected");
+  requireUInt32(row, "source_schema_version", 1);
+  const sample = validateUnknownSample(row);
+  const expectedDisposition = sample.unverified > 0
+    ? "unknown_reservation_state"
+    : sample.count > 0
+      ? "reconciliation_required"
+      : "no_pending_unknown_in_sample";
+  requireLiteral(row, "disposition", expectedDisposition);
+  return fromJson(SyntheticOfflinePreviewV1Schema, row as JsonValue);
+}
+
+/** Parse untrusted raw HTTP response text without losing duplicate keys or aliases. */
+export function parseSyntheticOfflinePreviewV1ProtoJsonText(
+  text: string,
+): SyntheticOfflinePreviewV1 {
+  assertBoundedProtoJsonText(text);
+  rejectDuplicateJsonObjectKeys(text);
+  const value: unknown = JSON.parse(text);
+  rejectDuplicateProtoFieldSpellings(value);
+  return parseSyntheticOfflinePreviewV1ProtoJson(value);
+}
+
+function requireExactProtoJsonFields(
+  value: unknown,
+  fields: readonly string[],
+): Record<string, unknown> {
+  if (!isRecord(value)) throw new TypeError("engine response must be a JSON object");
+  const allowed = new Set(fields);
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) throw new TypeError(`unknown engine response field: ${key}`);
+  }
+  for (const field of fields) {
+    if (!Object.hasOwn(value, field)) throw new TypeError(`missing engine response field: ${field}`);
+  }
+  return value;
+}
+
+function requireLiteral(
+  row: Record<string, unknown>,
+  field: string,
+  expected: string,
+): void {
+  if (row[field] !== expected) throw new TypeError(`engine response field ${field} is unsupported`);
+}
+
+function requireFalse(row: Record<string, unknown>, field: string): void {
+  if (row[field] !== false) throw new TypeError(`engine response field ${field} must be false`);
+}
+
+function requireUInt32(row: Record<string, unknown>, field: string, minimum: number): number {
+  const value = row[field];
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < minimum ||
+    value > 0xffff_ffff
+  ) {
+    throw new TypeError(`engine response field ${field} is outside uint32 bounds`);
+  }
+  return value;
+}
+
+function validateUnknownSample(row: Record<string, unknown>): {
+  count: number;
+  unverified: number;
+} {
+  const count = requireUInt32(row, "pending_unknown_count", 0);
+  const consumed = requireUInt32(row, "pending_unknown_consumed_risk_count", 0);
+  const unverified = requireUInt32(row, "pending_unknown_unverified_risk_count", 0);
+  if (count > MAX_ENGINE_UNKNOWN_SAMPLE || consumed > count || unverified > count ||
+    consumed + unverified !== count) {
+    throw new TypeError("engine response UNKNOWN sample counts are inconsistent");
+  }
+  if (row.pending_unknown_count_capped !== (count === MAX_ENGINE_UNKNOWN_SAMPLE)) {
+    throw new TypeError("engine response UNKNOWN sample cap flag is inconsistent");
+  }
+  return { count, unverified };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
