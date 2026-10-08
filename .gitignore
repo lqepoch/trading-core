@@ -1,0 +1,5 @@
+/target/
+/.schema-build/
+/.venv-schema/
+__pycache__/
+*.pyc

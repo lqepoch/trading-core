@@ -1,0 +1,18 @@
+[package]
+name = "pricing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[[bench]]
+name = "greek_singleflight"
+harness = false
+
+[dependencies]
+domain = { path = "../domain" }
+tokio.workspace = true
+
+[lints]
+workspace = true

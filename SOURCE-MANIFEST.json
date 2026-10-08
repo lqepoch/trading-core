@@ -1,0 +1,303 @@
+{
+  "manifest_version": 1,
+  "target_repository": "lqepoch/trading-core",
+  "generated_on": "2026-10-08",
+  "license_scope": "MIT OR Apache-2.0 applies to this repository's own and explicitly authorized selected source only; third-party notices and licenses remain intact.",
+  "authorization": "The owner explicitly authorized publication of the listed self-authored schwab_auto_bot files under MIT OR Apache-2.0 for CHG-2026-001. This does not change the source repository's license.",
+  "sources": [
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/exact-decimal/src/lib.rs",
+      "target_path": "crates/exact-decimal/src/lib.rs",
+      "source_sha256": "bcbad407e745db0aced059e28d62f351d0afcdaccdc3cca7505fdf47f325636e",
+      "target_sha256": "3206d26fcf42af0556868c056561785c19427ed4881c3ec41aa6ebc7f178c8a2",
+      "changes": [
+        "Changed only precision-ordering test values to synthetic 2.75/3.25 boundaries; production code is unchanged."
+      ]
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/src/automation.rs",
+      "target_path": "crates/domain/src/automation.rs",
+      "source_sha256": "b4b29644afdf4a1afb13f2d95d5db4c686bfef20cb5a80146933fbe5b0195b4c",
+      "target_sha256": "b4b29644afdf4a1afb13f2d95d5db4c686bfef20cb5a80146933fbe5b0195b4c",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/src/combo_order.rs",
+      "target_path": "crates/domain/src/combo_order.rs",
+      "source_sha256": "eaa4b212c60811c489eef7afd4bbb1b06dfac5f36fee5735c4333a88621af507",
+      "target_sha256": "eaa4b212c60811c489eef7afd4bbb1b06dfac5f36fee5735c4333a88621af507",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/src/ibkr_paper_account.rs",
+      "target_path": "crates/domain/src/ibkr_paper_account.rs",
+      "source_sha256": "0ffb6e3d5590dba812471f7a33bffa9772379bea098bf826d517b313ffd8567e",
+      "target_sha256": "0ffb6e3d5590dba812471f7a33bffa9772379bea098bf826d517b313ffd8567e",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/src/identifiers.rs",
+      "target_path": "crates/domain/src/identifiers.rs",
+      "source_sha256": "688ac5b9e1e1e23d914d948d2cfebb56f2cf86b3830df1716614013497fd88a4",
+      "target_sha256": "688ac5b9e1e1e23d914d948d2cfebb56f2cf86b3830df1716614013497fd88a4",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/src/instrument.rs",
+      "target_path": "crates/domain/src/instrument.rs",
+      "source_sha256": "f8de0d531f84ccaa16074762c55af319972c2dcb8f15940211292aa2700968d8",
+      "target_sha256": "f8de0d531f84ccaa16074762c55af319972c2dcb8f15940211292aa2700968d8",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/src/lib.rs",
+      "target_path": "crates/domain/src/lib.rs",
+      "source_sha256": "cef65de452c290691baa8e1c09f16bcebedbbf14f98a2ebb2e6be73888c1b827",
+      "target_sha256": "cef65de452c290691baa8e1c09f16bcebedbbf14f98a2ebb2e6be73888c1b827",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/src/option.rs",
+      "target_path": "crates/domain/src/option.rs",
+      "source_sha256": "2cfd4c9a03dcfdb4360178be0f07395ec16e4b49c21e92db99f0e1074390f21e",
+      "target_sha256": "2cfd4c9a03dcfdb4360178be0f07395ec16e4b49c21e92db99f0e1074390f21e",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/src/order_identity.rs",
+      "target_path": "crates/domain/src/order_identity.rs",
+      "source_sha256": "7c25bd39aee7853b137f252bff5539ddf22003536abe1d8f0829af780ac684ca",
+      "target_sha256": "7c25bd39aee7853b137f252bff5539ddf22003536abe1d8f0829af780ac684ca",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/src/provider.rs",
+      "target_path": "crates/domain/src/provider.rs",
+      "source_sha256": "96380a41fea0ae5e21dc02b6875f29a2c079291244658b877ed64f990532f6cc",
+      "target_sha256": "96380a41fea0ae5e21dc02b6875f29a2c079291244658b877ed64f990532f6cc",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/src/quantity.rs",
+      "target_path": "crates/domain/src/quantity.rs",
+      "source_sha256": "f955efcd47f254a937bedaf4aabb4a487b8cb5075f54b77396e99da82c91ab4d",
+      "target_sha256": "f955efcd47f254a937bedaf4aabb4a487b8cb5075f54b77396e99da82c91ab4d",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/src/routing.rs",
+      "target_path": "crates/domain/src/routing.rs",
+      "source_sha256": "a489a9f2a4836a11973e27db4bb52e5af0f406120cf3d738aa0f6f1f8426ddde",
+      "target_sha256": "a489a9f2a4836a11973e27db4bb52e5af0f406120cf3d738aa0f6f1f8426ddde",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/src/strike.rs",
+      "target_path": "crates/domain/src/strike.rs",
+      "source_sha256": "157842a904fed4005d962533ee83c0857d885128fc87eafffe2b75aa6a383f71",
+      "target_sha256": "157842a904fed4005d962533ee83c0857d885128fc87eafffe2b75aa6a383f71",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/src/vertical.rs",
+      "target_path": "crates/domain/src/vertical.rs",
+      "source_sha256": "8b93d876a1f5b2b65253ee8ea91c5c764ae08fb8cc29d98a5d5a841c48705a81",
+      "target_sha256": "8b93d876a1f5b2b65253ee8ea91c5c764ae08fb8cc29d98a5d5a841c48705a81",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/domain/tests/value_properties.rs",
+      "target_path": "crates/domain/tests/value_properties.rs",
+      "source_sha256": "cce4434bf2fb93df172eb177a8d5b340d9db9d18a680762be7c222064042aeec",
+      "target_sha256": "cce4434bf2fb93df172eb177a8d5b340d9db9d18a680762be7c222064042aeec",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/AGENTS.md",
+      "target_path": "crates/pricing/AGENTS.md",
+      "source_sha256": "3c9ae5e6c9026adcf5b2df61697155eefdfc5df7e24a0cf892c0827304d7b60b",
+      "target_sha256": "60f219f21a6aa0d5165ebfb76a143a977c566a700b3d07cfcdb5974c00c5c713",
+      "changes": [
+        "Replaced private-repository validation links and issue references with this repository's local safety boundary and validation command."
+      ]
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/README.md",
+      "target_path": "crates/pricing/README.md",
+      "source_sha256": "1597efe6f3dc920d51ea00650cb56230e38001651e2ce8c9c4b0ba2b0608fcd7",
+      "target_sha256": "11cb596cfb6ba89e140c2fbf3d92e307038097a59548e7582d8fee85d207c15d",
+      "changes": [
+        "Removed references to private upstream issue numbers; clarified that provider resolution and runtime wiring are outside this crate."
+      ]
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/benches/greek_singleflight.rs",
+      "target_path": "crates/pricing/benches/greek_singleflight.rs",
+      "source_sha256": "943a54eda05c089121c7e950121d2347c4d556e038d531dfbee7226fa370b86c",
+      "target_sha256": "943a54eda05c089121c7e950121d2347c4d556e038d531dfbee7226fa370b86c",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/src/greeks.rs",
+      "target_path": "crates/pricing/src/greeks.rs",
+      "source_sha256": "debb17247c02444d2ab9dbb13dc941deeb8f56451bd3250dbb50da6502e853ca",
+      "target_sha256": "debb17247c02444d2ab9dbb13dc941deeb8f56451bd3250dbb50da6502e853ca",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/src/lib.rs",
+      "target_path": "crates/pricing/src/lib.rs",
+      "source_sha256": "e44703b940ea50be476852dac1a7c231ebb0a92fdfa4baefd477a4f59d3c87f0",
+      "target_sha256": "e44703b940ea50be476852dac1a7c231ebb0a92fdfa4baefd477a4f59d3c87f0",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/src/singleflight/tests/freshness.rs",
+      "target_path": "crates/pricing/src/singleflight/tests/freshness.rs",
+      "source_sha256": "41ce6fcd8d778769889b83df942f14158877f3c0eb5a1ceda245b0edb48a4ccf",
+      "target_sha256": "41ce6fcd8d778769889b83df942f14158877f3c0eb5a1ceda245b0edb48a4ccf",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/src/singleflight/tests/keys.rs",
+      "target_path": "crates/pricing/src/singleflight/tests/keys.rs",
+      "source_sha256": "fa9c75c26a83d7a29dd1c09742f6093715aa0c317a5331cd4ac433006d8599be",
+      "target_sha256": "fa9c75c26a83d7a29dd1c09742f6093715aa0c317a5331cd4ac433006d8599be",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/src/singleflight/tests/lifecycle.rs",
+      "target_path": "crates/pricing/src/singleflight/tests/lifecycle.rs",
+      "source_sha256": "9c02990d950f17526586dd37c01116332325fd005f6702dd2bfda1d7254717de",
+      "target_sha256": "9c02990d950f17526586dd37c01116332325fd005f6702dd2bfda1d7254717de",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/src/singleflight/tests.rs",
+      "target_path": "crates/pricing/src/singleflight/tests.rs",
+      "source_sha256": "8d5577251635d5b8f5308b9449d951a1f26223956859e445037df327eaa39660",
+      "target_sha256": "8d5577251635d5b8f5308b9449d951a1f26223956859e445037df327eaa39660",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/src/singleflight.rs",
+      "target_path": "crates/pricing/src/singleflight.rs",
+      "source_sha256": "81372fda689c2a19813a22c035f3c7182c17455f40e9297b88d459b31e0b7d95",
+      "target_sha256": "81372fda689c2a19813a22c035f3c7182c17455f40e9297b88d459b31e0b7d95",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/src/solver/american_crr.rs",
+      "target_path": "crates/pricing/src/solver/american_crr.rs",
+      "source_sha256": "39622ca53789a4e5e3159b6776cf2beb034efb8ce737a0ec28a03817030c7624",
+      "target_sha256": "39622ca53789a4e5e3159b6776cf2beb034efb8ce737a0ec28a03817030c7624",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/src/solver.rs",
+      "target_path": "crates/pricing/src/solver.rs",
+      "source_sha256": "b43b86e853e47e5a43e8df7528170b6c1c7bebdc2c75132b06cbe5bc21c9a8e6",
+      "target_sha256": "b43b86e853e47e5a43e8df7528170b6c1c7bebdc2c75132b06cbe5bc21c9a8e6",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/src/vertical.rs",
+      "target_path": "crates/pricing/src/vertical.rs",
+      "source_sha256": "2cd067390bd4c66d289ea48efdbccc9e676deb18bf93d38db4ae79492ff6a161",
+      "target_sha256": "efb52afcc34572288caa73b1e05c6ec281f51f555d050bda10ca4e470cce87bd",
+      "changes": [
+        "Removed private strategy quote/exit fixture coverage and replaced it with synthetic exact-midpoint boundary coverage; production pricing code is unchanged."
+      ]
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "crates/pricing/src/worker_pool.rs",
+      "target_path": "crates/pricing/src/worker_pool.rs",
+      "source_sha256": "8b4babde2ec2d87edf97ac9d2324abdb9c47b4c4d19199f21674c0d5a918e1e3",
+      "target_sha256": "8b4babde2ec2d87edf97ac9d2324abdb9c47b4c4d19199f21674c0d5a918e1e3",
+      "changes": []
+    },
+    {
+      "repository": "lqepoch/EqoBoard",
+      "commit": "faf17c0c4a6a127996b66c192d9518b9fe86d6ef",
+      "source_path": "crates/domain/src/lib.rs",
+      "target_path": "crates/market-contracts/src/legacy.rs",
+      "source_sha256": "7b6a665beaf215a1560d9861efc15ea8c7e13a509ad2d45154caae4660ca7eb1",
+      "target_sha256": "7b6a665beaf215a1560d9861efc15ea8c7e13a509ad2d45154caae4660ca7eb1",
+      "changes": [
+        "Moved the legacy JSON-compatible DTO module under market-contracts::legacy; preserved its field shapes and behavior."
+      ]
+    }
+  ],
+  "excluded_source": [
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "test/fixtures/rust-v2/quote_exit.json",
+      "reason": "Contains private strategy thresholds and strategy/inventory/exit-persistence traces; replaced with newly authored synthetic pricing boundary tests."
+    },
+    {
+      "repository": "lqepoch/schwab_auto_bot",
+      "commit": "c907d18bc31790ede4cf36a4312a6813467506f0",
+      "source_path": "apps/ and provider client/runtime/order-write modules",
+      "reason": "Out of core scope; do not migrate OAuth, provider clients, account authority, OMS, runtime wiring, or send-capable CLI."
+    }
+  ]
+}
