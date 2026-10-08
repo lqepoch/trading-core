@@ -352,7 +352,18 @@ function isUint32(value: unknown): value is number {
 }
 
 function canonicalSymbols(value: unknown): string[] {
-  if (typeof value !== "string" || new TextEncoder().encode(value).byteLength > MAX_RAW_FRAME_SYMBOLS_JSON_BYTES) {
+  if (typeof value !== "string") {
+    throw new TypeError("symbols_json exceeds its bounded UTF-8 size");
+  }
+  // UTF-8 uses at least as many bytes as UTF-16 code units for valid scalar
+  // text. Reject this cheap lower bound before allocating an encoded copy.
+  if (value.length > MAX_RAW_FRAME_SYMBOLS_JSON_BYTES) {
+    throw new TypeError("symbols_json exceeds its bounded UTF-8 size");
+  }
+  if (!hasOnlyUnicodeScalars(value)) {
+    throw new TypeError("symbols_json must contain valid Unicode scalar text");
+  }
+  if (new TextEncoder().encode(value).byteLength > MAX_RAW_FRAME_SYMBOLS_JSON_BYTES) {
     throw new TypeError("symbols_json exceeds its bounded UTF-8 size");
   }
   let parsed: unknown;
@@ -414,6 +425,7 @@ function timestampNanoseconds(value: unknown): bigint {
 
 function validSourceIdentity(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 &&
+    value.length <= 128 &&
     hasOnlyUnicodeScalars(value) &&
     new TextEncoder().encode(value).byteLength <= 128 && value.trim() === value &&
     !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
@@ -421,6 +433,7 @@ function validSourceIdentity(value: unknown): value is string {
 
 function validMarketSymbol(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 &&
+    value.length <= 256 &&
     hasOnlyUnicodeScalars(value) &&
     new TextEncoder().encode(value).byteLength <= 256 && value.trim() === value &&
     !/[\u0000-\u001f\u007f-\u009f]/u.test(value);

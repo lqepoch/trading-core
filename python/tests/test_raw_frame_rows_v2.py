@@ -181,6 +181,36 @@ class RawFrameRowsV2Test(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "source record identity"):
             validate_market_event_row_v3(event)
 
+    def test_symbols_json_size_bound_precedes_utf8_encoding(self) -> None:
+        class EncodeTrackingString(str):
+            encode_calls = 0
+
+            def encode(self, *args: object, **kwargs: object) -> bytes:
+                self.encode_calls += 1
+                return super().encode(*args, **kwargs)
+
+        oversized = EncodeTrackingString("x" * (MAX_RAW_FRAME_SYMBOLS_JSON_BYTES + 1))
+        frame = copy.deepcopy(self.messagepack_frames[0])
+        frame["symbols_json"] = oversized
+        with self.assertRaisesRegex(ValueError, "bounded UTF-8 size"):
+            validate_raw_frame_row_v2(frame, MARKET_RAW_FRAME_V2_SCHEMA_ID)
+        self.assertEqual(oversized.encode_calls, 0)
+
+        lone_surrogate = EncodeTrackingString('["\ud800"]')
+        frame["symbols_json"] = lone_surrogate
+        with self.assertRaisesRegex(ValueError, "valid Unicode scalar"):
+            validate_raw_frame_row_v2(frame, MARKET_RAW_FRAME_V2_SCHEMA_ID)
+        self.assertEqual(lone_surrogate.encode_calls, 1)
+
+        byte_oversized_value = '["' + "é" * ((MAX_RAW_FRAME_SYMBOLS_JSON_BYTES - 4) // 2 + 1) + '"]'
+        self.assertLessEqual(len(byte_oversized_value), MAX_RAW_FRAME_SYMBOLS_JSON_BYTES)
+        self.assertGreater(
+            len(byte_oversized_value.encode("utf-8")), MAX_RAW_FRAME_SYMBOLS_JSON_BYTES
+        )
+        frame["symbols_json"] = byte_oversized_value
+        with self.assertRaisesRegex(ValueError, "bounded UTF-8 size"):
+            validate_raw_frame_row_v2(frame, MARKET_RAW_FRAME_V2_SCHEMA_ID)
+
     def test_capture_id_and_raw_bytes_are_strictly_bound(self) -> None:
         self.assertEqual(
             validate_capture_instance_id_v2("0123456789ab4def8123456789abcdef"),

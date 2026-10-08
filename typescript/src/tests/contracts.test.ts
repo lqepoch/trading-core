@@ -187,6 +187,54 @@ rejects(
   ),
   "raw-frame validator accepted a symbols_json string with an unpaired surrogate",
 );
+const nativeTextEncoder = globalThis.TextEncoder;
+function rejectsSymbolsBeforeEncoding(symbolsJson: string, message: string): void {
+  let encodedSymbols = false;
+  class TrackingTextEncoder extends nativeTextEncoder {
+    override encode(input?: string) {
+      if (input === symbolsJson) encodedSymbols = true;
+      return super.encode(input);
+    }
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "TextEncoder");
+  assert(descriptor !== undefined, "TextEncoder descriptor is unavailable");
+  Object.defineProperty(globalThis, "TextEncoder", { ...descriptor, value: TrackingTextEncoder });
+  try {
+    rejects(
+      () => validateRawFrameRowV2(
+        { ...messagepackFrames[0]!, symbols_json: symbolsJson },
+        MARKET_RAW_FRAME_V2_SCHEMA_ID,
+      ),
+      message,
+    );
+    assert(!encodedSymbols, "invalid symbols_json reached UTF-8 encoding");
+  } finally {
+    Object.defineProperty(globalThis, "TextEncoder", descriptor);
+  }
+}
+rejectsSymbolsBeforeEncoding(
+  "x".repeat(MAX_RAW_FRAME_SYMBOLS_JSON_BYTES + 1),
+  "raw-frame validator accepted oversized symbols_json",
+);
+rejectsSymbolsBeforeEncoding(
+  '["\ud800"]',
+  "raw-frame validator accepted an unpaired surrogate before UTF-8 encoding",
+);
+const byteOversizedSymbolsJson = `["${"é".repeat(
+  Math.floor((MAX_RAW_FRAME_SYMBOLS_JSON_BYTES - 4) / 2) + 1,
+)}"]`;
+assert(
+  byteOversizedSymbolsJson.length <= MAX_RAW_FRAME_SYMBOLS_JSON_BYTES &&
+    new nativeTextEncoder().encode(byteOversizedSymbolsJson).byteLength > MAX_RAW_FRAME_SYMBOLS_JSON_BYTES,
+  "multibyte over-limit fixture does not isolate the bounded UTF-8 check",
+);
+rejects(
+  () => validateRawFrameRowV2(
+    { ...messagepackFrames[0]!, symbols_json: byteOversizedSymbolsJson },
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "raw-frame validator accepted symbols_json above its UTF-8 byte cap",
+);
 rejects(
   () => validateMarketEventRowV3({
     ...messagepackEvents[0]!,

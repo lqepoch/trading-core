@@ -333,6 +333,10 @@ def _positive_uint64(value: object, field_name: str) -> int:
 def _canonical_symbols(value: object) -> list[str]:
     if not isinstance(value, str):
         raise ValueError("symbols_json exceeds its bounded UTF-8 size")
+    # UTF-8 uses at least one byte for every Python code point, so this cheap
+    # lower bound rejects oversized inputs before allocating an encoded copy.
+    if len(value) > MAX_RAW_FRAME_SYMBOLS_JSON_BYTES:
+        raise ValueError("symbols_json exceeds its bounded UTF-8 size")
     try:
         encoded_size = len(value.encode("utf-8"))
     except UnicodeEncodeError as error:
