@@ -14,6 +14,7 @@ import {
   parseDatasetManifestProtoJson,
   parseDatasetManifestV2Json,
   parseDatasetManifestV2ProtoJson,
+  datasetManifestV2ProtojsonBytes,
   parseMarketEventProtoJson,
   parsePredictionEnvelopeProtoJson,
   parsePredictionEnvelopeProtoJsonText,
@@ -529,6 +530,44 @@ assert(datasetV2Message.completionEvidence?.evidence.case === "finiteBatch", "da
 assert(
   datasetV2Message.completionEvidence.evidence.value.completedAt?.nanos === 123_456_789,
   "dataset v2 nanosecond timestamp was truncated",
+);
+
+type DatasetManifestProtoJsonGoldenCases = {
+  cases: Array<{
+    name: string;
+    input_fixture: string;
+    canonical_fixture: string;
+    sha256: string;
+  }>;
+};
+const datasetManifestProtoJsonCases = readFixture<DatasetManifestProtoJsonGoldenCases>(
+  "schemas/fixtures/dataset-manifest-v2-protojson-cases.json",
+);
+for (const testCase of datasetManifestProtoJsonCases.cases) {
+  const manifest = parseDatasetManifestV2ProtoJson(
+    readFixture<Record<string, unknown>>(`schemas/fixtures/${testCase.input_fixture}`),
+  );
+  const bytes = datasetManifestV2ProtojsonBytes(manifest);
+  const expected = readFileSync(
+    resolve(process.cwd(), "..", "schemas/fixtures", testCase.canonical_fixture),
+  );
+  assert(Buffer.from(bytes).equals(expected), `canonical ProtoJSON changed for ${testCase.name}`);
+  assert(bytes.at(-1) !== 10, `${testCase.name} unexpectedly has a trailing LF`);
+  assert(createHash("sha256").update(bytes).digest("hex") === testCase.sha256,
+    `canonical manifest SHA changed for ${testCase.name}`);
+  const roundtrip = parseDatasetManifestV2Json(new TextDecoder().decode(bytes));
+  assert(
+    Buffer.from(datasetManifestV2ProtojsonBytes(roundtrip)).equals(expected),
+    `manifest re-serialization changed for ${testCase.name}`,
+  );
+}
+const invalidManifestForWriter = {
+  ...datasetV2Message,
+  schemaVersion: 1,
+} as typeof datasetV2Message;
+rejects(
+  () => datasetManifestV2ProtojsonBytes(invalidManifestForWriter),
+  "manifest ProtoJSON writer accepted an unsupported schema version",
 );
 if (datasetV2Message.completionEvidence.evidence.case !== "finiteBatch") {
   throw new Error("dataset v2 finite receipt fixture selected the wrong oneof case");

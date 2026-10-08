@@ -246,6 +246,67 @@ def parse_dataset_manifest_v2_json(
     return parse_dataset_manifest_v2_protojson(value)
 
 
+def dataset_manifest_v2_protojson_bytes(
+    value: manifest_v2_pb2.DatasetManifestV2,
+) -> bytes:
+    """Return the bounded compact canonical ProtoJSON bytes for a validated manifest.
+
+    Field order follows the protobuf descriptor, absent optional fields remain absent, and
+    implicit scalar defaults are emitted so the bytes match the Rust and TypeScript writers.
+    This binds exact manifest bytes; it does not authenticate a source or completion receipt.
+    """
+    if not isinstance(value, manifest_v2_pb2.DatasetManifestV2):
+        raise ValueError("manifest serialization requires DatasetManifestV2")
+    _validate_dataset_manifest_v2(value)
+    document = json_format.MessageToDict(
+        value,
+        preserving_proto_field_name=False,
+        always_print_fields_with_no_presence=True,
+    )
+    document = _order_protojson_message_fields(value, document)
+    try:
+        encoded = json.dumps(
+            document, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+    except (TypeError, ValueError) as error:
+        raise ValueError("manifest cannot be serialized as canonical ProtoJSON") from error
+    if len(encoded) > MAX_DATASET_MANIFEST_V2_JSON_BYTES:
+        raise ValueError("dataset manifest v2 JSON exceeds the configured byte limit")
+    return encoded
+
+
+def _order_protojson_message_fields(
+    message: object,
+    document: object,
+) -> dict[str, object]:
+    """Reorder generated ProtoJSON dictionaries by descriptor field number."""
+    descriptor = getattr(message, "DESCRIPTOR", None)
+    if descriptor is None or not isinstance(document, dict):
+        raise ValueError("generated ProtoJSON message shape is invalid")
+    ordered: dict[str, object] = {}
+    for field in descriptor.fields:
+        json_name = field.json_name
+        if json_name not in document:
+            continue
+        field_value = document[json_name]
+        if field.message_type is not None and field.message_type.full_name != "google.protobuf.Timestamp":
+            nested_value = getattr(message, field.name)
+            if field.is_repeated:
+                if not isinstance(field_value, list):
+                    raise ValueError("generated ProtoJSON repeated message is invalid")
+                ordered[json_name] = [
+                    _order_protojson_message_fields(nested, item)
+                    for nested, item in zip(nested_value, field_value, strict=True)
+                ]
+            else:
+                ordered[json_name] = _order_protojson_message_fields(nested_value, field_value)
+        else:
+            ordered[json_name] = field_value
+    if len(ordered) != len(document):
+        raise ValueError("generated ProtoJSON contains an unknown field")
+    return ordered
+
+
 def finite_batch_seal_receipt_protojson_bytes(
     value: manifest_v2_pb2.FiniteBatchCompletionV2,
 ) -> bytes:

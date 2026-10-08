@@ -224,6 +224,18 @@ export function parseDatasetManifestV2Json(text: string): DatasetManifestV2 {
   return parseDatasetManifestV2ProtoJson(JSON.parse(text) as unknown);
 }
 
+/** Return bounded compact ProtoJSON bytes for the fully validated manifest. */
+export function datasetManifestV2ProtojsonBytes(value: DatasetManifestV2): Uint8Array {
+  validateDatasetManifestV2(value);
+  const bytes = new TextEncoder().encode(
+    toJsonString(DatasetManifestV2Schema, value, { alwaysEmitImplicit: true }),
+  );
+  if (bytes.byteLength > MAX_PROTOJSON_TEXT_BYTES) {
+    throw new RangeError("dataset manifest v2 JSON exceeds the configured byte limit");
+  }
+  return bytes;
+}
+
 /** Return the shared compact ProtoJSON bytes hashed by `sealReceiptSha256`, without a final LF. */
 export function finiteBatchSealReceiptProtojsonBytes(
   value: FiniteBatchCompletionV2,

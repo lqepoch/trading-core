@@ -17,6 +17,10 @@ temporary_consumer="$(mktemp -d)"
 trap 'rm -rf "$temporary_consumer"' EXIT
 mkdir -p "$temporary_consumer/src"
 cp "$repo_root/schemas/fixtures/uint64-json-v1.json" "$temporary_consumer/uint64-json-v1.json"
+cp "$repo_root/schemas/fixtures/dataset-manifest-v2-protojson-input-unicode-symbol.json" \
+  "$temporary_consumer/dataset-manifest-v2-input.json"
+cp "$repo_root/schemas/fixtures/dataset-manifest-v2-protojson-unicode-symbol.json" \
+  "$temporary_consumer/dataset-manifest-v2-expected.json"
 cat > "$temporary_consumer/package.json" <<EOF
 {
   "name": "core-contracts-clean-consumer",
@@ -28,6 +32,7 @@ cat > "$temporary_consumer/package.json" <<EOF
   },
   "dependencies": {
     "@lqepoch/trading-core-contracts": "${core_git_url}#${revision}",
+    "@bufbuild/protobuf": "2.16.0",
     "@types/node": "24.19.1",
     "typescript": "5.9.3"
   }
@@ -50,10 +55,13 @@ EOF
 cat > "$temporary_consumer/src/consumer.ts" <<'EOF'
 import { readFileSync } from "node:fs";
 import {
+  datasetManifestV2ProtojsonBytes,
+  DatasetManifestV2Schema,
   parsePredictionEnvelopeProtoJson,
   parsePredictionEnvelopeProtoJsonText,
   type PredictionEnvelopeV1,
 } from "@lqepoch/trading-core-contracts";
+import { fromJson, type JsonValue } from "@bufbuild/protobuf";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -69,6 +77,16 @@ const prediction: PredictionEnvelopeV1 = parsePredictionEnvelopeProtoJsonText(
   `{"forecast":{"sequence":"${max.value}"}}`,
 );
 assert(prediction.forecast?.sequence === 18_446_744_073_709_551_615n, "raw-text prediction sequence lost precision");
+
+const manifestInput = JSON.parse(
+  readFileSync(new URL("../dataset-manifest-v2-input.json", import.meta.url), "utf8"),
+) as Record<string, unknown>;
+const manifest = fromJson(DatasetManifestV2Schema, manifestInput as JsonValue);
+const manifestBytes = datasetManifestV2ProtojsonBytes(manifest);
+const expectedManifestBytes = readFileSync(
+  new URL("../dataset-manifest-v2-expected.json", import.meta.url),
+);
+assert(Buffer.from(manifestBytes).equals(expectedManifestBytes), "manifest ProtoJSON package export changed shared bytes");
 
 function rejectsRawText(text: string, message: string): void {
   let rejected = false;
