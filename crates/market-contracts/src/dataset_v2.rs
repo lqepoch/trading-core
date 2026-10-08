@@ -44,6 +44,9 @@ pub enum DatasetManifestV2Error {
     /// A dataset completion evidence value cannot be projected to its bounded canonical bytes.
     #[error("dataset completion evidence cannot be projected to canonical ProtoJSON")]
     InvalidCompletionEvidenceProjection,
+    /// A validated dataset manifest cannot be projected to its bounded canonical bytes.
+    #[error("dataset manifest cannot be projected to canonical ProtoJSON")]
+    InvalidManifestProjection,
     /// A bar row's evidence digest does not match the validated manifest completion evidence.
     #[error("bar completion evidence digest does not match the dataset manifest")]
     InvalidCompletionEvidenceReference,
@@ -882,6 +885,73 @@ pub fn parse_dataset_manifest_v2_json(
     Ok(manifest)
 }
 
+/// Return the exact bounded compact ProtoJSON bytes for a validated DatasetManifestV2.
+///
+/// Field names, enum strings, uint64 strings, timestamp rendering, optional-field presence, and
+/// key order follow the shared Protobuf JSON contract. The returned bytes have no trailing LF.
+/// They identify this complete manifest only; no self-hash or authority is added.
+/// 返回已验证 DatasetManifestV2 的有界紧凑 ProtoJSON 字节。
+/// 字段名、枚举字符串、uint64 字符串、时间戳、可选字段和键顺序遵循共享 Protobuf JSON 合同，且不追加换行。
+/// 这些字节标识完整清单本身，不包含自引用哈希，也不授予任何数据权威。
+pub fn dataset_manifest_v2_protojson_bytes(
+    value: &DatasetManifestV2,
+) -> Result<Vec<u8>, DatasetManifestV2Error> {
+    value.validate()?;
+    let projection = DatasetManifestV2ProtoJson {
+        schema_version: value.schema_version,
+        dataset_id: &value.dataset_id,
+        source: DatasetSourceV2ProtoJson {
+            provider: &value.source.provider,
+            feed: &value.source.feed,
+            entitlement: value.source.entitlement,
+            source_record_id: value.source.source_record_id.as_deref(),
+            numeric_encoding: value.source.numeric_encoding,
+        },
+        symbols: &value.symbols,
+        time_range: value.time_range.as_ref(),
+        source_timestamp_missing_rows: value.source_timestamp_missing_rows,
+        row_count: value.row_count,
+        object: &value.object,
+        storage_verification: &value.storage_verification,
+        completion_evidence: &value.completion_evidence,
+    };
+    let bytes = serde_json::to_vec(&projection)
+        .map_err(|_| DatasetManifestV2Error::InvalidManifestProjection)?;
+    if bytes.len() > MAX_DATASET_MANIFEST_V2_JSON_BYTES {
+        return Err(DatasetManifestV2Error::JsonTooLarge);
+    }
+    Ok(bytes)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DatasetManifestV2ProtoJson<'a> {
+    schema_version: u32,
+    dataset_id: &'a str,
+    source: DatasetSourceV2ProtoJson<'a>,
+    symbols: &'a [String],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    time_range: Option<&'a DatasetTimeRangeV2>,
+    #[serde(with = "crate::wire_u64")]
+    source_timestamp_missing_rows: u64,
+    #[serde(with = "crate::wire_u64")]
+    row_count: u64,
+    object: &'a DatasetObjectV2,
+    storage_verification: &'a DatasetStorageVerificationV2,
+    completion_evidence: &'a DatasetCompletionEvidenceV2,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DatasetSourceV2ProtoJson<'a> {
+    provider: &'a str,
+    feed: &'a str,
+    entitlement: EntitlementState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_record_id: Option<&'a str>,
+    numeric_encoding: NumericEncodingProtoJsonV2,
+}
+
 mod optional_wire_u64 {
     use serde::{Deserialize, Deserializer, Serializer, de::Error as _};
 
@@ -920,10 +990,32 @@ mod tests {
         DATASET_MANIFEST_SCHEMA_VERSION_V2, DatasetManifestV2, DatasetManifestV2Error,
         MAX_DATASET_MANIFEST_V2_JSON_BYTES, MAX_PROVIDER_WATERMARK_ALLOWED_LATENESS_NS,
         ProtoTimestampV2, dataset_completion_evidence_v2_protojson_bytes,
-        dataset_completion_evidence_v2_sha256, finite_batch_seal_receipt_protojson_bytes,
-        finite_batch_seal_receipt_sha256, parse_dataset_manifest_v2_json,
+        dataset_completion_evidence_v2_sha256, dataset_manifest_v2_protojson_bytes,
+        finite_batch_seal_receipt_protojson_bytes, finite_batch_seal_receipt_sha256,
+        parse_dataset_manifest_v2_json,
     };
     use serde_json::{Value, json};
+    use sha2::{Digest, Sha256};
+    use std::path::Path;
+
+    #[derive(serde::Deserialize)]
+    struct ManifestProtoJsonGoldenCases {
+        cases: Vec<ManifestProtoJsonGoldenCase>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct ManifestProtoJsonGoldenCase {
+        name: String,
+        input_fixture: String,
+        canonical_fixture: String,
+        sha256: String,
+    }
+
+    fn shared_fixture_path(name: &str) -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../schemas/fixtures")
+            .join(name)
+    }
 
     fn fixture_bytes() -> &'static [u8] {
         include_bytes!("../../../schemas/fixtures/dataset-manifest-v2.json")
@@ -961,6 +1053,67 @@ mod tests {
             "2026-10-08T14:31:02.123456789Z"
         );
         assert!(encoded.get("completion").is_none());
+    }
+
+    #[test]
+    fn manifest_protojson_writer_matches_all_shared_bytes_and_roundtrips() {
+        let cases: ManifestProtoJsonGoldenCases = serde_json::from_slice(include_bytes!(
+            "../../../schemas/fixtures/dataset-manifest-v2-protojson-cases.json"
+        ))
+        .unwrap();
+        for case in cases.cases {
+            let input = std::fs::read(shared_fixture_path(&case.input_fixture)).unwrap();
+            let manifest = parse_dataset_manifest_v2_json(&input).unwrap();
+            let actual = dataset_manifest_v2_protojson_bytes(&manifest).unwrap();
+            let expected = std::fs::read(shared_fixture_path(&case.canonical_fixture)).unwrap();
+            assert_eq!(
+                actual, expected,
+                "canonical ProtoJSON changed for {}",
+                case.name
+            );
+            assert!(!actual.ends_with(b"\n"), "{} has a trailing LF", case.name);
+            assert_eq!(
+                format!("{:x}", Sha256::digest(&actual)),
+                case.sha256,
+                "canonical manifest SHA changed for {}",
+                case.name
+            );
+
+            let reparsed = parse_dataset_manifest_v2_json(&actual)
+                .unwrap_or_else(|error| panic!("{} failed to round-trip: {error}", case.name));
+            assert_eq!(
+                reparsed, manifest,
+                "manifest changed on round-trip for {}",
+                case.name
+            );
+            assert_eq!(
+                dataset_manifest_v2_protojson_bytes(&reparsed).unwrap(),
+                expected,
+                "re-serialization changed for {}",
+                case.name
+            );
+        }
+    }
+
+    #[test]
+    fn manifest_protojson_writer_rejects_invalid_structural_values() {
+        let mut manifest = fixture();
+        manifest.schema_version = DATASET_MANIFEST_SCHEMA_VERSION_V2 + 1;
+        assert!(dataset_manifest_v2_protojson_bytes(&manifest).is_err());
+    }
+
+    #[test]
+    fn manifest_v2_rejects_lone_surrogate_shared_fixtures() {
+        for fixture in [
+            "dataset-manifest-v2-invalid-symbol-lone-surrogate.json",
+            "dataset-manifest-v2-invalid-source-id-lone-surrogate.json",
+        ] {
+            let bytes = std::fs::read(shared_fixture_path(fixture)).unwrap();
+            assert!(
+                parse_dataset_manifest_v2_json(&bytes).is_err(),
+                "accepted lone surrogate from {fixture}"
+            );
+        }
     }
 
     #[test]

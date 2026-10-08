@@ -1,0 +1,70 @@
+{
+  "cases": [
+    {
+      "name": "diagnostic-stream",
+      "input_fixture": "dataset-manifest-v2-diagnostic-stream.json",
+      "canonical_fixture": "dataset-manifest-v2-protojson-diagnostic-stream.json",
+      "sha256": "2f41929e00364fdb1edbf8e2388378a7f1e1ceb3373a4d0d3a5d1691cf16b64f"
+    },
+    {
+      "name": "finite-historical-non-paged",
+      "input_fixture": "dataset-manifest-v2-historical-non-paged.json",
+      "canonical_fixture": "dataset-manifest-v2-protojson-finite-historical-non-paged.json",
+      "sha256": "bff0ee2807a8d284fda38ae6084a8acd2da6530587e7da9f1c594f8e53361f71"
+    },
+    {
+      "name": "finite-historical-paged",
+      "input_fixture": "dataset-manifest-v2.json",
+      "canonical_fixture": "dataset-manifest-v2-protojson-finite-historical-paged.json",
+      "sha256": "14321ae6fbad6e788663f087f7f9cf20e51f17143cd84e5143c56f312aba3692"
+    },
+    {
+      "name": "finite-local-archive",
+      "input_fixture": "dataset-manifest-v2-protojson-input-local-archive.json",
+      "canonical_fixture": "dataset-manifest-v2-protojson-finite-local-archive.json",
+      "sha256": "f2a03b61d74caa66cf23a1e39f35533c47954f4eb557988c7e53456e19ded06d"
+    },
+    {
+      "name": "finite-source-record-id",
+      "input_fixture": "dataset-manifest-v2-protojson-input-source-record.json",
+      "canonical_fixture": "dataset-manifest-v2-protojson-finite-source-record-id.json",
+      "sha256": "b4d60df3fef453b7bcb48b115601e13675579386026e975f26e12194a6bb3522"
+    },
+    {
+      "name": "finite-synthetic-replay",
+      "input_fixture": "dataset-manifest-v2-synthetic-replay.json",
+      "canonical_fixture": "dataset-manifest-v2-protojson-finite-synthetic-replay.json",
+      "sha256": "0186b669799dd65c699c18ba284b068b012e03ec59a742b528377c362c8af9ae"
+    },
+    {
+      "name": "finite-synthetic-unicode-symbol",
+      "input_fixture": "dataset-manifest-v2-protojson-input-unicode-symbol.json",
+      "canonical_fixture": "dataset-manifest-v2-protojson-unicode-symbol.json",
+      "sha256": "9c7fb3bbcd1e44a376bacba00944abedc93fa3ddfda09c15af2f6268344a7116"
+    },
+    {
+      "name": "provider-watermark-uint64-max",
+      "input_fixture": "dataset-manifest-v2-provider-watermark-u64-boundary.json",
+      "canonical_fixture": "dataset-manifest-v2-protojson-provider-watermark-uint64-max.json",
+      "sha256": "e3dca70c1e627d2bc3671b61264efb7523ddff7e32893d15ebd2a554a6c5ecbd"
+    },
+    {
+      "name": "provider-watermark-zero-lateness",
+      "input_fixture": "dataset-manifest-v2-provider-watermark-zero-lateness.json",
+      "canonical_fixture": "dataset-manifest-v2-protojson-provider-watermark-zero-lateness.json",
+      "sha256": "b8bd2872c5ebfd8fe57d2adaf13a9cfede32e4c31c3287531e2c6332f3af006d"
+    },
+    {
+      "name": "raw-json",
+      "input_fixture": "dataset-manifest-v2-protojson-input-raw-json.json",
+      "canonical_fixture": "dataset-manifest-v2-protojson-raw-json.json",
+      "sha256": "9bb33fc27a1bdef29e79b1bc878f7e51af848c12bc06ab215aebe6976d94f1ce"
+    },
+    {
+      "name": "raw-messagepack",
+      "input_fixture": "dataset-manifest-v2-protojson-input-raw-messagepack.json",
+      "canonical_fixture": "dataset-manifest-v2-protojson-raw-messagepack.json",
+      "sha256": "d77fbe4178ffa38e90a28b65fe71408ec39fffcfff661f50c598257ef4518729"
+    }
+  ]
+}

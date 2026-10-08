@@ -50,6 +50,21 @@ the exact manifest and referenced receipt bytes before issuing any qualification
 Alpaca streams do not provide the trusted watermark evidence required for that token, so their
 stream completion remains unverified/diagnostic. Entitlement text is also only an observation.
 
+The full manifest has one shared compact ProtoJSON byte projection:
+`market_contracts::dataset_manifest_v2_protojson_bytes` in Rust,
+`lqepoch_contracts.dataset_manifest_v2_protojson_bytes` in Python, and
+`datasetManifestV2ProtojsonBytes` in TypeScript. Each helper validates the typed manifest first,
+then emits fields in protobuf field-number order, canonical camelCase names, named enums, canonical
+decimal strings for every `uint64`, and UTC timestamps retaining nanoseconds. Required scalar
+defaults are explicit; absent optional fields remain absent. The UTF-8 output is capped at 2 MiB
+and has no trailing newline. Shared input/output fixtures and SHA-256 values under
+`schemas/fixtures/dataset-manifest-v2-protojson-*` pin the exact bytes across all three languages.
+The digest of these bytes identifies the serialized manifest; the helper does not add a self-hash,
+authenticate a receipt issuer, or grant data authority.
+Text identities and symbols must be valid Unicode scalar strings. Parsers and typed-message writers
+reject unpaired surrogate code units before UTF-8 size checks so TypeScript's `TextEncoder` cannot
+silently replace them during canonical serialization.
+
 BarV2 rows may carry the SHA-256 of the canonical ProtoJSON bytes for this unique completion oneof.
 That reference lets consumers detect a row joined to a different completion claim. The immutable
 manifest still carries the full claim and its seal receipt reference; row-level hashing does not

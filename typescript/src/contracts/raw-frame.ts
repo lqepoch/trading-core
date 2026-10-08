@@ -439,7 +439,7 @@ function validMarketSymbol(value: unknown): value is string {
     !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
 }
 
-function hasOnlyUnicodeScalars(value: string): boolean {
+export function hasOnlyUnicodeScalars(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
     const unit = value.charCodeAt(index);
     if (unit >= 0xd800 && unit <= 0xdbff) {

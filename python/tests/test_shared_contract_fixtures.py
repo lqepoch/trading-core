@@ -19,6 +19,7 @@ from lqepoch_contracts.identities import (
     valid_source_identity,
 )
 from lqepoch_contracts import (
+    dataset_manifest_v2_protojson_bytes,
     dataset_completion_evidence_v2_protojson_bytes,
     dataset_completion_evidence_v2_sha256,
     finite_batch_seal_receipt_protojson_bytes,
@@ -57,6 +58,44 @@ def refresh_finite_batch_receipt_hash(document: dict[str, object]) -> None:
 
 
 class SharedContractFixturesTest(unittest.TestCase):
+    def test_dataset_manifest_v2_writer_matches_shared_bytes_and_roundtrips(self) -> None:
+        cases = read_json_fixture(
+            "schemas/fixtures/dataset-manifest-v2-protojson-cases.json"
+        )["cases"]
+        for case in cases:
+            with self.subTest(case=case["name"]):
+                manifest = parse_dataset_manifest_v2_json(
+                    (REPO_ROOT / "schemas/fixtures" / case["input_fixture"]).read_bytes()
+                )
+                payload = dataset_manifest_v2_protojson_bytes(manifest)
+                expected = (
+                    REPO_ROOT / "schemas/fixtures" / case["canonical_fixture"]
+                ).read_bytes()
+                self.assertEqual(payload, expected)
+                self.assertFalse(payload.endswith(b"\n"))
+                self.assertEqual(hashlib.sha256(payload).hexdigest(), case["sha256"])
+
+                reparsed = parse_dataset_manifest_v2_json(payload)
+                self.assertEqual(reparsed, manifest)
+                self.assertEqual(dataset_manifest_v2_protojson_bytes(reparsed), expected)
+
+        invalid = parse_dataset_manifest_v2_json(
+            (REPO_ROOT / "schemas/fixtures/dataset-manifest-v2.json").read_bytes()
+        )
+        invalid.schema_version = 1
+        with self.assertRaisesRegex(ValueError, "version"):
+            dataset_manifest_v2_protojson_bytes(invalid)
+
+    def test_dataset_manifest_v2_rejects_lone_surrogates_in_shared_fixtures(self) -> None:
+        for fixture_name in (
+            "dataset-manifest-v2-invalid-symbol-lone-surrogate.json",
+            "dataset-manifest-v2-invalid-source-id-lone-surrogate.json",
+        ):
+            with self.subTest(fixture=fixture_name):
+                raw = (REPO_ROOT / "schemas/fixtures" / fixture_name).read_bytes()
+                with self.assertRaises(ValueError):
+                    parse_dataset_manifest_v2_json(raw)
+
     def test_finite_batch_receipt_projection_matches_cross_language_bytes_and_sha256(self) -> None:
         manifest = parse_dataset_manifest_v2_protojson(
             read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")

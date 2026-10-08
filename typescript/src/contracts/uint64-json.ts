@@ -27,6 +27,7 @@ import {
   type UsEquityTradeBarV2,
 } from "../gen/lqepoch/market/v2/trade_bar_pb.js";
 import { trustedParquetSchemaSha256 } from "./schema-fingerprint.js";
+import { hasOnlyUnicodeScalars } from "./raw-frame.js";
 
 const UINT64_MAX = 18_446_744_073_709_551_615n;
 const PROTO_TIMESTAMP_MIN_SECONDS = -62_135_596_800n;
@@ -222,6 +223,18 @@ export function parseDatasetManifestV2Json(text: string): DatasetManifestV2 {
   assertBoundedProtoJsonText(text);
   rejectDuplicateJsonObjectKeys(text);
   return parseDatasetManifestV2ProtoJson(JSON.parse(text) as unknown);
+}
+
+/** Return bounded compact ProtoJSON bytes for the fully validated manifest. */
+export function datasetManifestV2ProtojsonBytes(value: DatasetManifestV2): Uint8Array {
+  validateDatasetManifestV2(value);
+  const bytes = new TextEncoder().encode(
+    toJsonString(DatasetManifestV2Schema, value, { alwaysEmitImplicit: true }),
+  );
+  if (bytes.byteLength > MAX_PROTOJSON_TEXT_BYTES) {
+    throw new RangeError("dataset manifest v2 JSON exceeds the configured byte limit");
+  }
+  return bytes;
 }
 
 /** Return the shared compact ProtoJSON bytes hashed by `sealReceiptSha256`, without a final LF. */
@@ -528,7 +541,8 @@ function validCoreIdentity(value: string, maxBytes: number): boolean {
 }
 
 function validBoundedText(value: string, maxBytes: number): boolean {
-  return value.length > 0 && new TextEncoder().encode(value).byteLength <= maxBytes &&
+  return value.length > 0 && hasOnlyUnicodeScalars(value) &&
+    new TextEncoder().encode(value).byteLength <= maxBytes &&
     value.trim() === value && !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
 }
 
@@ -775,19 +789,22 @@ function validDatasetId(value: string): boolean {
 }
 
 function validSourceIdentity(value: string): boolean {
-  return value.length > 0 && new TextEncoder().encode(value).byteLength <= 128 &&
+  return value.length > 0 && hasOnlyUnicodeScalars(value) &&
+    new TextEncoder().encode(value).byteLength <= 128 &&
     value.trim() === value && !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
 }
 
 function validSortedSymbols(values: readonly string[]): boolean {
   return values.every((value) =>
-    value.length > 0 && new TextEncoder().encode(value).byteLength <= 256 &&
+    value.length > 0 && hasOnlyUnicodeScalars(value) &&
+    new TextEncoder().encode(value).byteLength <= 256 &&
     value.trim() === value && !/[\u0000-\u001f\u007f-\u009f]/u.test(value)
   ) && values.every((value, index) => index === 0 || compareUtf8(values[index - 1]!, value) < 0);
 }
 
 function validMarketSymbol(value: string): boolean {
-  return value.length > 0 && new TextEncoder().encode(value).byteLength <= 256 &&
+  return value.length > 0 && hasOnlyUnicodeScalars(value) &&
+    new TextEncoder().encode(value).byteLength <= 256 &&
     value.trim() === value && !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
 }
 
@@ -812,7 +829,8 @@ function validObjectName(value: string): boolean {
 }
 
 function validObjectId(value: string, localTest: boolean): boolean {
-  if (value.length === 0 || new TextEncoder().encode(value).byteLength > 512 ||
+  if (value.length === 0 || !hasOnlyUnicodeScalars(value) ||
+    new TextEncoder().encode(value).byteLength > 512 ||
     value.trim() !== value || /[\u0000-\u001f\u007f-\u009f]/u.test(value)) return false;
   if (!localTest) return !value.startsWith("local-test:");
   if (!value.startsWith("local-test:")) return false;

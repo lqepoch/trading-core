@@ -10,6 +10,7 @@ from .parquet_schema import (
     validate_optional_parquet_schema_metadata,
 )
 from .protojson import (
+    dataset_manifest_v2_protojson_bytes,
     dataset_completion_evidence_v2_protojson_bytes,
     dataset_completion_evidence_v2_sha256,
     finite_batch_seal_receipt_protojson_bytes,
@@ -41,6 +42,7 @@ __all__ = [
     "validate_optional_parquet_schema_metadata",
     "parse_dataset_manifest_v2_json",
     "parse_dataset_manifest_v2_protojson",
+    "dataset_manifest_v2_protojson_bytes",
     "finite_batch_seal_receipt_protojson_bytes",
     "finite_batch_seal_receipt_sha256",
     "dataset_completion_evidence_v2_protojson_bytes",
