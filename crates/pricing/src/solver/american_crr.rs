@@ -117,6 +117,7 @@ mod experimental_candidate {
 
     const TREE_STEPS_EVEN: usize = 256;
     const TREE_STEPS_ODD: usize = 257;
+    const TREE_STUDY_MAX_STEPS: usize = 1025;
     const TREE_PARITY_GAP_MAX: f64 = 0.05;
     const TREE_PRICE_MAX: f64 = 1_000_000.0;
 
@@ -143,7 +144,8 @@ mod experimental_candidate {
             years,
             volatility,
         } = input;
-        if !matches!(steps, TREE_STEPS_EVEN | TREE_STEPS_ODD)
+        if steps == 0
+            || steps > TREE_STUDY_MAX_STEPS
             || ![spot, strike, rate, dividend_yield, years, volatility]
                 .into_iter()
                 .all(f64::is_finite)
@@ -202,8 +204,12 @@ mod experimental_candidate {
     }
 
     fn paired_candidate_price(input: CandidateInputs) -> Option<f64> {
-        let even = crr_tree_price(input, TREE_STEPS_EVEN)?;
-        let odd = crr_tree_price(input, TREE_STEPS_ODD)?;
+        paired_candidate_price_with_steps(input, TREE_STEPS_EVEN)
+    }
+
+    fn paired_candidate_price_with_steps(input: CandidateInputs, even_steps: usize) -> Option<f64> {
+        let even = crr_tree_price(input, even_steps)?;
+        let odd = crr_tree_price(input, even_steps + 1)?;
         if (even - odd).abs() > TREE_PARITY_GAP_MAX {
             return None;
         }
@@ -244,5 +250,501 @@ mod experimental_candidate {
             })
             .is_none()
         );
+    }
+
+    #[derive(Clone, Debug)]
+    struct OracleRecord {
+        id: String,
+        kind: OptionKind,
+        spot: f64,
+        strike: f64,
+        rate: f64,
+        dividend_yield: f64,
+        volatility: f64,
+        maturity_millis: i64,
+        act365f_years: f64,
+        cash_dividend: f64,
+        cash_dividend_offset_millis: i64,
+        time_grid: usize,
+        space_grid: usize,
+        price: f64,
+        delta: f64,
+        gamma: f64,
+        theta: f64,
+    }
+
+    impl OracleRecord {
+        fn candidate_inputs(&self) -> CandidateInputs {
+            CandidateInputs {
+                kind: self.kind,
+                spot: self.spot,
+                strike: self.strike,
+                rate: self.rate,
+                dividend_yield: self.dividend_yield,
+                years: self.maturity_millis as f64 / (365.0 * 86_400_000.0),
+                volatility: self.volatility,
+            }
+        }
+    }
+
+    fn oracle_fixture() -> Vec<OracleRecord> {
+        let fixture = include_str!("../../tests/fixtures/american_quantlib_v143_grid.csv");
+        let mut lines = fixture.lines();
+        assert_eq!(
+            lines.next(),
+            Some(
+                "kind,id,quantlib,option,t_ms,t_act365f,spot,strike,rate,continuous_yield,sigma,cash_dividend,cash_dividend_offset_ms,t_grid,x_grid,price,delta,gamma,theta"
+            )
+        );
+        lines
+            .map(|line| {
+                let fields: Vec<_> = line.split(',').collect();
+                assert_eq!(fields.len(), 19, "bad QuantLib fixture row: {line}");
+                assert_eq!(fields[0], "price", "unexpected QuantLib record: {line}");
+                assert_eq!(fields[2], "1.43", "unexpected QuantLib version: {line}");
+                OracleRecord {
+                    id: fields[1].to_owned(),
+                    kind: match fields[3] {
+                        "call" => OptionKind::Call,
+                        "put" => OptionKind::Put,
+                        other => panic!("unknown option type {other} in {line}"),
+                    },
+                    maturity_millis: fields[4].parse().expect("maturity millis"),
+                    act365f_years: fields[5].parse().expect("ACT/365F time"),
+                    spot: fields[6].parse().expect("spot"),
+                    strike: fields[7].parse().expect("strike"),
+                    rate: fields[8].parse().expect("rate"),
+                    dividend_yield: fields[9].parse().expect("continuous yield"),
+                    volatility: fields[10].parse().expect("volatility"),
+                    cash_dividend: fields[11].parse().expect("cash dividend"),
+                    cash_dividend_offset_millis: fields[12].parse().expect("cash dividend offset"),
+                    time_grid: fields[13].parse().expect("time grid"),
+                    space_grid: fields[14].parse().expect("space grid"),
+                    price: fields[15].parse().expect("price"),
+                    delta: fields[16].parse().expect("delta"),
+                    gamma: fields[17].parse().expect("gamma"),
+                    theta: fields[18].parse().expect("theta"),
+                }
+            })
+            .collect()
+    }
+
+    fn paired_price_without_parity_gate(input: CandidateInputs, even_steps: usize) -> Option<f64> {
+        let even = crr_tree_price(input, even_steps)?;
+        let odd = crr_tree_price(input, even_steps + 1)?;
+        Some((even + odd) / 2.0)
+    }
+
+    fn finite_difference_greeks(
+        input: CandidateInputs,
+        spot_bump: f64,
+        time_bump: f64,
+    ) -> Option<(f64, f64, f64)> {
+        let base = paired_candidate_price(input)?;
+        let up = paired_candidate_price(CandidateInputs {
+            spot: input.spot + spot_bump,
+            ..input
+        })?;
+        let down = paired_candidate_price(CandidateInputs {
+            spot: input.spot - spot_bump,
+            ..input
+        })?;
+        let later = paired_candidate_price(CandidateInputs {
+            years: input.years + time_bump,
+            ..input
+        })?;
+        let earlier = paired_candidate_price(CandidateInputs {
+            years: input.years - time_bump,
+            ..input
+        })?;
+        Some((
+            (up - down) / (2.0 * spot_bump),
+            (up - 2.0 * base + down) / spot_bump.powi(2),
+            -(later - earlier) / (2.0 * time_bump),
+        ))
+    }
+
+    fn implied_volatility_from_crr_price(
+        input: CandidateInputs,
+        target_price: f64,
+        even_steps: usize,
+    ) -> Option<f64> {
+        let mut low = 0.0001;
+        let low_price = loop {
+            let low_input = CandidateInputs {
+                volatility: low,
+                ..input
+            };
+            if let Some(price) = paired_price_without_parity_gate(low_input, even_steps) {
+                break price;
+            }
+            low *= 2.0;
+            if low >= 5.0 {
+                return None;
+            }
+        };
+        if low_price > target_price {
+            return None;
+        }
+        let mut high = 5.0;
+        let high_price = loop {
+            let high_input = CandidateInputs {
+                volatility: high,
+                ..input
+            };
+            if let Some(price) = paired_price_without_parity_gate(high_input, even_steps) {
+                break price;
+            }
+            high *= 0.5;
+            if high <= low {
+                return None;
+            }
+        };
+        if high_price < target_price {
+            return None;
+        }
+        for _ in 0..48 {
+            let mid = low + (high - low) / 2.0;
+            let mid_input = CandidateInputs {
+                volatility: mid,
+                ..input
+            };
+            let price = paired_price_without_parity_gate(mid_input, even_steps)?;
+            if price < target_price {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+        Some(low + (high - low) / 2.0)
+    }
+
+    #[test]
+    fn quantlib_v143_price_greek_iv_matrix_reports_candidate_error_and_convergence() {
+        let fixture = oracle_fixture();
+        assert_eq!(fixture.len(), 36 * 4);
+        assert!(fixture.iter().all(|row| {
+            [(100, 400), (400, 800), (800, 1600), (1600, 3200)]
+                .contains(&(row.time_grid, row.space_grid))
+        }));
+
+        let finest: Vec<_> = fixture
+            .iter()
+            .filter(|row| row.time_grid == 1600 && row.space_grid == 3200)
+            .collect();
+        assert_eq!(finest.len(), 36);
+        let mut case_ids: Vec<_> = finest.iter().map(|row| row.id.as_str()).collect();
+        case_ids.sort_unstable();
+        case_ids.dedup();
+        assert_eq!(case_ids.len(), 36);
+        assert!(finest.iter().any(|row| row.spot / row.strike <= 0.80));
+        assert!(finest.iter().any(|row| row.spot / row.strike >= 1.20));
+        assert!(finest.iter().any(|row| row.rate <= -0.15));
+        assert!(finest.iter().any(|row| row.rate >= 0.15));
+        assert!(finest.iter().any(|row| row.dividend_yield <= -0.02));
+        assert!(finest.iter().any(|row| row.dividend_yield >= 0.08));
+        assert!(finest.iter().any(|row| row.volatility <= 0.05));
+        assert!(finest.iter().any(|row| row.volatility >= 2.0));
+        for row in &finest {
+            let derived_years = row.maturity_millis as f64 / (365.0 * 86_400_000.0);
+            assert!((row.act365f_years - derived_years).abs() <= 1.0e-15);
+        }
+        let mut priced = 0_usize;
+        let mut candidate_rejected = 0_usize;
+        let mut candidate_rejected_ids = Vec::new();
+        let mut price_error_max = 0.0_f64;
+        let mut price_error_max_id = String::new();
+        let mut price_relative_error_max = 0.0_f64;
+        let mut price_relative_error_max_id = String::new();
+        let mut parity_gap_max = 0.0_f64;
+        let mut ql_price_grid_delta_max = 0.0_f64;
+        let mut ql_delta_grid_delta_max = 0.0_f64;
+        let mut ql_gamma_grid_delta_max = 0.0_f64;
+        let mut ql_theta_grid_delta_max = 0.0_f64;
+        let mut delta_error_max = std::array::from_fn::<_, 3, _>(|_| (0.0_f64, String::new()));
+        let mut gamma_error_max = std::array::from_fn::<_, 3, _>(|_| (0.0_f64, String::new()));
+        let mut theta_error_max = std::array::from_fn::<_, 3, _>(|_| (0.0_f64, String::new()));
+        let mut delta_relative_error_max =
+            std::array::from_fn::<_, 3, _>(|_| (0.0_f64, String::new()));
+        let mut gamma_relative_error_max =
+            std::array::from_fn::<_, 3, _>(|_| (0.0_f64, String::new()));
+        let mut theta_relative_error_max =
+            std::array::from_fn::<_, 3, _>(|_| (0.0_f64, String::new()));
+        let mut crr_grid_price_error_max = [(0.0_f64, 0_usize); 5];
+        let mut delta_comparisons = [0_usize; 3];
+        let mut gamma_comparisons = [0_usize; 3];
+        let mut theta_comparisons = [0_usize; 3];
+
+        for row in &finest {
+            let previous = fixture
+                .iter()
+                .find(|candidate| {
+                    candidate.id == row.id
+                        && candidate.time_grid == 800
+                        && candidate.space_grid == 1600
+                })
+                .expect("preceding QuantLib grid");
+            ql_price_grid_delta_max =
+                ql_price_grid_delta_max.max((row.price - previous.price).abs());
+            ql_delta_grid_delta_max =
+                ql_delta_grid_delta_max.max((row.delta - previous.delta).abs());
+            ql_gamma_grid_delta_max =
+                ql_gamma_grid_delta_max.max((row.gamma - previous.gamma).abs());
+            ql_theta_grid_delta_max =
+                ql_theta_grid_delta_max.max((row.theta - previous.theta).abs());
+
+            if row.cash_dividend > 0.0 {
+                continue;
+            }
+            let input = row.candidate_inputs();
+            for (index, steps) in [64, 128, 256, 512, 1024].into_iter().enumerate() {
+                if let Some(price) = paired_price_without_parity_gate(input, steps) {
+                    let error = (price - row.price).abs();
+                    if error > crr_grid_price_error_max[index].0 {
+                        crr_grid_price_error_max[index] = (error, steps);
+                    }
+                }
+            }
+            let Some(candidate_price) = paired_candidate_price(input) else {
+                candidate_rejected += 1;
+                candidate_rejected_ids.push(row.id.clone());
+                let even = crr_tree_price(input, TREE_STEPS_EVEN);
+                let odd = crr_tree_price(input, TREE_STEPS_ODD);
+                let reason = match (even, odd) {
+                    (None, _) => "256-step-tree-invalid",
+                    (_, None) => "257-step-tree-invalid",
+                    (Some(even), Some(odd)) => {
+                        if (even - odd).abs() > TREE_PARITY_GAP_MAX {
+                            "parity-gap-over-0.05"
+                        } else {
+                            "paired-candidate-unavailable"
+                        }
+                    }
+                };
+                let gap = match (even, odd) {
+                    (Some(even), Some(odd)) => (even - odd).abs(),
+                    _ => f64::NAN,
+                };
+                println!(
+                    "CRR_REJECTED id={} reason={reason} pair_gap={gap:.12}",
+                    row.id
+                );
+                continue;
+            };
+            priced += 1;
+            let error = (candidate_price - row.price).abs();
+            if error > price_error_max {
+                price_error_max = error;
+                price_error_max_id.clone_from(&row.id);
+            }
+            let relative_error = error / row.price.abs().max(1.0e-12);
+            if relative_error > price_relative_error_max {
+                price_relative_error_max = relative_error;
+                price_relative_error_max_id.clone_from(&row.id);
+            }
+            let even = crr_tree_price(input, TREE_STEPS_EVEN).expect("even CRR value");
+            let odd = crr_tree_price(input, TREE_STEPS_ODD).expect("odd CRR value");
+            parity_gap_max = parity_gap_max.max((even - odd).abs());
+
+            for (index, spot_fraction) in [0.0001, 0.001, 0.01].into_iter().enumerate() {
+                let spot_bump = input.spot * spot_fraction;
+                let h_up = paired_candidate_price(CandidateInputs {
+                    spot: input.spot + spot_bump,
+                    ..input
+                });
+                let h_down = paired_candidate_price(CandidateInputs {
+                    spot: input.spot - spot_bump,
+                    ..input
+                });
+                if let (Some(up), Some(down)) = (h_up, h_down) {
+                    let delta_error = ((up - down) / (2.0 * spot_bump) - row.delta).abs();
+                    if delta_error > delta_error_max[index].0 {
+                        delta_error_max[index] = (delta_error, row.id.clone());
+                    }
+                    let delta_relative_error = delta_error / row.delta.abs().max(1.0e-8);
+                    if delta_relative_error > delta_relative_error_max[index].0 {
+                        delta_relative_error_max[index] = (delta_relative_error, row.id.clone());
+                    }
+                    delta_comparisons[index] += 1;
+                    let gamma_error =
+                        ((up - 2.0 * candidate_price + down) / spot_bump.powi(2) - row.gamma).abs();
+                    if gamma_error > gamma_error_max[index].0 {
+                        gamma_error_max[index] = (gamma_error, row.id.clone());
+                    }
+                    let gamma_relative_error = gamma_error / row.gamma.abs().max(1.0e-8);
+                    if gamma_relative_error > gamma_relative_error_max[index].0 {
+                        gamma_relative_error_max[index] = (gamma_relative_error, row.id.clone());
+                    }
+                    gamma_comparisons[index] += 1;
+                }
+            }
+
+            for (index, time_fraction) in [0.001, 0.01, 0.05].into_iter().enumerate() {
+                let time_bump = input.years * time_fraction;
+                if let Some((_, _, theta)) =
+                    finite_difference_greeks(input, input.spot * 0.001, time_bump)
+                {
+                    let error = (theta - row.theta).abs();
+                    if error > theta_error_max[index].0 {
+                        theta_error_max[index] = (error, row.id.clone());
+                    }
+                    let relative_error = error / row.theta.abs().max(1.0e-8);
+                    if relative_error > theta_relative_error_max[index].0 {
+                        theta_relative_error_max[index] = (relative_error, row.id.clone());
+                    }
+                    theta_comparisons[index] += 1;
+                }
+            }
+        }
+
+        println!(
+            "CRR_ORACLE_MATRIX cases={} price_supported={} candidate_rejected={} max_price_abs_error={:.12} max_abs_case={} max_price_relative_error={:.8}% max_rel_case={} max_256_257_gap={:.12}",
+            finest.len() - 2,
+            priced,
+            candidate_rejected,
+            price_error_max,
+            price_error_max_id,
+            price_relative_error_max * 100.0,
+            price_relative_error_max_id,
+            parity_gap_max
+        );
+        println!(
+            "QL_GRID_800_1600_TO_1600_3200 max_price_delta={:.12} max_delta_delta={:.12} max_gamma_delta={:.12} max_theta_delta={:.12}",
+            ql_price_grid_delta_max,
+            ql_delta_grid_delta_max,
+            ql_gamma_grid_delta_max,
+            ql_theta_grid_delta_max
+        );
+        println!(
+            "CRR_PRICE_MAX_ABS_ERROR_BY_STEP_PAIR_64_128_256_512_1024={crr_grid_price_error_max:?}"
+        );
+        println!("CRR_GREEK_MAX_ABS_DELTA_ERROR_BY_SPOT_BUMP_0.01_0.1_1={delta_error_max:?}");
+        println!("CRR_GREEK_MAX_ABS_GAMMA_ERROR_BY_SPOT_BUMP_0.01_0.1_1={gamma_error_max:?}");
+        println!("CRR_GREEK_MAX_ABS_THETA_ERROR_BY_TIME_BUMP_0.1_1_5_PERCENT={theta_error_max:?}");
+        println!(
+            "CRR_GREEK_MAX_REL_DELTA_ERROR_BY_SPOT_BUMP_0.01_0.1_1={delta_relative_error_max:?}"
+        );
+        println!(
+            "CRR_GREEK_MAX_REL_GAMMA_ERROR_BY_SPOT_BUMP_0.01_0.1_1={gamma_relative_error_max:?}"
+        );
+        println!(
+            "CRR_GREEK_MAX_REL_THETA_ERROR_BY_TIME_BUMP_0.1_1_5_PERCENT={theta_relative_error_max:?}"
+        );
+        println!(
+            "CRR_GREEK_COMPARISONS delta={delta_comparisons:?} gamma={gamma_comparisons:?} theta={theta_comparisons:?}"
+        );
+
+        let iv_ids = [
+            "american_call_90d_atm_no_div",
+            "american_put_180d_itm_no_div",
+            "american_call_180d_itm_q04",
+            "american_put_90d_otm_q02",
+            "american_put_30d_negative_r",
+            "american_call_30d_no_div_baseline",
+            "american_put_30d_no_div_baseline",
+            "0dte_atm_call_1h_no_div",
+            "0dte_atm_put_60s_no_div",
+            "matrix_call_105_30d",
+        ];
+        let mut iv_error_max = std::array::from_fn::<_, 4, _>(|_| (0.0_f64, String::new()));
+        let mut iv_relative_error_max =
+            std::array::from_fn::<_, 4, _>(|_| (0.0_f64, String::new()));
+        let mut iv_comparisons = [0_usize; 4];
+        let mut iv_failures = [0_usize; 4];
+        for id in iv_ids {
+            let row = finest.iter().find(|row| row.id == id).expect("IV case");
+            let input = row.candidate_inputs();
+            let mut values = Vec::new();
+            for steps in [64, 128, 256, 512] {
+                let volatility = implied_volatility_from_crr_price(input, row.price, steps);
+                let error = volatility.map(|value| (value - row.volatility).abs());
+                let index = values.len();
+                if let Some(error) = error {
+                    iv_comparisons[index] += 1;
+                    if error > iv_error_max[index].0 {
+                        iv_error_max[index] = (error, row.id.clone());
+                    }
+                    let relative_error = error / row.volatility;
+                    if relative_error > iv_relative_error_max[index].0 {
+                        iv_relative_error_max[index] = (relative_error, row.id.clone());
+                    }
+                } else {
+                    iv_failures[index] += 1;
+                }
+                values.push(error);
+            }
+            println!(
+                "CRR_IV_ERROR id={} sigma={:.8} abs_error_by_steps_64_128_256_512={values:?}",
+                row.id, row.volatility
+            );
+        }
+        println!("CRR_IV_MAX_ABS_ERROR_BY_STEP_PAIR_64_128_256_512={iv_error_max:?}");
+        println!("CRR_IV_MAX_REL_ERROR_BY_STEP_PAIR_64_128_256_512={iv_relative_error_max:?}");
+        println!("CRR_IV_COMPARISONS_BY_STEP_PAIR_64_128_256_512={iv_comparisons:?}");
+        println!("CRR_IV_FAILURES_BY_STEP_PAIR_64_128_256_512={iv_failures:?}");
+
+        // These bounds preserve this recorded synthetic sample; they are not production accuracy gates.
+        // 这些上限用于固定当前合成样本，不是生产精度门槛。
+        assert_eq!(priced + candidate_rejected, finest.len() - 2);
+        assert_eq!(priced, 31);
+        assert_eq!(candidate_rejected, 3);
+        candidate_rejected_ids.sort();
+        assert_eq!(
+            candidate_rejected_ids,
+            [
+                "matrix_call_120_90d",
+                "matrix_put_100_365d",
+                "matrix_put_120_180d"
+            ]
+        );
+        assert!(price_error_max < 0.012, "sample regression envelope only");
+        assert!(
+            price_relative_error_max < 0.20,
+            "sample regression envelope only"
+        );
+        assert!(crr_grid_price_error_max[4].0 < crr_grid_price_error_max[2].0);
+        assert!(crr_grid_price_error_max[4].0 < 0.005);
+        assert!(ql_price_grid_delta_max < 0.002);
+        assert!(ql_delta_grid_delta_max < 1.0e-5);
+        assert!(ql_gamma_grid_delta_max < 3.0e-5);
+        assert!(ql_theta_grid_delta_max < 2.0);
+        assert_eq!(delta_comparisons, [31; 3]);
+        assert_eq!(gamma_comparisons, [31; 3]);
+        assert_eq!(theta_comparisons, [31; 3]);
+        assert_eq!(iv_comparisons, [10; 4]);
+        assert_eq!(iv_failures, [0; 4]);
+        assert!(
+            iv_error_max[2].0 < 0.0011,
+            "sample IV regression envelope only"
+        );
+
+        let price_for = |id: &str| {
+            finest
+                .iter()
+                .find(|row| row.id == id)
+                .expect("dividend sensitivity fixture")
+                .price
+        };
+        let call_cash_dividend_diff = price_for("american_call_30d_cash_div_1")
+            - price_for("american_call_30d_no_div_baseline");
+        let put_cash_dividend_diff = price_for("american_put_30d_cash_div_1")
+            - price_for("american_put_30d_no_div_baseline");
+        assert!((-0.52..-0.50).contains(&call_cash_dividend_diff));
+        assert!((0.61..0.64).contains(&put_cash_dividend_diff));
+        assert_eq!(
+            finest
+                .iter()
+                .find(|row| row.id == "american_call_30d_cash_div_1")
+                .expect("cash dividend timing fixture")
+                .cash_dividend_offset_millis,
+            10 * 86_400_000
+        );
+        for boundary_millis in [59_999, 60_000, 60_001] {
+            assert!(
+                finest
+                    .iter()
+                    .any(|row| row.maturity_millis == boundary_millis)
+            );
+        }
     }
 }
