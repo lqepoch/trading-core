@@ -22,6 +22,7 @@ from .identities import valid_dataset_id, valid_market_symbol, valid_object_id, 
 from .uint64_json import validate_uint64_json_paths
 
 MAX_DATASET_MANIFEST_V2_JSON_BYTES = 2 * 1024 * 1024
+MAX_PREDICTION_ENVELOPE_V1_JSON_BYTES = 2 * 1024 * 1024
 MAX_DATASET_MANIFEST_V2_SYMBOLS = 4096
 MAX_PROVIDER_WATERMARK_ALLOWED_LATENESS_NS = 60_000_000_000
 MAX_FINITE_BATCH_SEAL_RECEIPT_V2_JSON_BYTES = 16 * 1024
@@ -70,6 +71,22 @@ _PROTO_TIMESTAMP_V2_FIELDS = frozenset(
         "source_start_utc",
         "sourceEndExclusiveUtc",
         "source_end_exclusive_utc",
+        "createdAt",
+        "created_at",
+        "dataCutoff",
+        "data_cutoff",
+        "eventTime",
+        "event_time",
+        "knowledgeAt",
+        "knowledge_at",
+        "availableAt",
+        "available_at",
+        "decisionAt",
+        "decision_at",
+        "validFrom",
+        "valid_from",
+        "validUntil",
+        "valid_until",
     }
 )
 _NUMERIC_ENCODING_V2_NAMES = frozenset(
@@ -984,12 +1001,96 @@ def _unique_object_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
 def parse_prediction_envelope_protojson(
     document: Mapping[str, object],
 ) -> prediction_pb2.PredictionEnvelopeV1:
+    if not isinstance(document, Mapping):
+        raise ValueError("prediction ProtoJSON must be an object")
+    try:
+        encoded_size = len(
+            json.dumps(document, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
+        )
+    except (TypeError, ValueError, UnicodeEncodeError) as error:
+        raise ValueError("prediction ProtoJSON must contain only valid JSON values") from error
+    if encoded_size > MAX_PREDICTION_ENVELOPE_V1_JSON_BYTES:
+        raise ValueError("prediction ProtoJSON exceeds the configured byte limit")
+
+    _reject_duplicate_proto_field_spellings(document)
+    _validate_proto_timestamp_v2_fields(document)
+    _validate_prediction_enum_names(document)
     validate_uint64_json_paths(document, (("forecast", "sequence"),))
-    _reject_duplicate_numeric_encoding_aliases(document)
     message = json_format.ParseDict(document, prediction_pb2.PredictionEnvelopeV1())
     if _raw_schema_ids_for_value(message.source.numeric_encoding) is not None:
         raise ValueError("raw byte-frame encodings cannot identify a normalized prediction source")
     return message
+
+
+def parse_prediction_envelope_protojson_json(
+    document: bytes | str,
+) -> prediction_pb2.PredictionEnvelopeV1:
+    """Parse raw prediction ProtoJSON while rejecting duplicate keys before decoding."""
+    try:
+        raw = document.encode("utf-8") if isinstance(document, str) else document
+    except UnicodeEncodeError as error:
+        raise ValueError("prediction ProtoJSON must be valid UTF-8") from error
+    if not isinstance(raw, bytes):
+        raise ValueError("prediction ProtoJSON must be bytes or text")
+    if len(raw) > MAX_PREDICTION_ENVELOPE_V1_JSON_BYTES:
+        raise ValueError("prediction ProtoJSON exceeds the configured byte limit")
+    try:
+        value = json.loads(
+            raw,
+            object_pairs_hook=_unique_object_pairs,
+            parse_constant=_reject_json_constant,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError("prediction ProtoJSON is malformed") from error
+    if not isinstance(value, Mapping):
+        raise ValueError("prediction ProtoJSON must be an object")
+    return parse_prediction_envelope_protojson(value)
+
+
+def _validate_prediction_enum_names(document: Mapping[str, object]) -> None:
+    source = _mapping_field(document, "source", "source")
+    quality = _mapping_field(document, "quality", "quality")
+    horizon = _mapping_field(document, "horizon", "horizon")
+    forecast = _mapping_field(document, "forecast", "forecast")
+    forecast_horizon = (
+        _mapping_field(forecast, "forecastHorizon", "forecast_horizon")
+        if forecast is not None
+        else None
+    )
+    if any(value is None for value in (source, quality, horizon, forecast_horizon)):
+        raise ValueError("prediction source, quality, and horizon messages are required")
+
+    _require_named_enum(
+        source,
+        "numericEncoding",
+        "numeric_encoding",
+        {
+            "NUMERIC_ENCODING_DECIMAL_TOKEN",
+            "NUMERIC_ENCODING_INTEGER_TOKEN",
+            "NUMERIC_ENCODING_BINARY_FLOAT64_SHORTEST_DECIMAL",
+            "NUMERIC_ENCODING_BINARY_FLOAT32_SHORTEST_DECIMAL",
+        },
+    )
+    _require_named_enum(quality, "status", "status", {"PASS", "UNVERIFIED", "BLOCKED_DATA", "FAILED"})
+    for item in (horizon, forecast_horizon):
+        _require_named_enum(item, "unit", "unit", {"ELAPSED_MINUTES", "SESSION_CLOSE", "TRADING_DAYS"})
+
+
+def _require_named_enum(
+    document: Mapping[str, object],
+    camel: str,
+    snake: str,
+    allowed: set[str],
+) -> None:
+    if camel not in document and snake not in document:
+        raise ValueError("prediction enum fields must be present")
+    value = document.get(camel, document.get(snake))
+    if not isinstance(value, str) or value not in allowed:
+        raise ValueError("prediction enum fields require supported named ProtoJSON values")
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"invalid JSON numeric constant: {value}")
 
 
 def _reject_duplicate_numeric_encoding_aliases(document: Mapping[str, object]) -> None:

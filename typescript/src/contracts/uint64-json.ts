@@ -50,6 +50,9 @@ const PROTO_TIMESTAMP_V2_FIELDS = new Set([
   "sessionEndExclusiveUtc", "session_end_exclusive_utc", "windowStartUtc", "window_start_utc",
   "windowEndExclusiveUtc", "window_end_exclusive_utc", "sourceStartUtc", "source_start_utc",
   "sourceEndExclusiveUtc", "source_end_exclusive_utc",
+  "createdAt", "created_at", "dataCutoff", "data_cutoff", "eventTime", "event_time",
+  "knowledgeAt", "knowledge_at", "availableAt", "available_at", "decisionAt", "decision_at",
+  "validFrom", "valid_from", "validUntil", "valid_until",
 ]);
 const NUMERIC_ENCODING_V2_NAMES = new Set([
   "NUMERIC_ENCODING_DECIMAL_TOKEN",
@@ -1042,6 +1045,12 @@ function assertBoundedProtoJsonText(text: string): void {
 }
 
 export function parsePredictionEnvelopeProtoJson(value: unknown): PredictionEnvelopeV1 {
+  if (encodedJsonSize(value) > MAX_PROTOJSON_TEXT_BYTES) {
+    throw new RangeError("prediction ProtoJSON exceeds the configured byte limit");
+  }
+  rejectDuplicateProtoFieldSpellings(value);
+  validateProtoTimestampV2Fields(value);
+  validatePredictionEnumNames(value);
   validateUint64JsonPaths(value, [["forecast", "sequence"]]);
   rejectDuplicateNumericEncodingAliases(value);
   const message = fromJson(PredictionEnvelopeV1Schema, value as JsonValue);
@@ -1049,6 +1058,41 @@ export function parsePredictionEnvelopeProtoJson(value: unknown): PredictionEnve
     throw new TypeError("raw byte-frame encodings cannot identify a normalized prediction source");
   }
   return message;
+}
+
+function validatePredictionEnumNames(value: unknown): void {
+  const source = getRecordField(value, "source");
+  const quality = getRecordField(value, "quality");
+  const horizon = getRecordField(value, "horizon");
+  const forecast = getRecordField(value, "forecast");
+  const forecastHorizon = forecast === undefined ? undefined : getAliasedRecord(forecast, "forecastHorizon", "forecast_horizon");
+  if (source === undefined || quality === undefined || horizon === undefined || forecastHorizon === undefined) {
+    throw new TypeError("prediction source, quality, and horizon messages are required");
+  }
+  requireNamedEnum(source, "numericEncoding", "numeric_encoding", [
+    "NUMERIC_ENCODING_DECIMAL_TOKEN",
+    "NUMERIC_ENCODING_INTEGER_TOKEN",
+    "NUMERIC_ENCODING_BINARY_FLOAT64_SHORTEST_DECIMAL",
+    "NUMERIC_ENCODING_BINARY_FLOAT32_SHORTEST_DECIMAL",
+  ]);
+  requireNamedEnum(quality, "status", "status", ["PASS", "UNVERIFIED", "BLOCKED_DATA", "FAILED"]);
+  requireNamedEnum(horizon, "unit", "unit", ["ELAPSED_MINUTES", "SESSION_CLOSE", "TRADING_DAYS"]);
+  requireNamedEnum(forecastHorizon, "unit", "unit", ["ELAPSED_MINUTES", "SESSION_CLOSE", "TRADING_DAYS"]);
+}
+
+function requireNamedEnum(
+  value: Record<string, unknown>,
+  camel: string,
+  snake: string,
+  accepted: readonly string[],
+): void {
+  if (!(camel in value) && !(snake in value)) {
+    throw new TypeError("prediction enum fields must be present");
+  }
+  const item = value[camel] ?? value[snake];
+  if (typeof item !== "string" || !accepted.includes(item)) {
+    throw new TypeError("prediction enum fields require supported named ProtoJSON values");
+  }
 }
 
 /**
