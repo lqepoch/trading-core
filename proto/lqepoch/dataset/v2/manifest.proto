@@ -90,7 +90,7 @@ message ProviderWatermarkCompletionV2 {
   uint64 sequence_count = 7;
   string continuity_receipt_sha256 = 8;
   google.protobuf.Timestamp complete_up_to_exclusive = 9;
-  uint64 allowed_lateness_ns = 10;
+  uint64 allowed_lateness_ns = 10; // Zero means no allowed lateness and is emitted in canonical projections.
   string reviewed_policy_sha256 = 11;
   string source_receipt_sha256 = 12;
 }

@@ -262,7 +262,7 @@ export function datasetCompletionEvidenceV2ProtojsonBytes(
   const evidence = manifest.completionEvidence;
   if (evidence === undefined) throw new TypeError("dataset completion evidence is required");
   const bytes = new TextEncoder().encode(
-    toJsonString(DatasetCompletionEvidenceV2Schema, evidence),
+    toJsonString(DatasetCompletionEvidenceV2Schema, evidence, { alwaysEmitImplicit: true }),
   );
   if (bytes.byteLength > 16 * 1024) {
     throw new RangeError("dataset completion evidence exceeds the configured byte limit");
@@ -307,7 +307,6 @@ export function parseUsEquityTradeBarV2ProtoJson(value: unknown): UsEquityTradeB
     row.schemaVersion !== 2 ||
     !SHA256.test(row.completionEvidenceSha256) ||
     !validMarketSymbol(row.symbol) ||
-    !validIsoDate(row.tradeDate) ||
     !["unknown", "authorized", "unauthorized"].includes(row.sourceEntitlement) ||
     ![
       "decimal_token", "integer_token", "binary_float64_shortest_decimal",
@@ -360,7 +359,7 @@ export function validateUsEquityTradeBarV2AgainstManifest(
       expectedMode = "finite_batch";
       expectedEof = true;
       expectedPages = completion.value.sourceKind ===
-        FiniteBatchSourceKindV2.FINITE_BATCH_SOURCE_KIND_HISTORICAL_PAGED;
+        FiniteBatchSourceKindV2.FINITE_BATCH_SOURCE_KIND_HISTORICAL_PAGED ? true : undefined;
       break;
     case "providerWatermark":
       expectedMode = "provider_watermark";
@@ -399,6 +398,7 @@ export function validateUsEquityTradeBarV2AgainstManifest(
 function validateUsEquityTradeBarV2Shape(row: UsEquityTradeBarV2): void {
   if (
     row.schemaVersion !== 2 ||
+    !validIsoDate(row.tradeDate) ||
     !validSourceIdentity(row.sourceProvider) ||
     !validSourceIdentity(row.sourceFeed) ||
     !["unknown", "authorized", "unauthorized"].includes(row.sourceEntitlement) ||

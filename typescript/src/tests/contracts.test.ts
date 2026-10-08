@@ -179,12 +179,20 @@ assert(
 for (const [path, evidenceCase] of [
   ["schemas/fixtures/dataset-manifest-v2-provider-watermark.json", "provider_watermark"],
   ["schemas/fixtures/dataset-manifest-v2-diagnostic-stream.json", "diagnostic_stream"],
+  ["schemas/fixtures/dataset-manifest-v2-provider-watermark-zero-lateness.json", "provider_watermark_zero_lateness"],
 ] as const) {
   const candidate = parseDatasetManifestV2ProtoJson(readFixture<Record<string, unknown>>(path));
+  const payload = datasetCompletionEvidenceV2ProtojsonBytes(candidate);
   assert(
     datasetCompletionEvidenceV2Sha256(candidate) === completionEvidenceHashes[evidenceCase],
     `${evidenceCase} completion evidence hash differs from the shared golden`,
   );
+  if (evidenceCase === "provider_watermark_zero_lateness") {
+    assert(Buffer.from(payload).equals(readFileSync(resolve(
+      process.cwd(), "..", "schemas/fixtures/dataset-completion-evidence-v2-provider-zero-lateness.protojson",
+    ))), "zero allowed lateness ProtoJSON bytes differ from the shared golden");
+    assert(new TextDecoder().decode(payload).includes('"allowedLatenessNs":"0"'), "zero allowed lateness was omitted");
+  }
 }
 const barV2Json = readFixture<Record<string, unknown>>(
   "schemas/fixtures/us-equity-trade-bar-v2.json",
@@ -200,6 +208,9 @@ validateUsEquityTradeBarV2AgainstManifest(barV2Snake, datasetV2Message);
 for (const [caseName, manifestName] of [
   ["provider-watermark", "provider-watermark"],
   ["diagnostic-stream", "diagnostic-stream"],
+  ["historical-non-paged", "historical-non-paged"],
+  ["synthetic-replay", "synthetic-replay"],
+  ["provider-watermark-zero-lateness", "provider-watermark-zero-lateness"],
 ] as const) {
   const caseBar = parseUsEquityTradeBarV2ProtoJson(
     readFixture<Record<string, unknown>>(`schemas/fixtures/us-equity-trade-bar-v2-${caseName}.json`),
@@ -209,6 +220,11 @@ for (const [caseName, manifestName] of [
   );
   validateUsEquityTradeBarV2AgainstManifest(caseBar, caseManifest);
 }
+const invalidDateBar = { ...barV2, tradeDate: "2026-02-30" };
+rejects(
+  () => validateUsEquityTradeBarV2AgainstManifest(invalidDateBar, datasetV2Message),
+  "BarV2 generated-message validator accepted an invalid trade date",
+);
 const badBarEvidence = structuredClone(barV2Json) as Record<string, unknown>;
 badBarEvidence.completionEvidenceSha256 = "e".repeat(64);
 rejects(
@@ -286,6 +302,34 @@ for (const sourceBoundsCase of sourceBoundsFixture.cases) {
     }),
     `BarV2 accepted ${sourceBoundsCase.name}`,
   );
+}
+const pagingCases = readFixture<{
+  datasets: Array<{ name: string; manifest: string; bar: string }>;
+  unexpectedPresenceValues: boolean[];
+}>("schemas/fixtures/us-equity-trade-bar-v2-paging-cases.json");
+for (const pagingCase of pagingCases.datasets) {
+  const pagingManifest = parseDatasetManifestV2ProtoJson(
+    readFixture<Record<string, unknown>>(pagingCase.manifest),
+  );
+  const pagingBarJson = readFixture<Record<string, unknown>>(pagingCase.bar);
+  const pagingBar = parseUsEquityTradeBarV2ProtoJson(pagingBarJson);
+  assert(pagingBar.sourcePagesExhausted === undefined, `${pagingCase.name} must omit page exhaustion`);
+  validateUsEquityTradeBarV2AgainstManifest(pagingBar, pagingManifest);
+  for (const presentValue of pagingCases.unexpectedPresenceValues) {
+    const invalidPagingBarJson = { ...pagingBarJson, sourcePagesExhausted: presentValue };
+    if (!presentValue) {
+      rejects(
+        () => parseUsEquityTradeBarV2ProtoJson(invalidPagingBarJson),
+        `${pagingCase.name} accepted an explicit false page-exhaustion field`,
+      );
+    } else {
+      const invalidPagingBar = parseUsEquityTradeBarV2ProtoJson(invalidPagingBarJson);
+      rejects(
+        () => validateUsEquityTradeBarV2AgainstManifest(invalidPagingBar, pagingManifest),
+        `${pagingCase.name} accepted an unexpected true page-exhaustion field`,
+      );
+    }
+  }
 }
 const nonpagedReceipt = create(FiniteBatchCompletionV2Schema, {
   ...finiteBatchReceipt,

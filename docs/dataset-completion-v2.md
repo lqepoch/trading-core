@@ -13,7 +13,9 @@ The oneof has three cases with intentionally different meanings:
   `seal_receipt_sha256` must equal the SHA-256 of the core-generated
   `FiniteBatchSealReceiptV2` ProtoJSON projection: the finite-batch fields in protobuf field order,
   excluding `seal_receipt_sha256`, encoded as compact UTF-8 JSON with canonical uint64 strings and
-  protobuf timestamps, and no trailing newline. Rust, Python, and TypeScript expose the same
+  protobuf timestamps, and no trailing newline. Across V2 canonical projections, required scalar
+  fields remain present when they hold default values (for example, `allowedLatenessNs: "0"`);
+  absent optional fields remain omitted. Rust, Python, and TypeScript expose the same
   projection helper and use the shared byte/hash golden in
   `schemas/fixtures/finite-batch-seal-receipt-v2.*`. This binds the claim fields to one another only;
   it does not authenticate an issuer or establish provider completeness. Consumers compare receipt

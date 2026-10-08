@@ -115,6 +115,10 @@ class SharedContractFixturesTest(unittest.TestCase):
             ("schemas/fixtures/dataset-manifest-v2.json", "finite_batch"),
             ("schemas/fixtures/dataset-manifest-v2-provider-watermark.json", "provider_watermark"),
             ("schemas/fixtures/dataset-manifest-v2-diagnostic-stream.json", "diagnostic_stream"),
+            (
+                "schemas/fixtures/dataset-manifest-v2-provider-watermark-zero-lateness.json",
+                "provider_watermark_zero_lateness",
+            ),
         )
         for path, evidence_case in cases:
             with self.subTest(evidence_case=evidence_case):
@@ -125,6 +129,12 @@ class SharedContractFixturesTest(unittest.TestCase):
                     dataset_completion_evidence_v2_sha256(manifest),
                     expected_hashes[evidence_case],
                 )
+                if evidence_case == "provider_watermark_zero_lateness":
+                    self.assertIn(b'"allowedLatenessNs":"0"', payload)
+                    self.assertEqual(
+                        payload,
+                        (REPO_ROOT / "schemas/fixtures/dataset-completion-evidence-v2-provider-zero-lateness.protojson").read_bytes(),
+                    )
 
         manifest = parse_dataset_manifest_v2_protojson(
             read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
@@ -140,7 +150,10 @@ class SharedContractFixturesTest(unittest.TestCase):
         self.assertEqual(row, snake_row)
         validate_us_equity_trade_bar_v2_against_manifest(snake_row, manifest)
 
-        for case in ("provider-watermark", "diagnostic-stream"):
+        for case in (
+            "provider-watermark", "diagnostic-stream", "historical-non-paged",
+            "synthetic-replay", "provider-watermark-zero-lateness",
+        ):
             with self.subTest(completion_case=case):
                 case_manifest = parse_dataset_manifest_v2_protojson(
                     read_json_fixture(f"schemas/fixtures/dataset-manifest-v2-{case}.json")
@@ -149,6 +162,11 @@ class SharedContractFixturesTest(unittest.TestCase):
                     read_json_fixture(f"schemas/fixtures/us-equity-trade-bar-v2-{case}.json")
                 )
                 validate_us_equity_trade_bar_v2_against_manifest(case_row, case_manifest)
+        invalid_generated_row = type(row)()
+        invalid_generated_row.CopyFrom(row)
+        invalid_generated_row.trade_date = "2026-02-30"
+        with self.assertRaises(ValueError):
+            validate_us_equity_trade_bar_v2_against_manifest(invalid_generated_row, manifest)
         row.completion_evidence_sha256 = "e" * 64
         with self.assertRaisesRegex(ValueError, "does not match"):
             validate_us_equity_trade_bar_v2_against_manifest(row, manifest)
@@ -225,6 +243,33 @@ class SharedContractFixturesTest(unittest.TestCase):
                 invalid_bar[case["field"]] = case["value"]
                 with self.assertRaisesRegex(ValueError, "timestamps are inconsistent"):
                     parse_us_equity_trade_bar_v2_protojson(invalid_bar)
+
+        paging_cases = read_json_fixture(
+            "schemas/fixtures/us-equity-trade-bar-v2-paging-cases.json"
+        )
+        for paging_case in paging_cases["datasets"]:
+            with self.subTest(paging_case=paging_case["name"]):
+                paging_manifest = parse_dataset_manifest_v2_protojson(
+                    read_json_fixture(paging_case["manifest"])
+                )
+                paging_bar_document = read_json_fixture(paging_case["bar"])
+                paging_bar = parse_us_equity_trade_bar_v2_protojson(paging_bar_document)
+                self.assertFalse(paging_bar.HasField("source_pages_exhausted"))
+                validate_us_equity_trade_bar_v2_against_manifest(paging_bar, paging_manifest)
+                for present_value in paging_cases["unexpectedPresenceValues"]:
+                    invalid_paging_document = copy.deepcopy(paging_bar_document)
+                    invalid_paging_document["sourcePagesExhausted"] = present_value
+                    if present_value is False:
+                        with self.assertRaises(ValueError):
+                            parse_us_equity_trade_bar_v2_protojson(invalid_paging_document)
+                    else:
+                        invalid_paging_bar = parse_us_equity_trade_bar_v2_protojson(
+                            invalid_paging_document
+                        )
+                        with self.assertRaisesRegex(ValueError, "completion fields do not match"):
+                            validate_us_equity_trade_bar_v2_against_manifest(
+                                invalid_paging_bar, paging_manifest
+                            )
 
     def test_dataset_manifest_v2_protojson_is_bounded_and_keeps_completion_evidence_distinct(self) -> None:
         fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")

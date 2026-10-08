@@ -288,8 +288,34 @@ def dataset_completion_evidence_v2_protojson_bytes(
         raise ValueError("completion evidence projection requires DatasetManifestV2")
     _validate_dataset_manifest_v2(value)
     document = json_format.MessageToDict(
-        value.completion_evidence, preserving_proto_field_name=False
+        value.completion_evidence,
+        preserving_proto_field_name=False,
+        always_print_fields_with_no_presence=True,
     )
+    if value.completion_evidence.WhichOneof("evidence") == "provider_watermark":
+        watermark = value.completion_evidence.provider_watermark
+        watermark_document = document.get("providerWatermark")
+        if not isinstance(watermark_document, dict):
+            raise ValueError("provider watermark completion projection is missing")
+        # MessageToDict appends implicit defaults after present fields. Rebuild this submessage
+        # in protobuf field order so allowed_lateness_ns=0 hashes identically in every language.
+        watermark_fields = (
+            ("provider", watermark.provider),
+            ("feed", watermark.feed),
+            ("subscriptionInstanceId", watermark.subscription_instance_id),
+            ("generation", str(watermark.generation)),
+            ("firstSequence", str(watermark.first_sequence)),
+            ("lastSequence", str(watermark.last_sequence)),
+            ("sequenceCount", str(watermark.sequence_count)),
+            ("continuityReceiptSha256", watermark.continuity_receipt_sha256),
+            ("completeUpToExclusive", watermark_document.get("completeUpToExclusive")),
+            ("allowedLatenessNs", str(watermark.allowed_lateness_ns)),
+            ("reviewedPolicySha256", watermark.reviewed_policy_sha256),
+            ("sourceReceiptSha256", watermark.source_receipt_sha256),
+        )
+        if any(field_value is None for _, field_value in watermark_fields):
+            raise ValueError("provider watermark completion projection is incomplete")
+        document["providerWatermark"] = dict(watermark_fields)
     encoded = json.dumps(document, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode(
         "utf-8"
     )
@@ -361,7 +387,6 @@ def parse_us_equity_trade_bar_v2_protojson(
         raise ValueError("BarV2 source numeric encoding must describe normalized values")
     if not valid_market_symbol(message.symbol):
         raise ValueError("BarV2 symbol is invalid")
-    validate_date_iso8601(message.trade_date)
     _validate_us_equity_trade_bar_v2_shape(message)
     return message
 
@@ -409,7 +434,7 @@ def validate_us_equity_trade_bar_v2_against_manifest(
         finite = manifest.completion_evidence.finite_batch
         expected_mode = "finite_batch"
         expected_eof = True
-        expected_pages = finite.source_kind == 2
+        expected_pages = True if finite.source_kind == 2 else None
     elif evidence_case == "provider_watermark":
         expected_mode = "provider_watermark"
         expected_eof = False
@@ -442,6 +467,7 @@ def validate_us_equity_trade_bar_v2_against_manifest(
 
 
 def _validate_us_equity_trade_bar_v2_shape(row: trade_bar_pb2.UsEquityTradeBarV2) -> None:
+    validate_date_iso8601(row.trade_date)
     timestamp_fields = (
         "bar_start_utc", "bar_end_exclusive_utc", "available_at_utc",
         "session_start_utc", "session_end_exclusive_utc", "window_start_utc",

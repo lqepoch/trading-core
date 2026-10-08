@@ -354,6 +354,17 @@ mod tests {
     }
 
     #[test]
+    fn generated_row_validation_rejects_an_invalid_trade_date() {
+        let manifest = parse_dataset_manifest_v2_json(manifest_bytes()).unwrap();
+        let mut row = TradeMinuteBarV2::parse_json(bar_bytes()).unwrap();
+        row.trade_date = "2026-02-30".to_owned();
+        assert!(matches!(
+            row.validate_against_manifest(&manifest),
+            Err(TradeMinuteBarV2Error::InvalidRow)
+        ));
+    }
+
+    #[test]
     fn v2_bar_accepts_snake_case_and_rejects_duplicate_aliases() {
         let camel = TradeMinuteBarV2::parse_json(bar_bytes()).unwrap();
         let snake = TradeMinuteBarV2::parse_json(include_bytes!(
@@ -370,6 +381,36 @@ mod tests {
     #[test]
     fn v2_bar_projection_matches_each_manifest_completion_case() {
         for (row_bytes, manifest_bytes) in [
+            (
+                include_bytes!(
+                    "../../../schemas/fixtures/us-equity-trade-bar-v2-historical-non-paged.json"
+                )
+                .as_slice(),
+                include_bytes!(
+                    "../../../schemas/fixtures/dataset-manifest-v2-historical-non-paged.json"
+                )
+                .as_slice(),
+            ),
+            (
+                include_bytes!(
+                    "../../../schemas/fixtures/us-equity-trade-bar-v2-synthetic-replay.json"
+                )
+                .as_slice(),
+                include_bytes!(
+                    "../../../schemas/fixtures/dataset-manifest-v2-synthetic-replay.json"
+                )
+                .as_slice(),
+            ),
+            (
+                include_bytes!(
+                    "../../../schemas/fixtures/us-equity-trade-bar-v2-provider-watermark-zero-lateness.json"
+                )
+                .as_slice(),
+                include_bytes!(
+                    "../../../schemas/fixtures/dataset-manifest-v2-provider-watermark-zero-lateness.json"
+                )
+                .as_slice(),
+            ),
             (
                 include_bytes!(
                     "../../../schemas/fixtures/us-equity-trade-bar-v2-provider-watermark.json"
@@ -394,6 +435,43 @@ mod tests {
             let row = TradeMinuteBarV2::parse_json(row_bytes).unwrap();
             let manifest = parse_dataset_manifest_v2_json(manifest_bytes).unwrap();
             row.validate_against_manifest(&manifest).unwrap();
+        }
+    }
+
+    #[test]
+    fn finite_bar_page_presence_is_absent_for_nonpaged_and_synthetic_inputs() {
+        for (row_bytes, manifest_bytes) in [
+            (
+                include_bytes!(
+                    "../../../schemas/fixtures/us-equity-trade-bar-v2-historical-non-paged.json"
+                )
+                .as_slice(),
+                include_bytes!(
+                    "../../../schemas/fixtures/dataset-manifest-v2-historical-non-paged.json"
+                )
+                .as_slice(),
+            ),
+            (
+                include_bytes!(
+                    "../../../schemas/fixtures/us-equity-trade-bar-v2-synthetic-replay.json"
+                )
+                .as_slice(),
+                include_bytes!(
+                    "../../../schemas/fixtures/dataset-manifest-v2-synthetic-replay.json"
+                )
+                .as_slice(),
+            ),
+        ] {
+            let manifest = crate::parse_dataset_manifest_v2_json(manifest_bytes).unwrap();
+            let row = TradeMinuteBarV2::parse_json(row_bytes).unwrap();
+            assert_eq!(row.source_pages_exhausted, None);
+            row.validate_against_manifest(&manifest).unwrap();
+
+            for page_value in [true, false] {
+                let mut changed = row.clone();
+                changed.source_pages_exhausted = Some(page_value);
+                assert!(changed.validate_against_manifest(&manifest).is_err());
+            }
         }
     }
 

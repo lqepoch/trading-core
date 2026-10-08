@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 2,
+  "datasetId": "synthetic-qqq-bars-2026-10-08-v2",
+  "source": {
+    "provider": "synthetic",
+    "feed": "synthetic",
+    "entitlement": "unknown",
+    "numericEncoding": "NUMERIC_ENCODING_DECIMAL_TOKEN"
+  },
+  "symbols": [
+    "QQQ"
+  ],
+  "timeRange": {
+    "startInclusive": "2026-10-08T14:30:00.100Z",
+    "endExclusive": "2026-10-08T14:31:00Z"
+  },
+  "sourceTimestampMissingRows": "0",
+  "rowCount": "1",
+  "object": {
+    "objectName": "synthetic-qqq-bars-2026-10-08.parquet",
+    "objectId": "local-test:synthetic-qqq-bars-2026-10-08",
+    "sizeBytes": "4096",
+    "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "parquetSchemaSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "parquetFooterRows": "1",
+    "transport": "local_test"
+  },
+  "storageVerification": {
+    "readbackSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "verifiedBeforePublish": true
+  },
+  "completionEvidence": {
+    "finiteBatch": {
+      "sourceKind": "FINITE_BATCH_SOURCE_KIND_SYNTHETIC_REPLAY",
+      "inputIdentity": "synthetic-replay-qqq-bars-2026-10-08-v1",
+      "inputSha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "inputSizeBytes": "8192",
+      "inputRecordCount": "1",
+      "consumedRecordCount": "1",
+      "reviewedPolicySha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "sealReceiptSha256": "701d91f7c8a84ec54516913cc4b52c3c5653a1fa7b162de4f6c9fea2ecab63fd",
+      "dataCutoffExclusive": "2026-10-08T14:31:00Z",
+      "sealedAt": "2026-10-08T14:31:01.123456789Z",
+      "completedAt": "2026-10-08T14:31:02.123456789Z"
+    }
+  }
+}

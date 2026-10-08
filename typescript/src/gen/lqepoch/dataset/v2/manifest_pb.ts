@@ -331,6 +331,8 @@ export type ProviderWatermarkCompletionV2 = Message<"lqepoch.dataset.v2.Provider
   completeUpToExclusive?: Timestamp | undefined;
 
   /**
+   * Zero means no allowed lateness and is emitted in canonical projections.
+   *
    * @generated from field: uint64 allowed_lateness_ns = 10;
    */
   allowedLatenessNs: bigint;

@@ -1060,10 +1060,29 @@ mod tests {
                 .as_slice(),
                 "diagnostic_stream",
             ),
+            (
+                include_bytes!(
+                    "../../../schemas/fixtures/dataset-manifest-v2-provider-watermark-zero-lateness.json"
+                )
+                .as_slice(),
+                "provider_watermark_zero_lateness",
+            ),
         ] {
             let manifest = parse_dataset_manifest_v2_json(fixture_bytes).unwrap();
             let payload = dataset_completion_evidence_v2_protojson_bytes(&manifest).unwrap();
             assert!(!payload.ends_with(b"\n"));
+            if evidence_name == "provider_watermark_zero_lateness" {
+                assert_eq!(
+                    payload.as_slice(),
+                    include_bytes!(
+                        "../../../schemas/fixtures/dataset-completion-evidence-v2-provider-zero-lateness.protojson"
+                    )
+                    .as_slice()
+                );
+                assert!(payload
+                    .windows(b"\"allowedLatenessNs\":\"0\"".len())
+                    .any(|window| window == b"\"allowedLatenessNs\":\"0\""));
+            }
             assert_eq!(
                 dataset_completion_evidence_v2_sha256(&manifest).unwrap(),
                 hashes[evidence_name].as_str().unwrap(),

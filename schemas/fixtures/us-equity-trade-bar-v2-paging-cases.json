@@ -1,0 +1,18 @@
+{
+  "datasets": [
+    {
+      "name": "historical_non_paged",
+      "manifest": "schemas/fixtures/dataset-manifest-v2-historical-non-paged.json",
+      "bar": "schemas/fixtures/us-equity-trade-bar-v2-historical-non-paged.json"
+    },
+    {
+      "name": "synthetic_replay",
+      "manifest": "schemas/fixtures/dataset-manifest-v2-synthetic-replay.json",
+      "bar": "schemas/fixtures/us-equity-trade-bar-v2-synthetic-replay.json"
+    }
+  ],
+  "unexpectedPresenceValues": [
+    true,
+    false
+  ]
+}

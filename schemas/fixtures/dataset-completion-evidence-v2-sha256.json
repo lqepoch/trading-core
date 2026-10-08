@@ -1,5 +1,6 @@
 {
   "finite_batch": "133c755f196c3056ce6d8d24fcc4dc3bb0fca03bca0129b11bef3d77b2d4f393",
   "provider_watermark": "b1603eba3b86ae4f7a0f4e01700f50863128d0548208c3e3eda71d01cbdf27d1",
-  "diagnostic_stream": "b8cb3f47ff94c3d0b69f790b39fcda13e85f4bfd67d91af3724a8cd26bbd639a"
+  "diagnostic_stream": "b8cb3f47ff94c3d0b69f790b39fcda13e85f4bfd67d91af3724a8cd26bbd639a",
+  "provider_watermark_zero_lateness": "63aa9c6428107ace057a9e62c6adf42fb204bd2ba069592b81e815c46cfd055c"
 }
