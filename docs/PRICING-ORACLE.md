@@ -73,7 +73,7 @@ The raw CRR `N/(N+1)` price-pair maximum absolute errors across the 34 eligible 
 | 512 / 513 | `$0.007853` |
 | 1024 / 1025 | `$0.004356` |
 
-This sequence is a finite-sample convergence observation. It does not qualify a production step count or tolerance. The current public solver does not publish any of these candidate values.
+This sequence is a finite-sample convergence observation. It does not qualify a production step count or tolerance. The production `solve_american_crr` entrypoint does not publish any of these candidate values; the separate public offline diagnostic API is explicitly unverified and non-tradable.
 
 The fixed `$0.05` adjacent-step parity screen admitted more cases as the test-only pair increased, but its finite sample still has material low-premium relative error:
 
