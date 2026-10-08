@@ -317,7 +317,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "667b14b7948a498ba54ad5a1169a71e44ecd71c531e1e07d85c4842ed4a82c9c",
+      "sha256": "7b7d9cdf42d9cf9c8d5669f5637e8874675ab4a3d3fc9a0a4bc2741393e2fc0e",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -332,12 +332,17 @@
     },
     {
       "path": "crates/market-contracts/src/dataset.rs",
-      "sha256": "8cec51c29320fa15c93021292cfb3e3f3cc45970b1b6d98abb81204618888220",
+      "sha256": "6893d14efeb274d324555379f40834c9d4d4a2eeb4960601ff78a410bc7293d5",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
+      "path": "crates/market-contracts/src/dataset_v2.rs",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "5fca3468edcb1a1cf77fe0d9da901b9dd9799eef59afe30d1a6d28a9b45df742"
+    },
+    {
       "path": "crates/market-contracts/src/lib.rs",
-      "sha256": "c6afdc3b6990da7f38e64c8201ad7de4f265408a40cf0c1b9d0367d538fc0ce4",
+      "sha256": "05397d8e0dae626782814f143428ad91606d8d3751951ac413e72c9dc2e3e9aa",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -366,8 +371,13 @@
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
+      "path": "docs/dataset-completion-v2.md",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "0788a7b0c30cefdb2c3a89c8c1e252bb272f005deeda4faa9af031356cd001ce"
+    },
+    {
       "path": "docs/development.md",
-      "sha256": "2807d4af34678ebabb11214b3acfa9ec1134b85f9004f7f7da1d8c911dc9d0fc",
+      "sha256": "56ac6e7f71eb2589225bc3bc41a13967f11ae2a65758c796346b52389a9aca8d",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -376,14 +386,34 @@
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
+      "path": "proto/fixtures/dataset-manifest-v2.textproto",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "3281c50ba4b27c11ba1f0617ed97aa36ad004e9901dc84fc44f1f36caabeb5d2"
+    },
+    {
+      "path": "proto/lqepoch/dataset/v2/manifest.proto",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "be5fbdd96258c0ef0e694d862337a31fc28e981687af6a313a395b7da171a73f"
+    },
+    {
       "path": "proto/lqepoch/market/v1/market.proto",
       "sha256": "a2c2e2920509ad289a973cb7c41b6b80fb2e1b5ee926a035af21b358179ee117",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
       "path": "python/README.md",
-      "sha256": "745ed8d4b05b4ee5fd370a0e077ffb0b3a0603f46c16b5b38af1b89b79db8764",
+      "sha256": "f69d5202489d4ca2573f1be272cda563025f5dfe44b36c09fbe17273f78a6794",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "python/lqepoch/dataset/v2/__init__.py",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "python/lqepoch/dataset/v2/manifest_pb2.py",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "ee90b3349a8992e65b435767a06b8bf49510497b7f2f163f6e0e6832ced0057c"
     },
     {
       "path": "python/lqepoch/market/v1/market_pb2.py",
@@ -392,7 +422,7 @@
     },
     {
       "path": "python/lqepoch_contracts/__init__.py",
-      "sha256": "8ecdaa0454c23fe7084cf352c1e8999c30e0ed19c7b8210f4fd4871b59912566",
+      "sha256": "ef6d522991f2c3941ca7f5d5fb032f1c0302f90e24bdc1b47ab5edfaf459a6f5",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -402,7 +432,7 @@
     },
     {
       "path": "python/lqepoch_contracts/protojson.py",
-      "sha256": "1cca0a26f3c28e98edbbae6158e2da5809f6588d8c4c7a19b051de4dd96b1f7f",
+      "sha256": "ac6356897d22a1288a828141036e425a2507321cc299fb5a9a1878dfec141add",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -427,7 +457,7 @@
     },
     {
       "path": "python/tests/test_shared_contract_fixtures.py",
-      "sha256": "4f43e84fcd54a85a441e3669f05fda2984eaab9a7dfe4ee6fdf5b2c44483fbb1",
+      "sha256": "388bedcec99a9d7ff8818702f43272dc3f14a3d6daf3e51613420ea628259137",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -441,19 +471,69 @@
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
+      "path": "schemas/fixtures/dataset-manifest-v2-diagnostic-stream.json",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "4bf6e8195c69d9acc9e3cc2ee7cd75575b5313b64f3752e0def3e023d60e442c"
+    },
+    {
+      "path": "schemas/fixtures/dataset-manifest-v2-enum-invalid.json",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "c4ec6c38be14b86aeae6d49e7ecdea9be9835e097b6f42e09811d3e89ff582d2"
+    },
+    {
+      "path": "schemas/fixtures/dataset-manifest-v2-provider-watermark-snake.json",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "fb80879097da6e1fa8e1f7a88bb8c860b0cd0d7f93c23bc7a8ff44ec83a3e226"
+    },
+    {
+      "path": "schemas/fixtures/dataset-manifest-v2-provider-watermark-u64-boundary.json",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "dcd601fb5d00ac9e8b3e54a481dfeea9356b53657db1be6d86542298c92b1840"
+    },
+    {
+      "path": "schemas/fixtures/dataset-manifest-v2-provider-watermark.json",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "68c36b43b8916898a100ca17579e68095f9aa1f5d72cb1b106df9e8b87352890"
+    },
+    {
+      "path": "schemas/fixtures/dataset-manifest-v2-snake.json",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "bfccdc83a748ff18bc0d28c69d2fe709bbc5133ecd5cb8087989377781771614"
+    },
+    {
+      "path": "schemas/fixtures/dataset-manifest-v2.json",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "be91e4927a0b777a79ac290f8ca6e85933f0e24f60a0793fcffd7bc03dcd8c98"
+    },
+    {
       "path": "schemas/fixtures/parquet-schema-registry.json",
       "sha256": "13a92277dc33249c4967ea3365c28a4f860b693daa2fdcbc24a04bb3779b815c",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
+      "path": "schemas/fixtures/proto-timestamp-v2.json",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "65cf0ce2d751993160346e20c7837bd9467c55e24248f68c994fd975bd380c7a"
+    },
+    {
       "path": "schemas/openapi.json",
-      "sha256": "9003ec894c99844949df59b1a3e71e45a53ee9e2b2c3b83d3a1eab23adb3b199",
+      "sha256": "dc258dde6e1e5202c4c60bc6695c5069bd09dc71d67d6f0f1272aa4ef416089e",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "scripts/generate-python-proto.sh",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "7838c6b7f89f0e804225bb02c548df0043c9ffd3c445b8bb0c8c5c91701c685c"
     },
     {
       "path": "scripts/generate-sbom.py",
       "sha256": "207077c7b80580692937781b553fdd31320bc0ab279a2f55531afcfd7a49e4f5",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "scripts/generate-typescript-proto.sh",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "e79d9204c4e9a9814efccf955c9f02a543d2070d583f0d64b6eb22f58f0fa215"
     },
     {
       "path": "scripts/sync-parquet-schema-registry.py",
@@ -477,7 +557,7 @@
     },
     {
       "path": "scripts/validate-schemas.sh",
-      "sha256": "6322271a393e0533a0552dc7a7f1881b12e5a8d6db30dff4ecc67ae5a9feeec0",
+      "sha256": "4aa3a2a064a80e70fc7b350fd281108470d931010d7446b617ac3d8150465cc1",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -492,8 +572,13 @@
     },
     {
       "path": "typescript/src/contracts/uint64-json.ts",
-      "sha256": "1dfe65d6510799ce0b73ab9e671be4126f322daeb76dd48b9d93ee5b626b14e8",
+      "sha256": "97dd904d2a1711b431a7f2d4fb513d5120acd3c107cf46362f7ba5c60c72a032",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
+    },
+    {
+      "path": "typescript/src/gen/lqepoch/dataset/v2/manifest_pb.ts",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "4097adc4206d2acce178ecebd0858012a8fae154a21c8d3ff5b90307d26be520"
     },
     {
       "path": "typescript/src/gen/lqepoch/market/v1/market_pb.ts",
@@ -502,7 +587,7 @@
     },
     {
       "path": "typescript/src/tests/contracts.test.ts",
-      "sha256": "81cd4f0b539ffa0e06c5b59ece67a64628c1be86f9a8f679b84392c6a48c06ac",
+      "sha256": "f33d4aee252469b7fc59fa8d621e05f931ef361f3e0dfa720de3174e18da1ad9",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     }
   ]

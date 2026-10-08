@@ -1364,6 +1364,549 @@
         ],
         "description": "Canonical uint64 decimal string greater than zero."
       },
+      "ProtoTimestampV2": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5][0-9](?:\\.\\d{3}|\\.\\d{6}|\\.\\d{9})?Z$",
+        "description": "Canonical UTC ProtoJSON timestamp. Fraction precision is 0, 3, 6, or 9 digits; the V2 Rust projection preserves nanoseconds."
+      },
+      "NumericEncodingProtoJsonV2": {
+        "type": "string",
+        "enum": [
+          "NUMERIC_ENCODING_DECIMAL_TOKEN",
+          "NUMERIC_ENCODING_INTEGER_TOKEN",
+          "NUMERIC_ENCODING_BINARY_FLOAT64_SHORTEST_DECIMAL",
+          "NUMERIC_ENCODING_BINARY_FLOAT32_SHORTEST_DECIMAL",
+          "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES",
+          "NUMERIC_ENCODING_RAW_JSON_BYTES"
+        ]
+      },
+      "FiniteBatchSourceKindV2": {
+        "type": "string",
+        "enum": [
+          "FINITE_BATCH_SOURCE_KIND_SYNTHETIC_REPLAY",
+          "FINITE_BATCH_SOURCE_KIND_HISTORICAL_PAGED",
+          "FINITE_BATCH_SOURCE_KIND_HISTORICAL_NON_PAGED",
+          "FINITE_BATCH_SOURCE_KIND_LOCAL_ARCHIVE"
+        ]
+      },
+      "DatasetSourceV2": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "feed",
+          "entitlement",
+          "numeric_encoding"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "feed": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "entitlement": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "authorized",
+              "unauthorized"
+            ]
+          },
+          "source_record_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "numeric_encoding": {
+            "$ref": "#/components/schemas/NumericEncodingProtoJsonV2"
+          }
+        },
+        "description": "Same provider-neutral source message as market v1. Entitlement text is an observation, not authorization evidence."
+      },
+      "DatasetTimeRangeV2": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "start_inclusive",
+          "end_exclusive"
+        ],
+        "properties": {
+          "start_inclusive": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "end_exclusive": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          }
+        }
+      },
+      "DatasetObjectV2": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "object_name",
+          "object_id",
+          "size_bytes",
+          "content_sha256",
+          "parquet_schema_sha256",
+          "parquet_footer_rows",
+          "transport"
+        ],
+        "properties": {
+          "object_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^[A-Za-z0-9_.-]{1,512}$"
+          },
+          "object_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "Opaque storage identity; never a path. Local test IDs must use a traversal-safe local-test tail."
+          },
+          "size_bytes": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "content_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "parquet_schema_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "parquet_footer_rows": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "rclone_google_drive",
+              "local_test"
+            ]
+          }
+        }
+      },
+      "DatasetStorageVerificationV2": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "readback_sha256",
+          "verified_before_publish"
+        ],
+        "properties": {
+          "readback_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "verified_before_publish": {
+            "const": true
+          }
+        }
+      },
+      "FiniteBatchCompletionV2": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_kind",
+          "input_identity",
+          "input_sha256",
+          "input_size_bytes",
+          "input_record_count",
+          "consumed_record_count",
+          "reviewed_policy_sha256",
+          "seal_receipt_sha256",
+          "data_cutoff_exclusive",
+          "sealed_at",
+          "completed_at"
+        ],
+        "properties": {
+          "source_kind": {
+            "$ref": "#/components/schemas/FiniteBatchSourceKindV2"
+          },
+          "input_identity": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+          },
+          "input_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "input_size_bytes": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "input_record_count": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "consumed_record_count": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "reviewed_policy_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "seal_receipt_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "data_cutoff_exclusive": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "sealed_at": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "completed_at": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "page_count": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "pages_exhausted": {
+            "const": true
+          },
+          "page_set_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "FINITE_BATCH_SOURCE_KIND_HISTORICAL_PAGED"
+                }
+              },
+              "required": [
+                "source_kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "page_count",
+                "pages_exhausted",
+                "page_set_sha256"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "not": {
+                    "const": "FINITE_BATCH_SOURCE_KIND_HISTORICAL_PAGED"
+                  }
+                }
+              },
+              "required": [
+                "source_kind"
+              ]
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "page_count"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "pages_exhausted"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "page_set_sha256"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "description": "Input counts must be equal and non-zero. Times satisfy cutoff <= sealed <= completed, and manifest source-time coverage ends no later than cutoff. A seal proves processing of this finite input, not provider history completeness or provider truth."
+      },
+      "ProviderWatermarkCompletionV2": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "feed",
+          "subscription_instance_id",
+          "generation",
+          "first_sequence",
+          "last_sequence",
+          "sequence_count",
+          "continuity_receipt_sha256",
+          "complete_up_to_exclusive",
+          "allowed_lateness_ns",
+          "reviewed_policy_sha256",
+          "source_receipt_sha256"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "feed": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "subscription_instance_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+          },
+          "generation": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "first_sequence": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "last_sequence": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "sequence_count": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "continuity_receipt_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "complete_up_to_exclusive": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "allowed_lateness_ns": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]{0,9}|[1-5][0-9]{10}|60000000000)$"
+          },
+          "reviewed_policy_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "source_receipt_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          }
+        },
+        "description": "Structural observation only. sequence_count must equal last_sequence - first_sequence + 1 with checked arithmetic. Generation is scoped by immutable subscription instance and may repeat after process restart. Only a fixed trusted verifier can inspect receipts and qualify a watermark; callers cannot self-assert completeness."
+      },
+      "DiagnosticStreamCompletionV2": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_instance_id",
+          "generation",
+          "observed_last_sequence",
+          "local_policy_cutoff",
+          "diagnostic_policy_sha256",
+          "diagnostic_receipt_sha256"
+        ],
+        "properties": {
+          "source_instance_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+          },
+          "generation": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "observed_last_sequence": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "local_policy_cutoff": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "observed_max_source_timestamp": {
+            "$ref": "#/components/schemas/ProtoTimestampV2"
+          },
+          "diagnostic_policy_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "diagnostic_receipt_sha256": {
+            "$ref": "#/components/schemas/Sha256"
+          }
+        },
+        "description": "Diagnostic evidence only. The local cutoff and maximum observed source timestamp do not mean complete_up_to or prove provider completeness."
+      },
+      "DatasetCompletionEvidenceV2": {
+        "type": "object",
+        "maxProperties": 1,
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "finite_batch"
+            ],
+            "properties": {
+              "finite_batch": {
+                "$ref": "#/components/schemas/FiniteBatchCompletionV2"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "provider_watermark"
+            ],
+            "properties": {
+              "provider_watermark": {
+                "$ref": "#/components/schemas/ProviderWatermarkCompletionV2"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "diagnostic_stream"
+            ],
+            "properties": {
+              "diagnostic_stream": {
+                "$ref": "#/components/schemas/DiagnosticStreamCompletionV2"
+              }
+            }
+          }
+        ],
+        "description": "Exactly one oneof case is required. This is canonical OpenAPI snake_case; ProtoJSON camelCase field names are also accepted by generated bindings."
+      },
+      "DatasetManifestV2": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "dataset_id",
+          "source",
+          "symbols",
+          "source_timestamp_missing_rows",
+          "row_count",
+          "object",
+          "storage_verification",
+          "completion_evidence"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "const": 2
+          },
+          "dataset_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/DatasetSourceV2"
+          },
+          "symbols": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4096,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "time_range": {
+            "$ref": "#/components/schemas/DatasetTimeRangeV2"
+          },
+          "source_timestamp_missing_rows": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "row_count": {
+            "$ref": "#/components/schemas/PositiveUInt64String"
+          },
+          "object": {
+            "$ref": "#/components/schemas/DatasetObjectV2"
+          },
+          "storage_verification": {
+            "$ref": "#/components/schemas/DatasetStorageVerificationV2"
+          },
+          "completion_evidence": {
+            "$ref": "#/components/schemas/DatasetCompletionEvidenceV2"
+          }
+        },
+        "description": "Exactly one immutable object. Storage readback is separate from source completion. Hashes identify bytes but do not verify their issuer or qualify provider completeness. Current Alpaca streams do not provide a trusted watermark, so they remain unverified/diagnostic. finite_batch seals one finite input only; local_archive is not provider-history proof. Finite source-time coverage must end at or before the exclusive data cutoff. Manifest SHA-256 must cover the complete serialized bytes; no self-hash field is included.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "source": {
+                  "properties": {
+                    "numeric_encoding": {
+                      "const": "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES"
+                    }
+                  },
+                  "required": [
+                    "numeric_encoding"
+                  ]
+                }
+              },
+              "required": [
+                "source"
+              ]
+            },
+            "then": {
+              "properties": {
+                "object": {
+                  "properties": {
+                    "parquet_schema_sha256": {
+                      "const": "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6"
+                    }
+                  }
+                }
+              },
+              "not": {
+                "required": [
+                  "time_range"
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source": {
+                  "properties": {
+                    "numeric_encoding": {
+                      "const": "NUMERIC_ENCODING_RAW_JSON_BYTES"
+                    }
+                  },
+                  "required": [
+                    "numeric_encoding"
+                  ]
+                }
+              },
+              "required": [
+                "source"
+              ]
+            },
+            "then": {
+              "properties": {
+                "object": {
+                  "properties": {
+                    "parquet_schema_sha256": {
+                      "const": "86c266ec8e38b4d3eed507a41e10aeeb2c3cfa8fe183d6b7e4b9013fb3d94041"
+                    }
+                  }
+                }
+              },
+              "not": {
+                "required": [
+                  "time_range"
+                ]
+              }
+            }
+          }
+        ]
+      },
       "NumericEncodingV1": {
         "type": "string",
         "enum": [

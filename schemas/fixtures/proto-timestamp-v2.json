@@ -1,0 +1,30 @@
+{
+  "valid": [
+    {
+      "name": "whole-second-utc",
+      "value": "2026-10-08T14:31:02Z"
+    },
+    {
+      "name": "one-fraction-digit",
+      "value": "2026-10-08T14:31:02.1Z"
+    },
+    {
+      "name": "nanosecond-precision",
+      "value": "2026-10-08T14:31:02.123456789Z"
+    },
+    {
+      "name": "offset-normalizes-to-utc",
+      "value": "2026-10-08T14:31:02.123456789+00:00"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "overprecision-must-not-truncate",
+      "value": "2026-10-08T14:31:02.1234567890Z"
+    },
+    {
+      "name": "leap-second-is-not-supported",
+      "value": "2026-10-08T14:31:60Z"
+    }
+  ]
+}

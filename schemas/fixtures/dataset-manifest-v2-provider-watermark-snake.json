@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "dataset_id": "qqq-sip-2026-10-08-finite-v2",
+  "source": {
+    "provider": "alpaca",
+    "feed": "sip",
+    "entitlement": "unknown",
+    "numeric_encoding": "NUMERIC_ENCODING_DECIMAL_TOKEN"
+  },
+  "symbols": [
+    "QQQ"
+  ],
+  "time_range": {
+    "start_inclusive": "2026-10-08T14:30:00.100Z",
+    "end_exclusive": "2026-10-08T14:31:00Z"
+  },
+  "source_timestamp_missing_rows": "0",
+  "row_count": "1",
+  "object": {
+    "object_name": "qqq-sip-2026-10-08.parquet",
+    "object_id": "local-test:qqq-sip-2026-10-08",
+    "size_bytes": "4096",
+    "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "parquet_schema_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "parquet_footer_rows": "1",
+    "transport": "local_test"
+  },
+  "storage_verification": {
+    "readback_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "verified_before_publish": true
+  },
+  "completion_evidence": {
+    "provider_watermark": {
+      "provider": "alpaca",
+      "feed": "sip",
+      "subscription_instance_id": "alpaca-sip-process-independent-session-1",
+      "generation": "7",
+      "first_sequence": "100",
+      "last_sequence": "104",
+      "sequence_count": "5",
+      "continuity_receipt_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "complete_up_to_exclusive": "2026-10-08T14:31:00Z",
+      "allowed_lateness_ns": "60000000000",
+      "reviewed_policy_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "source_receipt_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  }
+}

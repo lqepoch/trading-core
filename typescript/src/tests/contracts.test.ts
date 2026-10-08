@@ -7,6 +7,8 @@ import type { JsonValue } from "@bufbuild/protobuf";
 import {
   parseCanonicalUint64Json,
   parseDatasetManifestProtoJson,
+  parseDatasetManifestV2Json,
+  parseDatasetManifestV2ProtoJson,
   parseMarketEventProtoJson,
   parsePredictionEnvelopeProtoJson,
   validateUint64JsonPaths,
@@ -125,6 +127,253 @@ const datasetJson = {
 const datasetMessage = parseDatasetManifestProtoJson(datasetJson);
 assert(datasetMessage.rowCount === BigInt(max), "dataset row count lost precision");
 assert(datasetMessage.object?.sizeBytes === BigInt(max), "object size lost precision");
+
+const datasetV2Json = readFixture<Record<string, unknown>>(
+  "schemas/fixtures/dataset-manifest-v2.json",
+);
+const datasetV2Message = parseDatasetManifestV2ProtoJson(datasetV2Json);
+assert(datasetV2Message.schemaVersion === 2, "dataset v2 schema version changed");
+assert(datasetV2Message.rowCount === 1n, "dataset v2 row count changed");
+assert(datasetV2Message.completionEvidence?.evidence.case === "finiteBatch", "dataset v2 oneof lost");
+assert(
+  datasetV2Message.completionEvidence.evidence.value.completedAt?.nanos === 123_456_789,
+  "dataset v2 nanosecond timestamp was truncated",
+);
+for (const path of [
+  "schemas/fixtures/dataset-manifest-v2-snake.json",
+  "schemas/fixtures/dataset-manifest-v2-provider-watermark-snake.json",
+]) {
+  assert(
+    parseDatasetManifestV2ProtoJson(readFixture<Record<string, unknown>>(path)).schemaVersion === 2,
+    `full snake-case fixture failed: ${path}`,
+  );
+}
+
+for (const [path, mutate] of [
+  ["schema_version", (candidate: Record<string, unknown>) => {
+    candidate.schema_version = candidate.schemaVersion;
+  }],
+  ["object_name", (candidate: Record<string, unknown>) => {
+    const object = candidate.object as Record<string, unknown>;
+    object.object_name = object.objectName;
+  }],
+] as const) {
+  const candidate = structuredClone(datasetV2Json) as Record<string, unknown>;
+  mutate(candidate);
+  rejects(() => parseDatasetManifestV2ProtoJson(candidate), `accepted dual spellings for ${path}`);
+}
+
+const datasetV2WatermarkForAliases = readFixture<Record<string, unknown>>(
+  "schemas/fixtures/dataset-manifest-v2-provider-watermark.json",
+);
+for (const [camel, snake] of [
+  ["firstSequence", "first_sequence"],
+  ["lastSequence", "last_sequence"],
+  ["sequenceCount", "sequence_count"],
+] as const) {
+  const candidate = structuredClone(datasetV2WatermarkForAliases) as Record<string, unknown>;
+  const completion = candidate.completionEvidence as Record<string, unknown>;
+  const watermark = completion.providerWatermark as Record<string, unknown>;
+  watermark[snake] = watermark[camel];
+  rejects(() => parseDatasetManifestV2ProtoJson(candidate), `accepted both ${camel} spellings`);
+}
+
+const timestampV2Fixture = readFixture<{
+  valid: Array<{ name: string; value: string }>;
+  invalid: Array<{ name: string; value: string }>;
+}>("schemas/fixtures/proto-timestamp-v2.json");
+for (const testCase of timestampV2Fixture.valid) {
+  const candidate = structuredClone(datasetV2Json) as Record<string, unknown>;
+  const completion = candidate.completionEvidence as Record<string, unknown>;
+  const finite = completion.finiteBatch as Record<string, unknown>;
+  finite.completedAt = testCase.value;
+  parseDatasetManifestV2ProtoJson(candidate);
+}
+for (const testCase of timestampV2Fixture.invalid) {
+  const candidate = structuredClone(datasetV2Json) as Record<string, unknown>;
+  const completion = candidate.completionEvidence as Record<string, unknown>;
+  const finite = completion.finiteBatch as Record<string, unknown>;
+  finite.completedAt = testCase.value;
+  rejects(() => parseDatasetManifestV2ProtoJson(candidate), `accepted ${testCase.name}`);
+}
+
+const enumInvalidFixture = readFixture<{
+  source_numeric_encoding: Array<{ name: string; value: number }>;
+  finite_source_kind: Array<{ name: string; value: number }>;
+}>("schemas/fixtures/dataset-manifest-v2-enum-invalid.json");
+for (const testCase of enumInvalidFixture.source_numeric_encoding) {
+  const candidate = structuredClone(datasetV2Json) as Record<string, unknown>;
+  (candidate.source as Record<string, unknown>).numericEncoding = testCase.value;
+  rejects(
+    () => parseDatasetManifestV2ProtoJson(candidate),
+    `accepted numeric source enum ${testCase.name}`,
+  );
+}
+for (const testCase of enumInvalidFixture.finite_source_kind) {
+  const candidate = structuredClone(datasetV2Json) as Record<string, unknown>;
+  const completion = candidate.completionEvidence as Record<string, unknown>;
+  (completion.finiteBatch as Record<string, unknown>).sourceKind = testCase.value;
+  rejects(
+    () => parseDatasetManifestV2ProtoJson(candidate),
+    `accepted numeric finite enum ${testCase.name}`,
+  );
+}
+
+const datasetV2DiagnosticJson = readFixture<Record<string, unknown>>(
+  "schemas/fixtures/dataset-manifest-v2-diagnostic-stream.json",
+);
+const datasetV2Diagnostic = parseDatasetManifestV2ProtoJson(datasetV2DiagnosticJson);
+const datasetV2DiagnosticEvidence = datasetV2Diagnostic.completionEvidence?.evidence;
+if (
+  datasetV2DiagnosticEvidence?.case !== "diagnosticStream" ||
+  datasetV2DiagnosticEvidence.value.observedMaxSourceTimestamp === undefined ||
+  datasetV2DiagnosticEvidence.value.localPolicyCutoff === undefined
+) {
+  throw new Error("dataset v2 diagnostic oneof/timestamps were not preserved");
+}
+assert(
+  datasetV2DiagnosticEvidence.value.observedMaxSourceTimestamp.seconds ===
+    datasetV2DiagnosticEvidence.value.localPolicyCutoff.seconds + 5n,
+  "dataset v2 diagnostic cutoff incorrectly discarded a later observation",
+);
+const datasetV2JsonText = readFileSync(
+  resolve(process.cwd(), "..", "schemas/fixtures/dataset-manifest-v2.json"),
+  "utf8",
+);
+assert(parseDatasetManifestV2Json(datasetV2JsonText).rowCount === 1n, "raw JSON V2 parser changed rows");
+rejects(
+  () => parseDatasetManifestV2Json(datasetV2JsonText.replace('"rowCount": "1"', '"rowCount":"1","rowCount":"1"')),
+  "dataset v2 accepted duplicate raw JSON keys",
+);
+
+const datasetV2PagedInvalid = structuredClone(datasetV2Json) as Record<string, unknown>;
+const datasetV2Completion = datasetV2PagedInvalid.completionEvidence as Record<string, unknown>;
+const datasetV2Finite = datasetV2Completion.finiteBatch as Record<string, unknown>;
+datasetV2Finite.pagesExhausted = false;
+rejects(
+  () => parseDatasetManifestV2ProtoJson(datasetV2PagedInvalid),
+  "dataset v2 accepted an unexhausted historical page set",
+);
+const datasetV2CutoffInvalid = structuredClone(datasetV2Json) as Record<string, unknown>;
+const cutoffInvalidEvidence = datasetV2CutoffInvalid.completionEvidence as Record<string, unknown>;
+const cutoffInvalidFinite = cutoffInvalidEvidence.finiteBatch as Record<string, unknown>;
+cutoffInvalidFinite.dataCutoffExclusive = "2026-10-08T14:30:59.999999999Z";
+rejects(
+  () => parseDatasetManifestV2ProtoJson(datasetV2CutoffInvalid),
+  "dataset v2 accepted source-time coverage after the finite-batch cutoff",
+);
+
+const datasetV2OneofInvalid = structuredClone(datasetV2Json) as Record<string, unknown>;
+const datasetV2MultiEvidence = datasetV2OneofInvalid.completionEvidence as Record<string, unknown>;
+datasetV2MultiEvidence.diagnosticStream = {
+  sourceInstanceId: "local-session-1",
+  generation: "1",
+  observedLastSequence: "1",
+  localPolicyCutoff: "2026-10-08T14:31:00Z",
+  diagnosticPolicySha256: "d".repeat(64),
+  diagnosticReceiptSha256: "e".repeat(64),
+};
+rejects(
+  () => parseDatasetManifestV2ProtoJson(datasetV2OneofInvalid),
+  "dataset v2 accepted multiple oneof cases",
+);
+
+const datasetV2AliasInvalid = structuredClone(datasetV2Json) as Record<string, unknown>;
+datasetV2AliasInvalid.row_count = "1";
+rejects(
+  () => parseDatasetManifestV2ProtoJson(datasetV2AliasInvalid),
+  "dataset v2 accepted camel and snake aliases together",
+);
+
+const datasetV2NumericInvalid = structuredClone(datasetV2Json) as Record<string, unknown>;
+datasetV2NumericInvalid.rowCount = 1;
+rejects(
+  () => parseDatasetManifestV2ProtoJson(datasetV2NumericInvalid),
+  "dataset v2 accepted a lossy uint64 JSON number",
+);
+const datasetV2UnknownField = structuredClone(datasetV2Json) as Record<string, unknown>;
+const unknownFieldEvidence = datasetV2UnknownField.completionEvidence as Record<string, unknown>;
+const unknownFieldFinite = unknownFieldEvidence.finiteBatch as Record<string, unknown>;
+unknownFieldFinite.callerQualified = true;
+rejects(
+  () => parseDatasetManifestV2ProtoJson(datasetV2UnknownField),
+  "dataset v2 accepted an unknown completion-evidence field",
+);
+
+const datasetV2Watermark = readFixture<Record<string, unknown>>(
+  "schemas/fixtures/dataset-manifest-v2-provider-watermark.json",
+);
+assert(
+  parseDatasetManifestV2ProtoJson(datasetV2Watermark).completionEvidence?.evidence.case ===
+    "providerWatermark",
+  "dataset v2 provider watermark structural evidence was rejected",
+);
+const datasetV2WatermarkMessage = parseDatasetManifestV2ProtoJson(datasetV2Watermark);
+assert(
+  datasetV2WatermarkMessage.completionEvidence?.evidence.case === "providerWatermark" &&
+    datasetV2WatermarkMessage.completionEvidence.evidence.value.sequenceCount === 5n,
+  "dataset v2 provider watermark sequence count changed",
+);
+const syntheticWatermark = structuredClone(datasetV2Watermark) as Record<string, unknown>;
+const syntheticSource = syntheticWatermark.source as Record<string, unknown>;
+syntheticSource.provider = "synthetic";
+syntheticSource.feed = "synthetic";
+syntheticSource.numericEncoding = "NUMERIC_ENCODING_DECIMAL_TOKEN";
+const syntheticCompletion = syntheticWatermark.completionEvidence as Record<string, unknown>;
+const syntheticProvider = syntheticCompletion.providerWatermark as Record<string, unknown>;
+syntheticProvider.provider = "synthetic";
+syntheticProvider.feed = "synthetic";
+rejects(
+  () => parseDatasetManifestV2ProtoJson(syntheticWatermark),
+  "accepted synthetic source as provider watermark evidence",
+);
+const datasetV2WatermarkBoundary = readFixture<Record<string, unknown>>(
+  "schemas/fixtures/dataset-manifest-v2-provider-watermark-u64-boundary.json",
+);
+const datasetV2WatermarkBoundaryMessage = parseDatasetManifestV2ProtoJson(datasetV2WatermarkBoundary);
+const boundaryEvidence = datasetV2WatermarkBoundaryMessage.completionEvidence?.evidence;
+if (boundaryEvidence?.case !== "providerWatermark") {
+  throw new Error("dataset v2 max-u64 watermark fixture was not parsed");
+}
+assert(
+  boundaryEvidence.value.generation === 18_446_744_073_709_551_615n &&
+    boundaryEvidence.value.firstSequence === 1n &&
+    boundaryEvidence.value.lastSequence === 18_446_744_073_709_551_615n &&
+    boundaryEvidence.value.sequenceCount === 18_446_744_073_709_551_615n &&
+    boundaryEvidence.value.allowedLatenessNs === 0n,
+  "dataset v2 max-u64 sequence boundary lost precision",
+);
+for (const [field, invalid] of [
+  ["generation", "0"],
+  ["firstSequence", "0"],
+  ["lastSequence", "0"],
+] as const) {
+  const candidate = structuredClone(datasetV2WatermarkBoundary) as Record<string, unknown>;
+  const evidence = candidate.completionEvidence as Record<string, unknown>;
+  const watermark = evidence.providerWatermark as Record<string, unknown>;
+  watermark[field] = invalid;
+  rejects(
+    () => parseDatasetManifestV2ProtoJson(candidate),
+    `dataset v2 accepted zero ${field}`,
+  );
+}
+const overflowingWatermark = structuredClone(datasetV2WatermarkBoundary) as Record<string, unknown>;
+const overflowingEvidence = overflowingWatermark.completionEvidence as Record<string, unknown>;
+const overflowingValue = overflowingEvidence.providerWatermark as Record<string, unknown>;
+overflowingValue.firstSequence = "0";
+overflowingValue.lastSequence = max;
+rejects(
+  () => parseDatasetManifestV2ProtoJson(overflowingWatermark),
+  "dataset v2 accepted an overflowing first-to-last sequence span",
+);
+const invalidWatermark = structuredClone(datasetV2Watermark) as Record<string, unknown>;
+const invalidWatermarkEvidence = invalidWatermark.completionEvidence as Record<string, unknown>;
+const invalidWatermarkValue = invalidWatermarkEvidence.providerWatermark as Record<string, unknown>;
+invalidWatermarkValue.allowedLatenessNs = "60000000001";
+rejects(
+  () => parseDatasetManifestV2ProtoJson(invalidWatermark),
+  "dataset v2 silently clamped an over-limit watermark lateness",
+);
 
 const rawSchemaSha256 = trustedParquetSchemaSha256("lqepoch.market_raw_frame.v1");
 const rawJsonSchemaSha256 = trustedParquetSchemaSha256("lqepoch.market_raw_json_frame.v1");
@@ -388,6 +637,57 @@ const validateMarketHttpJson = ajv.compile({
 const validateDatasetHttpJson = ajv.compile({
   $ref: "lqepoch-openapi#/components/schemas/DatasetManifestV1",
 });
+const validateDatasetV2HttpJson = ajv.compile({
+  $ref: "lqepoch-openapi#/components/schemas/DatasetManifestV2",
+});
+function toOpenApiSnakeCase(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(toOpenApiSnakeCase);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [
+        key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`),
+        toOpenApiSnakeCase(nested),
+      ]),
+    );
+  }
+  return value;
+}
+const datasetV2HttpJson = toOpenApiSnakeCase(datasetV2Json) as Record<string, unknown>;
+assert(validateDatasetV2HttpJson(datasetV2HttpJson), "OpenAPI rejects the finite-batch V2 fixture");
+const datasetV2DiagnosticHttpJson = toOpenApiSnakeCase(datasetV2DiagnosticJson) as Record<string, unknown>;
+assert(
+  validateDatasetV2HttpJson(datasetV2DiagnosticHttpJson),
+  "OpenAPI rejects the diagnostic-stream V2 fixture",
+);
+const datasetV2WatermarkHttpJson = toOpenApiSnakeCase(datasetV2Watermark) as Record<string, unknown>;
+assert(
+  validateDatasetV2HttpJson(datasetV2WatermarkHttpJson),
+  "OpenAPI rejects the provider-watermark V2 fixture",
+);
+const watermarkBoundaryHttpJson = toOpenApiSnakeCase(datasetV2WatermarkBoundary) as Record<string, unknown>;
+assert(
+  validateDatasetV2HttpJson(watermarkBoundaryHttpJson),
+  "OpenAPI rejects the V2 max-u64 watermark fixture",
+);
+const rawJsonDatasetV2HttpJson = structuredClone(datasetV2HttpJson);
+const rawJsonV2Source = rawJsonDatasetV2HttpJson.source as Record<string, unknown>;
+const rawJsonV2Object = rawJsonDatasetV2HttpJson.object as Record<string, unknown>;
+rawJsonV2Source.numeric_encoding = "NUMERIC_ENCODING_RAW_JSON_BYTES";
+rawJsonDatasetV2HttpJson.source_timestamp_missing_rows = "1";
+delete rawJsonDatasetV2HttpJson.time_range;
+rawJsonV2Object.parquet_schema_sha256 = rawJsonSchemaSha256;
+assert(validateDatasetV2HttpJson(rawJsonDatasetV2HttpJson), "OpenAPI rejects valid raw-JSON V2");
+assert(
+  !validateDatasetV2HttpJson({ ...rawJsonDatasetV2HttpJson, time_range: datasetV2HttpJson.time_range }),
+  "OpenAPI accepted a raw V2 frame manifest with source-time range",
+);
+assert(
+  !validateDatasetV2HttpJson({
+    ...rawJsonDatasetV2HttpJson,
+    object: { ...rawJsonV2Object, parquet_schema_sha256: rawSchemaSha256 },
+  }),
+  "OpenAPI accepted a crossed raw-frame V2 schema fingerprint",
+);
 const marketHttpJson = {
   schema_version: 1,
   source: { provider: "synthetic", feed: "synthetic", entitlement: "unknown", numeric_encoding: "decimal_token" },

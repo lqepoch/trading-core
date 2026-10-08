@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import copy
 import unittest
 from pathlib import Path
 
@@ -23,6 +24,8 @@ from lqepoch_contracts import (
 from lqepoch_contracts.parquet_schema import canonical_schema_json, fingerprint_schema_sha256
 from lqepoch_contracts.protojson import (
     parse_dataset_manifest_protojson,
+    parse_dataset_manifest_v2_json,
+    parse_dataset_manifest_v2_protojson,
     parse_market_event_protojson,
     parse_prediction_envelope_protojson,
 )
@@ -36,6 +39,209 @@ def read_json_fixture(relative_path: str) -> object:
 
 
 class SharedContractFixturesTest(unittest.TestCase):
+    def test_dataset_manifest_v2_protojson_is_bounded_and_keeps_completion_evidence_distinct(self) -> None:
+        fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
+        manifest = parse_dataset_manifest_v2_protojson(fixture)
+        self.assertEqual(manifest.schema_version, 2)
+        self.assertEqual(manifest.row_count, 1)
+        self.assertEqual(manifest.completion_evidence.WhichOneof("evidence"), "finite_batch")
+        self.assertEqual(manifest.completion_evidence.finite_batch.completed_at.nanos, 123456789)
+        self.assertEqual(MessageToDict(manifest)["completionEvidence"]["finiteBatch"]["completedAt"], "2026-10-08T14:31:02.123456789Z")
+        diagnostic = parse_dataset_manifest_v2_protojson(
+            read_json_fixture("schemas/fixtures/dataset-manifest-v2-diagnostic-stream.json")
+        )
+        self.assertEqual(diagnostic.completion_evidence.WhichOneof("evidence"), "diagnostic_stream")
+        self.assertEqual(
+            diagnostic.completion_evidence.diagnostic_stream.observed_max_source_timestamp.seconds,
+            diagnostic.completion_evidence.diagnostic_stream.local_policy_cutoff.seconds + 5,
+        )
+
+        invalid = copy.deepcopy(fixture)
+        invalid["completionEvidence"]["finiteBatch"]["consumedRecordCount"] = "0"
+        with self.assertRaisesRegex(ValueError, "finite batch"):
+            parse_dataset_manifest_v2_protojson(invalid)
+
+        invalid = copy.deepcopy(fixture)
+        invalid["completionEvidence"]["finiteBatch"]["pagesExhausted"] = False
+        with self.assertRaisesRegex(ValueError, "paged finite batches"):
+            parse_dataset_manifest_v2_protojson(invalid)
+
+        invalid = copy.deepcopy(fixture)
+        invalid["completionEvidence"]["finiteBatch"]["dataCutoffExclusive"] = (
+            "2026-10-08T14:30:59.999999999Z"
+        )
+        with self.assertRaisesRegex(ValueError, "cutoff precedes"):
+            parse_dataset_manifest_v2_protojson(invalid)
+
+        invalid = copy.deepcopy(fixture)
+        invalid["completionEvidence"]["diagnosticStream"] = {
+            "sourceInstanceId": "local-session-1",
+            "generation": "1",
+            "observedLastSequence": "1",
+            "localPolicyCutoff": "2026-10-08T14:31:00Z",
+            "diagnosticPolicySha256": "d" * 64,
+            "diagnosticReceiptSha256": "e" * 64,
+        }
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            parse_dataset_manifest_v2_protojson(invalid)
+
+        invalid = copy.deepcopy(fixture)
+        invalid["row_count"] = "1"
+        with self.assertRaisesRegex(ValueError, "both camelCase"):
+            parse_dataset_manifest_v2_protojson(invalid)
+
+        invalid = copy.deepcopy(fixture)
+        invalid["source"]["accountId"] = "must-not-be-accepted"
+        with self.assertRaisesRegex(ValueError, "invalid dataset manifest v2"):
+            parse_dataset_manifest_v2_protojson(invalid)
+
+        invalid = copy.deepcopy(fixture)
+        invalid["rowCount"] = 1
+        with self.assertRaisesRegex(ValueError, "canonical decimal strings"):
+            parse_dataset_manifest_v2_protojson(invalid)
+
+        duplicate_key_json = json.dumps(fixture, separators=(",", ":")).replace(
+            '"rowCount":"1"', '"rowCount":"1","rowCount":"1"'
+        )
+        with self.assertRaisesRegex(ValueError, "duplicate JSON object key"):
+            parse_dataset_manifest_v2_json(duplicate_key_json)
+
+        raw = copy.deepcopy(fixture)
+        raw["source"]["numericEncoding"] = "NUMERIC_ENCODING_RAW_JSON_BYTES"
+        raw["sourceTimestampMissingRows"] = "1"
+        del raw["timeRange"]
+        raw_schema_sha = trusted_parquet_schema_sha256("lqepoch.market_raw_json_frame.v1")
+        raw["object"]["parquetSchemaSha256"] = raw_schema_sha
+        self.assertEqual(
+            parse_dataset_manifest_v2_protojson(raw).source.numeric_encoding,
+            6,
+        )
+        raw["object"]["parquetSchemaSha256"] = "b" * 64
+        with self.assertRaisesRegex(ValueError, "raw source encoding"):
+            parse_dataset_manifest_v2_protojson(raw)
+
+    def test_dataset_manifest_v2_accepts_complete_snake_case_and_rejects_dual_spellings(self) -> None:
+        for path in (
+            "schemas/fixtures/dataset-manifest-v2-snake.json",
+            "schemas/fixtures/dataset-manifest-v2-provider-watermark-snake.json",
+        ):
+            with self.subTest(path=path):
+                decoded = parse_dataset_manifest_v2_protojson(read_json_fixture(path))
+                self.assertEqual(decoded.schema_version, 2)
+
+        fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
+        duplicate_cases = []
+        candidate = copy.deepcopy(fixture)
+        candidate["schema_version"] = candidate["schemaVersion"]
+        duplicate_cases.append(candidate)
+        candidate = copy.deepcopy(fixture)
+        candidate["object"]["object_name"] = candidate["object"]["objectName"]
+        duplicate_cases.append(candidate)
+        provider = read_json_fixture(
+            "schemas/fixtures/dataset-manifest-v2-provider-watermark.json"
+        )
+        for camel, snake in (
+            ("firstSequence", "first_sequence"),
+            ("lastSequence", "last_sequence"),
+            ("sequenceCount", "sequence_count"),
+        ):
+            candidate = copy.deepcopy(provider)
+            watermark = candidate["completionEvidence"]["providerWatermark"]
+            watermark[snake] = watermark[camel]
+            duplicate_cases.append(candidate)
+        for candidate in duplicate_cases:
+            with self.subTest(candidate=candidate), self.assertRaisesRegex(
+                ValueError, "both camelCase"
+            ):
+                parse_dataset_manifest_v2_protojson(candidate)
+
+    def test_dataset_manifest_v2_timestamps_are_lossless_and_reject_leap_seconds(self) -> None:
+        timestamp_cases = read_json_fixture("schemas/fixtures/proto-timestamp-v2.json")
+        fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
+        for case in timestamp_cases["valid"]:
+            candidate = copy.deepcopy(fixture)
+            candidate["completionEvidence"]["finiteBatch"]["completedAt"] = case["value"]
+            with self.subTest(case=case["name"]):
+                parse_dataset_manifest_v2_protojson(candidate)
+        for case in timestamp_cases["invalid"]:
+            candidate = copy.deepcopy(fixture)
+            candidate["completionEvidence"]["finiteBatch"]["completedAt"] = case["value"]
+            with self.subTest(case=case["name"]), self.assertRaises(ValueError):
+                parse_dataset_manifest_v2_protojson(candidate)
+
+    def test_dataset_manifest_v2_rejects_numeric_enum_encodings_and_synthetic_watermarks(self) -> None:
+        enum_cases = read_json_fixture("schemas/fixtures/dataset-manifest-v2-enum-invalid.json")
+        fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
+        for case in enum_cases["source_numeric_encoding"]:
+            candidate = copy.deepcopy(fixture)
+            candidate["source"]["numericEncoding"] = case["value"]
+            with self.subTest(case=case["name"]), self.assertRaisesRegex(ValueError, "enum fields"):
+                parse_dataset_manifest_v2_protojson(candidate)
+        for case in enum_cases["finite_source_kind"]:
+            candidate = copy.deepcopy(fixture)
+            candidate["completionEvidence"]["finiteBatch"]["sourceKind"] = case["value"]
+            with self.subTest(case=case["name"]), self.assertRaisesRegex(ValueError, "enum fields"):
+                parse_dataset_manifest_v2_protojson(candidate)
+
+        synthetic = read_json_fixture(
+            "schemas/fixtures/dataset-manifest-v2-provider-watermark.json"
+        )
+        synthetic["source"].update(
+            provider="synthetic",
+            feed="synthetic",
+            numericEncoding="NUMERIC_ENCODING_DECIMAL_TOKEN",
+        )
+        synthetic["completionEvidence"]["providerWatermark"].update(
+            provider="synthetic", feed="synthetic"
+        )
+        with self.assertRaisesRegex(ValueError, "synthetic source"):
+            parse_dataset_manifest_v2_protojson(synthetic)
+
+    def test_dataset_manifest_v2_provider_watermark_is_structural_not_authoritative(self) -> None:
+        manifest = read_json_fixture("schemas/fixtures/dataset-manifest-v2-provider-watermark.json")
+        decoded = parse_dataset_manifest_v2_protojson(manifest)
+        self.assertEqual(decoded.completion_evidence.WhichOneof("evidence"), "provider_watermark")
+        self.assertEqual(decoded.completion_evidence.provider_watermark.sequence_count, 5)
+
+        manifest["completionEvidence"]["providerWatermark"]["sequenceCount"] = "3"
+        with self.assertRaisesRegex(ValueError, "provider watermark"):
+            parse_dataset_manifest_v2_protojson(manifest)
+        manifest["completionEvidence"]["providerWatermark"]["sequenceCount"] = "4"
+        manifest["completionEvidence"]["providerWatermark"]["allowedLatenessNs"] = "60000000001"
+        with self.assertRaisesRegex(ValueError, "provider watermark"):
+            parse_dataset_manifest_v2_protojson(manifest)
+
+    def test_dataset_manifest_v2_provider_watermark_u64_boundaries(self) -> None:
+        manifest = read_json_fixture(
+            "schemas/fixtures/dataset-manifest-v2-provider-watermark-u64-boundary.json"
+        )
+        decoded = parse_dataset_manifest_v2_protojson(manifest)
+        watermark = decoded.completion_evidence.provider_watermark
+        maximum = (1 << 64) - 1
+        self.assertEqual(watermark.generation, maximum)
+        self.assertEqual(watermark.first_sequence, 1)
+        self.assertEqual(watermark.last_sequence, maximum)
+        self.assertEqual(watermark.sequence_count, maximum)
+        self.assertEqual(watermark.allowed_lateness_ns, 0)
+
+        for field, invalid in (
+            ("generation", "0"),
+            ("firstSequence", "0"),
+            ("lastSequence", "0"),
+        ):
+            with self.subTest(field=field):
+                candidate = copy.deepcopy(manifest)
+                candidate["completionEvidence"]["providerWatermark"][field] = invalid
+                with self.assertRaisesRegex(ValueError, "provider watermark"):
+                    parse_dataset_manifest_v2_protojson(candidate)
+
+        overflow = copy.deepcopy(manifest)
+        evidence = overflow["completionEvidence"]["providerWatermark"]
+        evidence["firstSequence"] = "0"
+        evidence["lastSequence"] = str(maximum)
+        with self.assertRaisesRegex(ValueError, "provider watermark"):
+            parse_dataset_manifest_v2_protojson(overflow)
+
     def test_uint64_fixture_is_strict_and_matches_protojson_roundtrip(self) -> None:
         fixture = read_json_fixture("schemas/fixtures/uint64-json-v1.json")
         for case in fixture["valid"]:
