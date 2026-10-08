@@ -16,6 +16,7 @@ import {
   parseDatasetManifestV2ProtoJson,
   parseMarketEventProtoJson,
   parsePredictionEnvelopeProtoJson,
+  parsePredictionEnvelopeProtoJsonText,
   parseUsEquityTradeBarV2ProtoJson,
   validateUint64JsonPaths,
   validateBarV2CompletionEvidenceReference,
@@ -1171,6 +1172,43 @@ rejects(
 const predictionJson = { forecast: { sequence: max } };
 const predictionMessage = parsePredictionEnvelopeProtoJson(predictionJson);
 assert(predictionMessage.forecast?.sequence === BigInt(max), "prediction sequence lost precision");
+const predictionText = JSON.stringify(predictionJson);
+const predictionTextMessage = parsePredictionEnvelopeProtoJsonText(predictionText);
+assert(
+  predictionTextMessage.forecast?.sequence === BigInt(max),
+  "raw prediction ProtoJSON text lost max uint64 precision",
+);
+rejects(
+  () => parsePredictionEnvelopeProtoJsonText('{"forecast":{"sequence":1}}'),
+  "raw prediction ProtoJSON text accepted numeric uint64",
+);
+rejects(
+  () =>
+    parsePredictionEnvelopeProtoJsonText(
+      '{"forecast":{"sequence":"1","sequence":"2"}}',
+    ),
+  "raw prediction ProtoJSON text accepted duplicate object keys",
+);
+rejects(
+  () =>
+    parsePredictionEnvelopeProtoJsonText(
+      '{"predictionId":"x","prediction_id":"x","forecast":{"sequence":"1"}}',
+    ),
+  "raw prediction ProtoJSON text accepted conflicting camel/snake aliases",
+);
+rejects(
+  () =>
+    parsePredictionEnvelopeProtoJsonText(
+      '{"unknownField":"x","forecast":{"sequence":"1"}}',
+    ),
+  "raw prediction ProtoJSON text accepted an unknown field",
+);
+const oversizedPredictionJsonText = " ".repeat(2 * 1024 * 1024 + 1);
+rejectsTextBeforeEncoding(
+  oversizedPredictionJsonText,
+  () => parsePredictionEnvelopeProtoJsonText(oversizedPredictionJsonText),
+  "raw prediction ProtoJSON parser accepted text over its byte limit",
+);
 for (const testCase of uint64Fixture.invalid) {
   rejects(
     () => parsePredictionEnvelopeProtoJson({ forecast: { sequence: testCase.value } }),

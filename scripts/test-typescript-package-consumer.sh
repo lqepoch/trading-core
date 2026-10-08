@@ -51,6 +51,7 @@ cat > "$temporary_consumer/src/consumer.ts" <<'EOF'
 import { readFileSync } from "node:fs";
 import {
   parsePredictionEnvelopeProtoJson,
+  parsePredictionEnvelopeProtoJsonText,
   type PredictionEnvelopeV1,
 } from "@lqepoch/trading-core-contracts";
 
@@ -64,10 +65,37 @@ const uint64Fixture = JSON.parse(
 const max = uint64Fixture.valid.find(({ value }) => value === "18446744073709551615");
 assert(max !== undefined, "max uint64 fixture is absent");
 
-const prediction: PredictionEnvelopeV1 = parsePredictionEnvelopeProtoJson({
-  forecast: { sequence: max.value },
-});
-assert(prediction.forecast?.sequence === 18_446_744_073_709_551_615n, "prediction sequence lost precision");
+const prediction: PredictionEnvelopeV1 = parsePredictionEnvelopeProtoJsonText(
+  `{"forecast":{"sequence":"${max.value}"}}`,
+);
+assert(prediction.forecast?.sequence === 18_446_744_073_709_551_615n, "raw-text prediction sequence lost precision");
+
+function rejectsRawText(text: string, message: string): void {
+  let rejected = false;
+  try {
+    parsePredictionEnvelopeProtoJsonText(text);
+  } catch {
+    rejected = true;
+  }
+  assert(rejected, message);
+}
+
+rejectsRawText(
+  '{"forecast":{"sequence":1}}',
+  "raw-text prediction parser accepted a lossy numeric uint64",
+);
+rejectsRawText(
+  '{"forecast":{"sequence":"1","sequence":"2"}}',
+  "raw-text prediction parser accepted duplicate object keys",
+);
+rejectsRawText(
+  '{"predictionId":"x","prediction_id":"x","forecast":{"sequence":"1"}}',
+  "raw-text prediction parser accepted conflicting camel/snake aliases",
+);
+rejectsRawText(
+  '{"unknownField":"x","forecast":{"sequence":"1"}}',
+  "raw-text prediction parser accepted an unknown field",
+);
 
 let rejectedNumericUint64 = false;
 try {

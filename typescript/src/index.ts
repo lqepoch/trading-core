@@ -1,4 +1,7 @@
-export { parsePredictionEnvelopeProtoJson } from "./contracts/uint64-json.js";
+export {
+  parsePredictionEnvelopeProtoJson,
+  parsePredictionEnvelopeProtoJsonText,
+} from "./contracts/uint64-json.js";
 export {
   PredictionEnvelopeV1Schema,
   type PredictionEnvelopeV1,

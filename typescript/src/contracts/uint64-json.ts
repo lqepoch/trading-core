@@ -32,7 +32,7 @@ const UINT64_MAX = 18_446_744_073_709_551_615n;
 const PROTO_TIMESTAMP_MIN_SECONDS = -62_135_596_800n;
 const PROTO_TIMESTAMP_MAX_SECONDS = 253_402_300_799n;
 const CANONICAL_UINT64 = /^(0|[1-9][0-9]*)$/;
-const MAX_DATASET_MANIFEST_V2_JSON_BYTES = 2 * 1024 * 1024;
+const MAX_PROTOJSON_TEXT_BYTES = 2 * 1024 * 1024;
 const MAX_DATASET_MANIFEST_V2_SYMBOLS = 4096;
 const MAX_PROVIDER_WATERMARK_ALLOWED_LATENESS_NS = 60_000_000_000n;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -164,7 +164,7 @@ export function parseDatasetManifestProtoJson(value: unknown): DatasetManifestV1
 /** Parse a bounded DatasetManifestV2 ProtoJSON object and validate its structural bindings. */
 export function parseDatasetManifestV2ProtoJson(value: unknown): DatasetManifestV2 {
   const inputSize = encodedJsonSize(value);
-  if (inputSize > MAX_DATASET_MANIFEST_V2_JSON_BYTES) {
+  if (inputSize > MAX_PROTOJSON_TEXT_BYTES) {
     throw new RangeError("dataset manifest v2 JSON exceeds the configured byte limit");
   }
   rejectDuplicateProtoFieldSpellings(value);
@@ -219,9 +219,7 @@ export function parseDatasetManifestV2ProtoJson(value: unknown): DatasetManifest
 
 /** Parse raw ProtoJSON text with a byte bound and duplicate-key rejection before JSON.parse. */
 export function parseDatasetManifestV2Json(text: string): DatasetManifestV2 {
-  if (new TextEncoder().encode(text).byteLength > MAX_DATASET_MANIFEST_V2_JSON_BYTES) {
-    throw new RangeError("dataset manifest v2 JSON exceeds the configured byte limit");
-  }
+  assertBoundedProtoJsonText(text);
   rejectDuplicateJsonObjectKeys(text);
   return parseDatasetManifestV2ProtoJson(JSON.parse(text) as unknown);
 }
@@ -919,7 +917,7 @@ function validateProtoTimestampV2Fields(value: unknown, depth = 0): void {
 }
 
 function rejectDuplicateProtoFieldSpellings(value: unknown, depth = 0): void {
-  if (depth > 64) throw new RangeError("dataset manifest v2 JSON nesting exceeds its bound");
+  if (depth > 64) throw new RangeError("ProtoJSON nesting exceeds its configured bound");
   if (Array.isArray(value)) {
     for (const nested of value) rejectDuplicateProtoFieldSpellings(nested, depth + 1);
     return;
@@ -1015,6 +1013,16 @@ function rejectDuplicateJsonObjectKeys(text: string): void {
   if (offset !== text.length) throw new SyntaxError("trailing JSON content");
 }
 
+function assertBoundedProtoJsonText(text: string): void {
+  // UTF-16 code-unit length is a cheap lower bound; reject before allocating the UTF-8 copy.
+  if (text.length > MAX_PROTOJSON_TEXT_BYTES) {
+    throw new RangeError("ProtoJSON text exceeds the configured byte limit");
+  }
+  if (new TextEncoder().encode(text).byteLength > MAX_PROTOJSON_TEXT_BYTES) {
+    throw new RangeError("ProtoJSON text exceeds the configured byte limit");
+  }
+}
+
 export function parsePredictionEnvelopeProtoJson(value: unknown): PredictionEnvelopeV1 {
   validateUint64JsonPaths(value, [["forecast", "sequence"]]);
   rejectDuplicateNumericEncodingAliases(value);
@@ -1023,6 +1031,18 @@ export function parsePredictionEnvelopeProtoJson(value: unknown): PredictionEnve
     throw new TypeError("raw byte-frame encodings cannot identify a normalized prediction source");
   }
   return message;
+}
+
+/**
+ * Parse untrusted PredictionEnvelope ProtoJSON text without losing duplicate keys or field aliases.
+ * The byte and nesting bounds are enforced before generated protobuf conversion.
+ */
+export function parsePredictionEnvelopeProtoJsonText(text: string): PredictionEnvelopeV1 {
+  assertBoundedProtoJsonText(text);
+  rejectDuplicateJsonObjectKeys(text);
+  const value: unknown = JSON.parse(text);
+  rejectDuplicateProtoFieldSpellings(value);
+  return parsePredictionEnvelopeProtoJson(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
