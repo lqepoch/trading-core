@@ -10,7 +10,12 @@
 #[path = "solver/american_crr.rs"]
 mod american_crr;
 
-pub use american_crr::solve_american_crr;
+pub use american_crr::{
+    AmericanCrrOfflineDiagnostic, AmericanCrrOfflineDiagnosticAccuracy,
+    AmericanCrrOfflineDiagnosticAuthority, AmericanCrrOfflineDiagnosticError,
+    AmericanCrrOfflineDiagnosticMethod, evaluate_american_crr_offline_diagnostic,
+    solve_american_crr,
+};
 
 use domain::{
     MetadataSource, OptionContract, OptionRight, Price, ProviderMetadataKind, ProviderMetadataRef,
@@ -1302,10 +1307,14 @@ mod tests {
     };
 
     use super::{
-        DividendAssumption, DividendCoverageKind, DividendWindowEvidence, ExchangeInstant,
-        ExerciseStyle, ExpirationClass, ExpirationContext, ModelUnavailable, OptionKind,
-        SolverInput, SolverOutcome, solve_european_black_scholes,
+        AmericanCrrOfflineDiagnosticAccuracy, AmericanCrrOfflineDiagnosticAuthority,
+        AmericanCrrOfflineDiagnosticError, AmericanCrrOfflineDiagnosticMethod, DividendAssumption,
+        DividendCoverageKind, DividendWindowEvidence, ExchangeInstant, ExerciseStyle,
+        ExpirationClass, ExpirationContext, ModelUnavailable, OptionKind, SolverInput,
+        SolverOutcome, evaluate_american_crr_offline_diagnostic, solve_american_crr,
+        solve_european_black_scholes,
     };
+    use std::time::{Duration, Instant};
 
     fn price(value: &str) -> Price {
         Price::parse_json_number(value).expect("valid price")
@@ -1435,6 +1444,168 @@ mod tests {
                 2_000,
             )
             .expect("valid solver input")
+        }
+    }
+
+    fn american_input_with_remaining(
+        remaining_ms: i64,
+        dividends: DividendAssumption,
+    ) -> SolverInput {
+        let checked_at_ms = 86_399_000;
+        let expiration_at_ms = checked_at_ms + remaining_ms;
+        let evidence = match dividends {
+            DividendAssumption::NoDividends => Some(dividend_evidence(
+                "QQQ",
+                checked_at_ms,
+                checked_at_ms,
+                expiration_at_ms,
+                DividendCoverageKind::NoCashDividendInWindow,
+            )),
+            DividendAssumption::ContinuousYield(value) => Some(dividend_evidence(
+                "QQQ",
+                checked_at_ms,
+                checked_at_ms,
+                expiration_at_ms,
+                DividendCoverageKind::ContinuousYieldApproximation(value),
+            )),
+            DividendAssumption::DiscreteScheduleUnknown => None,
+        };
+        SolverInput::new(
+            OptionKind::Call,
+            Underlying::new("QQQ").expect("synthetic underlying"),
+            price("100"),
+            Strike::parse_json_number("100").expect("synthetic strike"),
+            price("10"),
+            0.02,
+            ExerciseStyle::American,
+            expiration_context(
+                ExpirationClass::NonZeroDaysToExpiry,
+                checked_at_ms,
+                remaining_ms,
+            ),
+            dividends,
+            evidence,
+            checked_at_ms,
+            checked_at_ms,
+            2_000,
+        )
+        .expect("synthetic American solver input")
+    }
+
+    #[test]
+    fn offline_american_diagnostic_is_callable_bounded_and_never_authoritative() {
+        let input = american_input_with_remaining(30 * 86_400_000, DividendAssumption::NoDividends);
+        let candidate = evaluate_american_crr_offline_diagnostic(
+            &input,
+            0.3,
+            input.valuation_at_ms(),
+            Instant::now() + Duration::from_secs(5),
+        )
+        .expect("bounded synthetic offline diagnostic");
+
+        assert_eq!(
+            candidate.accuracy(),
+            AmericanCrrOfflineDiagnosticAccuracy::AccuracyUnverified
+        );
+        assert_eq!(
+            candidate.authority(),
+            AmericanCrrOfflineDiagnosticAuthority::DiagnosticOnlyNotTradable
+        );
+        assert_eq!(
+            candidate.method(),
+            AmericanCrrOfflineDiagnosticMethod::RichardsonCrr512To1024
+        );
+        assert!(candidate.price_per_underlying_unit().is_finite());
+        assert!(candidate.delta_per_underlying_unit().is_finite());
+        assert!(candidate.gamma_per_underlying_dollar_squared().is_finite());
+        assert!(
+            candidate
+                .theta_per_act365f_year_per_underlying_unit()
+                .is_finite()
+        );
+        assert!(candidate.coarse_pair_gap() <= 0.05);
+        assert!(candidate.fine_pair_gap() <= 0.05);
+        assert_eq!(candidate.node_visits(), candidate.node_visit_limit());
+        assert_eq!(candidate.node_visits(), 1_316_872);
+        assert_eq!(
+            solve_american_crr(&input, input.valuation_at_ms()),
+            SolverOutcome::Unavailable(ModelUnavailable::AmericanPricingAccuracyUnverified)
+        );
+    }
+
+    #[test]
+    fn offline_american_diagnostic_rejects_stale_boundary_and_unsupported_inputs() {
+        let fresh = american_input_with_remaining(30 * 86_400_000, DividendAssumption::NoDividends);
+        assert_eq!(
+            evaluate_american_crr_offline_diagnostic(
+                &fresh,
+                0.3,
+                fresh.valuation_at_ms(),
+                Instant::now() - Duration::from_millis(1),
+            ),
+            Err(AmericanCrrOfflineDiagnosticError::DeadlineExceeded)
+        );
+        assert_eq!(
+            evaluate_american_crr_offline_diagnostic(
+                &fresh,
+                0.3,
+                fresh.valuation_at_ms() + 2_001,
+                Instant::now() + Duration::from_secs(1),
+            ),
+            Err(AmericanCrrOfflineDiagnosticError::Input(
+                super::SolverInputError::Freshness(crate::MetricsError::StaleObservation)
+            ))
+        );
+        assert_eq!(
+            evaluate_american_crr_offline_diagnostic(
+                &fresh,
+                5.000_001,
+                fresh.valuation_at_ms(),
+                Instant::now() + Duration::from_secs(1),
+            ),
+            Err(AmericanCrrOfflineDiagnosticError::VolatilityOutOfRange)
+        );
+
+        let below_resolution =
+            american_input_with_remaining(59_999, DividendAssumption::NoDividends);
+        assert_eq!(
+            evaluate_american_crr_offline_diagnostic(
+                &below_resolution,
+                0.3,
+                below_resolution.valuation_at_ms(),
+                Instant::now() + Duration::from_secs(1),
+            ),
+            Err(AmericanCrrOfflineDiagnosticError::BelowMinimumResolution)
+        );
+
+        let discrete = american_input_with_remaining(
+            30 * 86_400_000,
+            DividendAssumption::DiscreteScheduleUnknown,
+        );
+        assert_eq!(
+            evaluate_american_crr_offline_diagnostic(
+                &discrete,
+                0.3,
+                discrete.valuation_at_ms(),
+                Instant::now() + Duration::from_secs(1),
+            ),
+            Err(AmericanCrrOfflineDiagnosticError::DiscreteDividendScheduleUnsupported)
+        );
+    }
+
+    #[test]
+    fn offline_american_diagnostic_accepts_exact_minimum_and_existing_ten_year_limit() {
+        for remaining_ms in [60_000, 10 * 365 * 86_400_000] {
+            let input =
+                american_input_with_remaining(remaining_ms, DividendAssumption::NoDividends);
+            let candidate = evaluate_american_crr_offline_diagnostic(
+                &input,
+                0.3,
+                input.valuation_at_ms(),
+                Instant::now() + Duration::from_secs(5),
+            )
+            .expect("accepted edge of existing mathematical time envelope");
+            assert_eq!(candidate.node_visits(), 1_316_872);
         }
     }
 

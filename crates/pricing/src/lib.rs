@@ -33,9 +33,12 @@ pub use singleflight::{
     PricingQuoteProvenance, PricingQuoteQuality, PricingSourceId, UnderlyingPriceInput,
 };
 pub use solver::{
-    DividendAssumption, DividendCoverageKind, DividendEvidenceError, DividendWindowEvidence,
-    ExchangeInstant, ExerciseStyle, ExpirationClass, ExpirationContext, ExpirationContextError,
-    ModelUnavailable, OptionKind, SolverInput, SolverInputError, SolverOutcome, solve_american_crr,
+    AmericanCrrOfflineDiagnostic, AmericanCrrOfflineDiagnosticAccuracy,
+    AmericanCrrOfflineDiagnosticAuthority, AmericanCrrOfflineDiagnosticError,
+    AmericanCrrOfflineDiagnosticMethod, DividendAssumption, DividendCoverageKind,
+    DividendEvidenceError, DividendWindowEvidence, ExchangeInstant, ExerciseStyle, ExpirationClass,
+    ExpirationContext, ExpirationContextError, ModelUnavailable, OptionKind, SolverInput,
+    SolverInputError, SolverOutcome, evaluate_american_crr_offline_diagnostic, solve_american_crr,
     solve_european_black_scholes, solve_option_model,
 };
 pub use worker_pool::{

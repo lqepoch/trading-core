@@ -1,14 +1,23 @@
 //! American pricing boundary with a fail-closed independent-accuracy gate.
 //!
-//! The experimental CRR lattice is compiled only in unit tests. Production
-//! callers receive a typed unavailable result until independently generated
-//! price and IV references establish a frozen error budget.
+//! Positive-time production solving remains fail-closed. A separate bounded
+//! offline diagnostic exposes a research candidate with explicitly unverified
+//! accuracy and no trading authority.
 //!
 //! ## 简体中文
 //!
-//! 本模块提供带独立精度门的美式定价边界。实验性 CRR 二叉树仅在单元测试中编译；独立生成价格和 IV 参考并冻结误差预算前，生产调用会收到类型化不可用结果。
+//! 本模块提供带独立精度门的美式定价边界。正剩余时间的生产求解仍失败关闭；独立离线诊断接口只公开精度未验证、无交易权威的研究候选。
 
 use super::*;
+
+#[path = "american_crr/offline_diagnostic.rs"]
+mod offline_diagnostic;
+
+pub use offline_diagnostic::{
+    AmericanCrrOfflineDiagnostic, AmericanCrrOfflineDiagnosticAccuracy,
+    AmericanCrrOfflineDiagnosticAuthority, AmericanCrrOfflineDiagnosticError,
+    AmericanCrrOfflineDiagnosticMethod, evaluate_american_crr_offline_diagnostic,
+};
 
 const MIN_AMERICAN_REMAINING_MILLIS: i64 = 60_000;
 
@@ -113,385 +122,19 @@ fn payoff(kind: OptionKind, spot: f64, strike: f64) -> f64 {
 
 #[cfg(test)]
 mod experimental_candidate {
+    use super::offline_diagnostic::{
+        CandidateBudget, CandidateInputs, crr_tree_node_visits, crr_tree_price,
+        paired_candidate_price, richardson_candidate_domain_supported,
+        richardson_candidate_price_until, richardson_candidate_result_until,
+    };
     use super::*;
     use std::time::{Duration, Instant};
 
     const TREE_STEPS_EVEN: usize = 256;
     const TREE_STEPS_ODD: usize = 257;
-    const TREE_STUDY_MAX_STEPS: usize = 1025;
     const TREE_PARITY_GAP_MAX: f64 = 0.05;
     const TREE_PRICE_MAX: f64 = MAX_MODEL_PRICE;
-    const RICHARDSON_COARSE_STEPS: usize = 512;
-    const RICHARDSON_FINE_STEPS: usize = 1024;
     const RICHARDSON_NODE_VISIT_LIMIT: u64 = 1_316_872;
-    const RICHARDSON_MAX_WALL_TIME: Duration = Duration::from_secs(1);
-
-    /// Inputs for the bounded test-only American tree candidate.
-    /// 简体中文：有界且仅供测试使用的美式二叉树候选模型输入。
-    #[derive(Clone, Copy)]
-    struct CandidateInputs {
-        kind: OptionKind,
-        spot: f64,
-        strike: f64,
-        rate: f64,
-        dividend_yield: f64,
-        years: f64,
-        volatility: f64,
-    }
-
-    #[derive(Clone, Copy, Debug)]
-    struct CandidateGreeks {
-        delta: f64,
-        gamma: f64,
-        theta: f64,
-    }
-
-    #[derive(Clone, Copy, Debug)]
-    struct CandidateTreeResult {
-        price: f64,
-        native_greeks: Option<CandidateGreeks>,
-    }
-
-    struct CandidateBudget {
-        deadline: Instant,
-        node_visit_limit: u64,
-        node_visits: u64,
-    }
-
-    impl CandidateBudget {
-        fn new(deadline: Instant, node_visit_limit: u64) -> Self {
-            let started_at = Instant::now();
-            let hard_deadline = started_at + RICHARDSON_MAX_WALL_TIME;
-            Self {
-                deadline: deadline.min(hard_deadline),
-                node_visit_limit,
-                node_visits: 0,
-            }
-        }
-
-        fn has_time(&self) -> bool {
-            Instant::now() < self.deadline
-        }
-
-        fn visit_node(&mut self) -> bool {
-            if self.node_visits >= self.node_visit_limit {
-                return false;
-            }
-            self.node_visits += 1;
-            true
-        }
-    }
-
-    fn budget_has_time(budget: &mut Option<&mut CandidateBudget>) -> bool {
-        match budget.as_deref_mut() {
-            Some(budget) => budget.has_time(),
-            None => true,
-        }
-    }
-
-    fn budget_visit_node(budget: &mut Option<&mut CandidateBudget>) -> bool {
-        match budget.as_deref_mut() {
-            Some(budget) => budget.visit_node(),
-            None => true,
-        }
-    }
-
-    fn crr_tree_result(input: CandidateInputs, steps: usize) -> Option<CandidateTreeResult> {
-        crr_tree_result_with_budget(input, steps, None)
-    }
-
-    fn crr_tree_result_with_budget(
-        input: CandidateInputs,
-        steps: usize,
-        mut budget: Option<&mut CandidateBudget>,
-    ) -> Option<CandidateTreeResult> {
-        let CandidateInputs {
-            kind,
-            spot,
-            strike,
-            rate,
-            dividend_yield,
-            years,
-            volatility,
-        } = input;
-        if steps == 0
-            || steps > TREE_STUDY_MAX_STEPS
-            || ![spot, strike, rate, dividend_yield, years, volatility]
-                .into_iter()
-                .all(f64::is_finite)
-            || spot <= 0.0
-            || strike <= 0.0
-            || years <= 0.0
-            || volatility <= 0.0
-        {
-            return None;
-        }
-        let dt = years / steps as f64;
-        let sigma_step = volatility * dt.sqrt();
-        let up = sigma_step.exp();
-        let down = (-sigma_step).exp();
-        let drift = ((rate - dividend_yield) * dt).exp();
-        let probability_up = (drift - down) / (up - down);
-        let discount = (-rate * dt).exp();
-        if ![dt, up, down, drift, probability_up, discount]
-            .into_iter()
-            .all(f64::is_finite)
-            || dt <= 0.0
-            || up <= down
-            || !(0.0..=1.0).contains(&probability_up)
-            || discount <= 0.0
-        {
-            return None;
-        }
-
-        let mut values = vec![0.0; steps + 1];
-        let node_ratio = up / down;
-        let mut terminal_spot = spot * down.powi(steps as i32);
-        for (index, value) in values.iter_mut().enumerate() {
-            if index % 64 == 0 && !budget_has_time(&mut budget) {
-                return None;
-            }
-            if !budget_visit_node(&mut budget) {
-                return None;
-            }
-            if !terminal_spot.is_finite() {
-                return None;
-            }
-            *value = payoff(kind, terminal_spot, strike);
-            terminal_spot *= node_ratio;
-        }
-        let mut values_at_one_step = None;
-        let mut values_at_two_steps = None;
-        for time_index in (0..steps).rev() {
-            if !budget_has_time(&mut budget) {
-                return None;
-            }
-            let mut node_spot = spot * down.powi(time_index as i32);
-            for index in 0..=time_index {
-                if index % 64 == 0 && !budget_has_time(&mut budget) {
-                    return None;
-                }
-                if !budget_visit_node(&mut budget) {
-                    return None;
-                }
-                let continuation = discount
-                    * (probability_up * values[index + 1] + (1.0 - probability_up) * values[index]);
-                let value = continuation.max(payoff(kind, node_spot, strike));
-                if !value.is_finite() || value < 0.0 {
-                    return None;
-                }
-                values[index] = value;
-                node_spot *= node_ratio;
-            }
-            if time_index == 1 {
-                values_at_one_step = Some([values[0], values[1]]);
-            } else if time_index == 2 {
-                values_at_two_steps = Some([values[0], values[1], values[2]]);
-            }
-        }
-        let price = values
-            .first()
-            .copied()
-            .filter(|value| value.is_finite() && *value <= TREE_PRICE_MAX)?;
-        let native_greeks = match (values_at_one_step, values_at_two_steps) {
-            (Some([down_value, up_value]), Some([down_down_value, center_value, up_up_value])) => {
-                let spot_down = spot * down;
-                let spot_up = spot * up;
-                let spot_down_down = spot * down * down;
-                let spot_up_up = spot * up * up;
-                let delta_denominator = spot_up - spot_down;
-                let up_delta_denominator = spot_up_up - spot * down * up;
-                let down_delta_denominator = spot * down * up - spot_down_down;
-                let gamma_denominator = 0.5 * (spot_up_up - spot_down_down);
-                let values = [
-                    spot_down,
-                    spot_up,
-                    spot_down_down,
-                    spot_up_up,
-                    delta_denominator,
-                    up_delta_denominator,
-                    down_delta_denominator,
-                    gamma_denominator,
-                ];
-                if !values.into_iter().all(f64::is_finite)
-                    || delta_denominator <= 0.0
-                    || up_delta_denominator <= 0.0
-                    || down_delta_denominator <= 0.0
-                    || gamma_denominator <= 0.0
-                {
-                    None
-                } else {
-                    let delta = (up_value - down_value) / delta_denominator;
-                    let up_delta = (up_up_value - center_value) / up_delta_denominator;
-                    let down_delta = (center_value - down_down_value) / down_delta_denominator;
-                    let gamma = (up_delta - down_delta) / gamma_denominator;
-                    let theta = (center_value - price) / (2.0 * dt);
-                    [delta, gamma, theta]
-                        .into_iter()
-                        .all(f64::is_finite)
-                        .then_some(CandidateGreeks {
-                            delta,
-                            gamma,
-                            theta,
-                        })
-                }
-            }
-            _ => None,
-        };
-        Some(CandidateTreeResult {
-            price,
-            native_greeks,
-        })
-    }
-
-    fn crr_tree_price(input: CandidateInputs, steps: usize) -> Option<f64> {
-        crr_tree_result(input, steps).map(|result| result.price)
-    }
-
-    fn crr_tree_node_visits(steps: usize) -> u64 {
-        let steps = steps as u64;
-        steps + 1 + steps * (steps + 1) / 2
-    }
-
-    fn paired_candidate_price(input: CandidateInputs) -> Option<f64> {
-        paired_candidate_price_with_steps(input, TREE_STEPS_EVEN)
-    }
-
-    fn paired_candidate_price_with_steps(input: CandidateInputs, even_steps: usize) -> Option<f64> {
-        paired_candidate_result_with_steps(input, even_steps).map(|result| result.price)
-    }
-
-    fn paired_candidate_result_with_steps(
-        input: CandidateInputs,
-        even_steps: usize,
-    ) -> Option<CandidateTreeResult> {
-        let even = crr_tree_result(input, even_steps)?;
-        let odd = crr_tree_result(input, even_steps + 1)?;
-        paired_candidate_result_from_trees(even, odd)
-    }
-
-    fn paired_candidate_result_with_budget(
-        input: CandidateInputs,
-        even_steps: usize,
-        budget: &mut CandidateBudget,
-    ) -> Option<CandidateTreeResult> {
-        let even = crr_tree_result_with_budget(input, even_steps, Some(&mut *budget))?;
-        let odd = crr_tree_result_with_budget(input, even_steps + 1, Some(&mut *budget))?;
-        paired_candidate_result_from_trees(even, odd)
-    }
-
-    fn paired_candidate_result_from_trees(
-        even: CandidateTreeResult,
-        odd: CandidateTreeResult,
-    ) -> Option<CandidateTreeResult> {
-        if (even.price - odd.price).abs() > TREE_PARITY_GAP_MAX {
-            return None;
-        }
-        let native_greeks = match (even.native_greeks, odd.native_greeks) {
-            (Some(even), Some(odd)) => {
-                let greeks = CandidateGreeks {
-                    delta: (even.delta + odd.delta) / 2.0,
-                    gamma: (even.gamma + odd.gamma) / 2.0,
-                    theta: (even.theta + odd.theta) / 2.0,
-                };
-                [greeks.delta, greeks.gamma, greeks.theta]
-                    .into_iter()
-                    .all(f64::is_finite)
-                    .then_some(greeks)
-            }
-            _ => None,
-        };
-        Some(CandidateTreeResult {
-            price: (even.price + odd.price) / 2.0,
-            native_greeks,
-        })
-    }
-
-    fn richardson_candidate_domain_supported(input: CandidateInputs) -> bool {
-        let minimum_years = 60_000.0 / MILLIS_PER_YEAR_ACT_365F;
-        [
-            input.spot,
-            input.strike,
-            input.rate,
-            input.dividend_yield,
-            input.years,
-            input.volatility,
-        ]
-        .into_iter()
-        .all(f64::is_finite)
-            && input.spot > 0.0
-            && input.spot <= TREE_PRICE_MAX
-            && input.strike > 0.0
-            && input.strike <= TREE_PRICE_MAX
-            && (minimum_years..=MAX_MODEL_TIME_YEARS).contains(&input.years)
-            && input.rate.abs() <= MAX_MODEL_RATE_ABS
-            && input.dividend_yield.abs() <= MAX_MODEL_RATE_ABS
-            && (MIN_VOLATILITY..=MAX_VOLATILITY).contains(&input.volatility)
-            && super::american_upper_bound(
-                input.kind,
-                input.spot,
-                input.strike,
-                input.rate,
-                input.dividend_yield,
-                input.years,
-            )
-            .is_some()
-    }
-
-    /// Test-only bounded Richardson price candidate; caller must provide an absolute deadline.
-    /// 简体中文：仅供测试的有界 Richardson 价格候选；调用方必须传入绝对截止时刻。
-    fn richardson_candidate_price_until(
-        input: CandidateInputs,
-        budget: &mut CandidateBudget,
-    ) -> Option<f64> {
-        richardson_candidate_result_until(input, budget).map(|result| result.price)
-    }
-
-    fn richardson_candidate_result_until(
-        input: CandidateInputs,
-        budget: &mut CandidateBudget,
-    ) -> Option<CandidateTreeResult> {
-        if !richardson_candidate_domain_supported(input) || !budget.has_time() {
-            return None;
-        }
-        let coarse = paired_candidate_result_with_budget(input, RICHARDSON_COARSE_STEPS, budget)?;
-        let fine = paired_candidate_result_with_budget(input, RICHARDSON_FINE_STEPS, budget)?;
-        let extrapolated = 2.0 * fine.price - coarse.price;
-        let intrinsic = payoff(input.kind, input.spot, input.strike);
-        let upper_bound = super::american_upper_bound(
-            input.kind,
-            input.spot,
-            input.strike,
-            input.rate,
-            input.dividend_yield,
-            input.years,
-        )?;
-        if !extrapolated.is_finite()
-            || extrapolated < intrinsic - PRICE_TOLERANCE
-            || extrapolated > upper_bound + PRICE_TOLERANCE
-            || !budget.has_time()
-        {
-            return None;
-        }
-        let native_greeks = match (coarse.native_greeks, fine.native_greeks) {
-            (Some(coarse), Some(fine)) => {
-                let greeks = CandidateGreeks {
-                    delta: 2.0 * fine.delta - coarse.delta,
-                    gamma: 2.0 * fine.gamma - coarse.gamma,
-                    theta: 2.0 * fine.theta - coarse.theta,
-                };
-                [greeks.delta, greeks.gamma, greeks.theta]
-                    .into_iter()
-                    .all(f64::is_finite)
-                    .then_some(greeks)
-            }
-            _ => None,
-        };
-        Some(CandidateTreeResult {
-            price: extrapolated,
-            native_greeks,
-        })
-    }
 
     #[test]
     fn negative_rate_put_upper_bound_can_exceed_strike() {
@@ -1461,7 +1104,7 @@ mod experimental_candidate {
                 Instant::now() + Duration::from_secs(5),
                 RICHARDSON_NODE_VISIT_LIMIT,
             );
-            let Some(candidate) =
+            let Ok(candidate) =
                 richardson_candidate_result_until(row.candidate_inputs(), &mut budget)
             else {
                 unavailable += 1;
