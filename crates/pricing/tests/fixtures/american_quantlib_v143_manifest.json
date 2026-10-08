@@ -1,0 +1,106 @@
+{
+  "build": {
+    "boost_date_time_version": "1.83.0.1ubuntu2",
+    "cmake_version": "cmake version 3.28.3",
+    "configuration": [
+      "CMAKE_BUILD_TYPE=Release",
+      "QL_HIGH_RESOLUTION_DATE=ON",
+      "QL_ENABLE_OPENMP=OFF",
+      "QL_BUILD_EXAMPLES=OFF",
+      "QL_BUILD_TEST_SUITE=OFF"
+    ],
+    "cxx_compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "full_source_build_elapsed": "NOT_CAPTURED; approximately 22 minutes by observation only",
+    "full_source_build_peak_rss": "NOT_CAPTURED",
+    "harness_compile_elapsed": "8.08 seconds",
+    "harness_compile_peak_rss_kib": 354104,
+    "harness_run_elapsed": "22.73 seconds",
+    "harness_run_peak_rss_kib": 15656,
+    "no_sla_claim": true,
+    "parallel_jobs": 2
+  },
+  "data_classification": "synthetic-only; no market payloads, accounts, credentials, or broker activity",
+  "explicit_limits": [
+    "No general production American price or IV error budget is established by this finite synthetic matrix.",
+    "No American CRR Greeks or implied-volatility method is exposed by the production solver.",
+    "Discrete cash dividends are not CRR-comparable to no-dividend or continuous-yield cases.",
+    "No contract, settlement, exchange calendar, provider, strategy, or real-market correctness is established."
+  ],
+  "fixture": {
+    "path": "crates/pricing/tests/fixtures/american_quantlib_v143_grid.csv",
+    "quantlib_jsonl_sha256": "fbec03199df6913cf73b226c80ac4fcea8ba4b3f529653ec6a36e5a0ab2880fd",
+    "sha256": "293ca8408f26f524c6c75d411df75fdfedf55ccaca657d1bc9c5e0c8efe2ee96"
+  },
+  "format": "american-pricing-oracle-manifest-v1",
+  "generator": {
+    "converter": "crates/pricing/tests/oracle/convert_quantlib_jsonl.py",
+    "converter_sha256": "b1c69e286ebdc264159682835a765e27cff550cbf6b7532ed23bd2cefeeb86b0",
+    "cpp_source": "crates/pricing/tests/oracle/american_quantlib_v143.cpp",
+    "cpp_source_sha256": "9b4e7bbcc67ea933411adae5ea20ef5070a9cba6ed11b812ea2a94435a6457e9"
+  },
+  "oracle_model": {
+    "calendar": "NullCalendar for synthetic curves; no exchange-calendar or settlement qualification",
+    "day_count": "Actual/365 Fixed; expiry is an exact elapsed-millisecond offset from valuation",
+    "discrete_cash_dividend_cases": [
+      {
+        "amount": 1.0,
+        "note": "reported as model sensitivity only; not compared with CRR or continuous yield",
+        "offset_from_valuation_ms": 864000000
+      }
+    ],
+    "dividend_yield": "flat continuously compounded yield for the CRR-comparable cases",
+    "engine": "QuantLib FdBlackScholesVanillaEngine; Douglas default scheme; 2 damping steps",
+    "evaluation_instant": "2026-06-15 13:30:00 (synthetic, high-resolution QuantLib Date)",
+    "exercise": "AmericanExercise from the synthetic valuation instant through the synthetic expiry",
+    "fields": [
+      "price",
+      "delta",
+      "gamma",
+      "theta"
+    ],
+    "grid_row_count": 144,
+    "grid_time_space": [
+      [
+        100,
+        400
+      ],
+      [
+        400,
+        800
+      ],
+      [
+        800,
+        1600
+      ],
+      [
+        1600,
+        3200
+      ]
+    ],
+    "rates": "flat continuously compounded risk-free rate",
+    "synthetic_case_count": 36,
+    "volatility": "flat constant volatility"
+  },
+  "runtime": {
+    "QL_ENABLE_OPENMP": false,
+    "QL_HIGH_RESOLUTION_DATE": true,
+    "config_header": "ql/config.hpp",
+    "config_header_sha256": "f658a767e7fbc23347cff0a375b9bd40acfcb7ecc0daed84a21f8ef0655b91bf",
+    "library_sha256": "fe23e3fec782826cd1b7dc0cefcc55892af34117b38c4587932c720e56b286b1",
+    "origin": "native shared library built from the pinned QuantLib source commit; Python wheel not used",
+    "version": "1.43"
+  },
+  "upstream": {
+    "license_file": "LICENSE.TXT",
+    "license_sha256": "85c8dd19077a479f7591a7dcc25194cd58c6f5d98690d2f865d0fe870b9d0eb2",
+    "peeled_commit": "6b57206e04598f092efee66e3b367efc84771995",
+    "reference_source_hashes": {
+      "ql/methods/finitedifferences/solvers/fdmblackscholessolver.hpp": "6cfc2515bad51f009c36752189cfa9db3f47cbfd5188ec01b4a09c34942758ca",
+      "ql/pricingengines/vanilla/fdblackscholesvanillaengine.hpp": "c4758ecc3af00fa932425a35e4fc6dcd5a375ac64a54a8d80d10fa190e5a15c0",
+      "test-suite/americanoption.cpp": "0fb166bbecd3ce1b92fe80b6d4b92f6d04074cf0cf84187be5b4ef394c50843a"
+    },
+    "repository": "https://github.com/lballabio/QuantLib.git",
+    "tag": "v1.43",
+    "tag_object": "1139fefe63bfb36695448337c1367b73ff215353"
+  }
+}

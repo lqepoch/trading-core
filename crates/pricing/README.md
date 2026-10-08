@@ -122,10 +122,12 @@ resolution boundary passes, it returns the typed
 path is still available.
 
 The CRR tree retained in `solver/american_crr.rs` is compiled only for unit
-tests. It has fixed 256/257 steps, bounded terminal storage (257 and 258
-values), and rejects invalid risk-neutral probabilities and non-finite values.
-These invariants do not establish price or IV accuracy and the production
-entrypoint cannot expose its candidate values. The provenance identifier
+tests. Its candidate pair uses fixed 256/257 steps and rejects invalid
+risk-neutral probabilities and non-finite values. Test-only convergence study
+code also evaluates bounded `N/(N+1)` pairs up through 1024/1025 steps; it does
+not change the candidate pair or production behavior. These invariants do not
+establish price or IV accuracy and the production entrypoint cannot expose its
+candidate values. The provenance identifier
 `AmericanCrrV1` is reserved, and metric validation rejects it until the
 accuracy gate passes. The negative-rate American put
 upper bound uses `K * exp(max(-r, 0) * T)` rather than assuming the bound is
@@ -137,42 +139,75 @@ An independent reference source is pinned to QuantLib v1.43 commit
 100, 400)` constructor uses `tGrid=100` time points and `xGrid=400` price
 points, with `Actual360` and American exercise dates. Its price cases use
 rounded Ju (1999) published values and a `$0.08` upstream tolerance. Those
-values are historical cross-method references only: they are not captured
-QuantLib PDE outputs, and QuantLib has not been installed or run in this
-environment. They are not used as a local pass gate.
+values remain historical cross-method references only and are not used as a
+local pass gate. A separate source build of the pinned library was run with
+high-resolution dates and a synthetic `Actual/365 Fixed` model. The committed
+fixture stores 36 cases over four PDE grids. See
+[`docs/PRICING-ORACLE.md`](../../docs/PRICING-ORACLE.md) for commands, source
+and license hashes, input assumptions, and measured errors.
 
-That pinned test does not provide fixed portable CRR Greek outputs. Its delta
-and gamma checks compare bumps from the same finite-difference engine, and its
-Theta test is disabled. Bump stability is not an independent Greek oracle.
-Independent price/IV/Greek fixtures, convergence studies, frozen unit-specific
-error budgets, and validated dividend schedules remain BLOCKED. Model accuracy,
-provider evidence resolution, and strategy/coordinator integration are not
-complete.
+On the 34 no-cash-dividend or continuous-yield cases, the test-only 256/257
+CRR pair emitted values for 31 cases and failed its existing `$0.05` adjacent
+step check for three. Among emitted values, the largest absolute price error
+was `$0.011082`; the largest relative error was `18.68%` on a low-premium
+short-dated case. A test-only bisection over the 256/257 CRR price pair recovered volatility
+with a largest absolute error of `0.000992` units across ten cases. The
+finite-difference CRR Greeks showed material errors near expiry: maximum
+absolute Delta, Gamma, and annualized Theta errors were `0.00830`, `10.60`,
+and `2958.60` respectively. These are sample measurements, not production
+acceptance thresholds. The public path remains fail-closed, and the CRR
+candidate remains test-only.
 
-公共入口 `solve_american_crr(input, evaluation_at_ms)` 在正剩余时间下不会发布美式价格、
-IV 或 Greek。按显式检查时刻重新核验输入新鲜度，并通过一分钟分辨率边界后，它仍返回类型化的
-`AmericanPricingAccuracyUnverified`。不足一分钟返回 `TimeBelowResolution`；未知或
-离散股息日程返回 `DividendAssumptionUnsupported`。精确到期仍可通过共享路径返回
-精确内在价值。
+The QuantLib 800x1600 to 1600x3200 grid change was at most `$0.001745` in
+price, `8.83e-6` in Delta, `2.54e-5` in Gamma, and `1.735` in annualized Theta
+over this matrix. A fixed `$1` cash dividend ten days into a 30-day American
+option changed the synthetic call and put prices by `-$0.509633` and
+`+$0.625555` against their no-dividend baselines. These are different models;
+the cash-dividend rows are not CRR comparisons and continuous yield is not a
+substitute for a discrete schedule.
 
-`solver/american_crr.rs` 中保留的 CRR 树仅在单元测试中编译。它固定使用 256/257
-步，终端存储最多为 257 和 258 个值，并拒绝无效风险中性概率和非有限数值。这些
-不变量不能证明价格或 IV 准确度，生产入口也不能暴露候选结果。来源标识
-`AmericanCrrV1` 仅作预留；精度门通过前，指标校验会拒绝此来源。负利率美式看跌期权
-的上界使用 `K * exp(max(-r, 0) * T)`，不再一律假设上界为 `K`。
+The fixture and test-only study do not establish a general American price or
+IV budget, reliable American Greeks, exchange settlement/calendar behavior,
+provider evidence, strategy integration, or real-market accuracy. No public
+American price, IV, or Greek is enabled.
+
+公共入口 `solve_american_crr(input, evaluation_at_ms)` 不会为正剩余时间发布美式价格、IV
+或 Greek。重新检查显式检查时刻的新鲜度并通过一分钟分辨率边界后，仍返回
+`AmericanPricingAccuracyUnverified`；少于一分钟返回 `TimeBelowResolution`，未知或离散股息
+返回 `DividendAssumptionUnsupported`。精确到期仍只返回内在价值。
+
+`solver/american_crr.rs` 中的候选树仅在单元测试中编译。候选配对固定使用 256/257 步，
+并拒绝无效风险中性概率和非有限值。测试专用收敛实验扩展到最多 1024/1025 步，但不改变
+候选配对或生产行为。来源 `AmericanCrrV1` 仍被指标校验拒绝；负利率美式 put 上界使用
+`K * exp(max(-r, 0) * T)`。
 
 独立参考来源固定为 QuantLib v1.43 commit
 [`6b57206e04598f092efee66e3b367efc84771995`](https://github.com/lballabio/QuantLib/blob/6b57206e04598f092efee66e3b367efc84771995/test-suite/americanoption.cpp)
 中的 `test-suite/americanoption.cpp`。`FdBlackScholesVanillaEngine(process,
 100, 400)` 构造函数参数是 `tGrid=100` 个时间点、`xGrid=400` 个价格点，并使用
 `Actual360` 和美式行权日期。其价格样例使用 Ju (1999) 已发表的舍入数值及上游
-`$0.08` 容差。这些仅是历史跨方法参考，不是保存的 QuantLib PDE 输出；当前环境
-没有安装或运行 QuantLib，也不使用这些数值作为本地通过门槛。
+`$0.08` 容差。这些仍仅是历史跨方法参考，不作为本地通过门槛。另行从固定源码构建
+QuantLib，并以高精度日期和合成 `Actual/365 Fixed` 模型运行四档 PDE 网格，生成了
+36 个场景。命令、源码与许可证哈希、输入假设和误差见
+[`docs/PRICING-ORACLE.md`](../../docs/PRICING-ORACLE.md)。
 
-该固定测试未提供可移植的 CRR Greek 数值。其 Delta/Gamma 检查把同一有限差分引擎
-的输出与自身价格 bump 比较，Theta 测试已禁用；bump 稳定性不是独立 Greek oracle。
-独立价格/IV/Greeks fixtures、收敛研究、按单位冻结的误差预算和经验证的股息日程仍为
-BLOCKED。模型准确度、供应商证据解析以及策略/coordinator 接线尚未完成。
+34 个无现金股息或连续收益率场景中，测试专用的 256/257 CRR 配对仅为 31 个输出数值，
+另 3 个因相邻步差超过现有 `$0.05` 检查而拒绝。已输出样本最大绝对价格误差为
+`$0.011082`；短期限低权利金场景最大相对误差为 `18.68%`。10 个场景的测试专用
+CRR 隐含波动率反解最大绝对误差为 `0.000992`。接近到期时 CRR 有限差分 Greeks
+误差明显：Delta、Gamma、年化 Theta 的最大绝对误差分别为 `0.00830`、`10.60` 和
+`2958.60`。这些是有限合成样本测量值，不是生产验收门槛；公开路径仍失败关闭，CRR
+候选仍仅用于测试。
+
+在此矩阵内，QuantLib 网格从 `800x1600` 加密至 `1600x3200` 时，价格、Delta、Gamma、
+年化 Theta 的最大变化分别为 `$0.001745`、`8.83e-6`、`2.54e-5` 和 `1.735`。30 日
+美式期权在第 10 天加入 `$1` 离散现金股息后，合成 call/put 相对无股息基准分别变化
+`-$0.509633` 和 `+$0.625555`。这属于不同股息模型，现金股息行不与 CRR 对比，连续收益率
+不能代替离散股息日程。
+
+这些固定样本和测试专用实验不能证明通用美式价格/IV 误差预算、可靠的美式 Greeks、
+交易所结算/日历行为、供应商证据、策略接线或真实行情准确度；公开美式价格、IV 和 Greeks
+均未启用。
 
 ## Shared local singleflight
 
