@@ -163,9 +163,10 @@
       "source_path": "crates/pricing/README.md",
       "target_path": "crates/pricing/README.md",
       "source_sha256": "1597efe6f3dc920d51ea00650cb56230e38001651e2ce8c9c4b0ba2b0608fcd7",
-      "target_sha256": "11cb596cfb6ba89e140c2fbf3d92e307038097a59548e7582d8fee85d207c15d",
+      "target_sha256": "b538f742336702d3f1298641a9ef8afef392a834b7124b9aced17e2511a27d98",
       "changes": [
-        "Removed references to private upstream issue numbers; clarified that provider resolution and runtime wiring are outside this crate."
+        "Removed references to private upstream issue numbers; clarified that provider resolution and runtime wiring are outside this crate.",
+        "Added synthetic QuantLib v1.43 oracle results and reproduction guidance; documentation only, with no production pricing behavior change."
       ]
     },
     {
@@ -246,8 +247,10 @@
       "source_path": "crates/pricing/src/solver/american_crr.rs",
       "target_path": "crates/pricing/src/solver/american_crr.rs",
       "source_sha256": "39622ca53789a4e5e3159b6776cf2beb034efb8ce737a0ec28a03817030c7624",
-      "target_sha256": "39622ca53789a4e5e3159b6776cf2beb034efb8ce737a0ec28a03817030c7624",
-      "changes": []
+      "target_sha256": "1a0d7353b89d18c48922c4ebc451b407239c055f8c396ad262f3a5420f34365f",
+      "changes": [
+        "Extended the existing #[cfg(test)] experimental candidate module with bounded N/(N+1) study helpers and synthetic QuantLib oracle regressions; production pricing implementation remains unchanged."
+      ]
     },
     {
       "repository": "lqepoch/schwab_auto_bot",
