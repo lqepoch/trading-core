@@ -1,0 +1,44 @@
+{
+  "valid": [
+    {
+      "name": "signed_i64_minimum",
+      "timestamp_utc": "1677-09-21T00:12:43.145224192Z",
+      "epoch_nanoseconds": "-9223372036854775808"
+    },
+    {
+      "name": "signed_i64_maximum",
+      "timestamp_utc": "2262-04-11T23:47:16.854775807Z",
+      "epoch_nanoseconds": "9223372036854775807"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "one_nanosecond_below_signed_i64_minimum",
+      "timestamp_utc": "1677-09-21T00:12:43.145224191Z"
+    },
+    {
+      "name": "one_nanosecond_above_signed_i64_maximum",
+      "timestamp_utc": "2262-04-11T23:47:16.854775808Z"
+    },
+    {
+      "name": "far_outside_signed_i64_nanoseconds",
+      "timestamp_utc": "2500-01-01T00:00:00Z"
+    },
+    {
+      "name": "rfc3339_leap_second",
+      "timestamp_utc": "2026-10-08T14:30:60Z"
+    },
+    {
+      "name": "fractional_precision_above_nanoseconds",
+      "timestamp_utc": "2026-10-08T14:30:00.1234567899Z"
+    },
+    {
+      "name": "lowercase_t_separator",
+      "timestamp_utc": "2026-10-08t14:30:00Z"
+    },
+    {
+      "name": "space_separator",
+      "timestamp_utc": "2026-10-08 14:30:00Z"
+    }
+  ]
+}

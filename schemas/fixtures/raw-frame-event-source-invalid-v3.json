@@ -1,0 +1,26 @@
+{
+  "description": "Synthetic negative cases for source metadata rules shared with Rust MarketEventEnvelopeV1.",
+  "invalid": [
+    {
+      "name": "binary_float64_without_raw_frame_sha256",
+      "provider": "alpaca",
+      "feed": "sip",
+      "numeric_encoding": "binary_float64_shortest_decimal",
+      "raw_frame_sha256": null
+    },
+    {
+      "name": "binary_float32_without_raw_frame_sha256",
+      "provider": "alpaca",
+      "feed": "sip",
+      "numeric_encoding": "binary_float32_shortest_decimal",
+      "raw_frame_sha256": null
+    },
+    {
+      "name": "synthetic_binary_float_with_raw_frame_sha256",
+      "provider": "synthetic",
+      "feed": "synthetic",
+      "numeric_encoding": "binary_float64_shortest_decimal",
+      "raw_frame_sha256": "a83299c50918fd7f93c77109be735d83e1009dda6a9c52c04738fa56ba9b871d"
+    }
+  ]
+}

@@ -111,7 +111,11 @@ impl fmt::Debug for RawFrameStorageRecordV1 {
 impl RawFrameStorageRecordV1 {
     /// Validate the frame identity, content digest, projection metadata, and symbol list.
     pub fn validate(&self) -> Result<(), RawFrameContractError> {
-        validate_raw_frame(self.view(), NumericEncodingV1::RawMessagePackBytes)
+        validate_raw_frame(
+            self.view(),
+            NumericEncodingV1::RawMessagePackBytes,
+            MARKET_RAW_FRAME_SCHEMA_VERSION,
+        )
     }
 
     /// Return the decoded symbol list after validating its canonical representation.
@@ -196,7 +200,11 @@ impl fmt::Debug for RawJsonFrameStorageRecordV1 {
 impl RawJsonFrameStorageRecordV1 {
     /// Validate the frame identity, content digest, projection metadata, and symbol list.
     pub fn validate(&self) -> Result<(), RawFrameContractError> {
-        validate_raw_frame(self.view(), NumericEncodingV1::RawJsonBytes)
+        validate_raw_frame(
+            self.view(),
+            NumericEncodingV1::RawJsonBytes,
+            MARKET_RAW_FRAME_SCHEMA_VERSION,
+        )
     }
 
     /// Return the decoded symbol list after validating its canonical representation.
@@ -224,27 +232,38 @@ impl RawJsonFrameStorageRecordV1 {
 }
 
 #[derive(Clone, Copy)]
-struct RawFrameView<'a> {
-    schema_version: u32,
-    provider: &'a str,
-    feed: &'a str,
-    entitlement: EntitlementState,
-    source_numeric_encoding: Option<NumericEncodingV1>,
-    generation: u64,
-    frame_sequence: u64,
-    received_timestamp_utc: &'a UtcTimestamp,
-    frame_sha256: &'a str,
-    frame_bytes: &'a [u8],
-    event_count: u32,
-    disposition: RawFrameDispositionV1,
-    symbols_json: &'a str,
+pub(crate) struct RawFrameView<'a> {
+    pub(crate) schema_version: u32,
+    pub(crate) provider: &'a str,
+    pub(crate) feed: &'a str,
+    pub(crate) entitlement: EntitlementState,
+    pub(crate) source_numeric_encoding: Option<NumericEncodingV1>,
+    /// Canonical generation assigned after decoding; this is not a source generation.
+    pub(crate) generation: u64,
+    /// Source frame sequence within `source_generation`.
+    pub(crate) frame_sequence: u64,
+    pub(crate) received_timestamp_utc: &'a UtcTimestamp,
+    pub(crate) frame_sha256: &'a str,
+    pub(crate) frame_bytes: &'a [u8],
+    pub(crate) event_count: u32,
+    pub(crate) disposition: RawFrameDispositionV1,
+    pub(crate) symbols_json: &'a str,
 }
 
-fn validate_raw_frame(
+pub(crate) fn validate_raw_frame(
     frame: RawFrameView<'_>,
     dataset_encoding: NumericEncodingV1,
+    expected_schema_version: u32,
 ) -> Result<(), RawFrameContractError> {
-    if frame.schema_version != MARKET_RAW_FRAME_SCHEMA_VERSION {
+    validate_raw_frame_with_symbols(frame, dataset_encoding, expected_schema_version).map(|_| ())
+}
+
+pub(crate) fn validate_raw_frame_with_symbols(
+    frame: RawFrameView<'_>,
+    dataset_encoding: NumericEncodingV1,
+    expected_schema_version: u32,
+) -> Result<Vec<String>, RawFrameContractError> {
+    if frame.schema_version != expected_schema_version {
         return Err(RawFrameContractError::UnsupportedVersion);
     }
     if frame.generation == 0 || frame.frame_sequence == 0 {
@@ -292,7 +311,7 @@ fn validate_raw_frame(
     if frame.event_count > 0 && (symbols.is_empty() || symbols.len() > frame.event_count as usize) {
         return Err(RawFrameContractError::InvalidDisposition);
     }
-    Ok(())
+    Ok(symbols)
 }
 
 /// Correlation fields appended by the `lqepoch.market_event.v2` storage schema.
@@ -360,7 +379,7 @@ impl MarketEventParquetRowV2 {
         dataset_encoding: NumericEncodingV1,
     ) -> Result<(), RawFrameContractError> {
         self.validate()?;
-        validate_raw_frame(frame, dataset_encoding)?;
+        validate_raw_frame(frame, dataset_encoding, MARKET_RAW_FRAME_SCHEMA_VERSION)?;
         let reference = self
             .raw_frame_reference
             .ok_or(RawFrameContractError::MissingReference)?;
@@ -394,6 +413,8 @@ pub enum RawFrameContractError {
     InvalidSource,
     #[error("raw-frame generation and sequence must be positive")]
     InvalidSequence,
+    #[error("row timestamp is not representable as UTC Arrow nanoseconds")]
+    InvalidTimestamp,
     #[error("raw-frame bytes exceed the 1 MiB bound")]
     FrameTooLarge,
     #[error("raw-frame event count exceeds the per-frame bound")]
@@ -416,9 +437,19 @@ pub enum RawFrameContractError {
     MissingReference,
     #[error("event and raw-frame record do not identify the same source data")]
     ReferenceMismatch,
+    #[error("capture instance ID is not a lowercase UUIDv4 with an RFC variant")]
+    InvalidCaptureInstanceId,
+    #[error("capture chunk must contain one bounded, ordered capture generation")]
+    InvalidCaptureChunk,
+    #[error("capture chunk exceeds its frame-count, payload-byte, or metadata-byte bound")]
+    CaptureChunkTooLarge,
+    #[error("capture chunk is missing an expected normalized event")]
+    IncompleteProjection,
 }
 
-fn parse_canonical_symbols_json(value: &str) -> Result<Vec<String>, RawFrameContractError> {
+pub(crate) fn parse_canonical_symbols_json(
+    value: &str,
+) -> Result<Vec<String>, RawFrameContractError> {
     if value.len() > MAX_RAW_FRAME_SYMBOLS_JSON_BYTES {
         return Err(RawFrameContractError::InvalidSymbols);
     }
@@ -440,7 +471,7 @@ fn parse_canonical_symbols_json(value: &str) -> Result<Vec<String>, RawFrameCont
     Ok(symbols)
 }
 
-fn event_symbol(event: &MarketEventV1) -> &str {
+pub(crate) fn event_symbol(event: &MarketEventV1) -> &str {
     match event {
         MarketEventV1::StockQuote { symbol, .. }
         | MarketEventV1::StockTrade { symbol, .. }
@@ -449,7 +480,7 @@ fn event_symbol(event: &MarketEventV1) -> &str {
     }
 }
 
-fn lower_hex(bytes: &[u8]) -> String {
+pub(crate) fn lower_hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut output = String::with_capacity(bytes.len() * 2);
     for byte in bytes {

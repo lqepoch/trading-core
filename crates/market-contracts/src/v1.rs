@@ -117,10 +117,21 @@ impl<'de> Deserialize<'de> for DecimalString {
 }
 
 /// RFC3339 timestamp normalized to UTC with minimal fractional precision.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct UtcTimestamp {
     instant: DateTime<Utc>,
     canonical: String,
+    arrow_ns_compatible: bool,
+}
+
+impl fmt::Debug for UtcTimestamp {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("UtcTimestamp")
+            .field("instant", &self.instant)
+            .field("canonical", &self.canonical)
+            .finish()
+    }
 }
 
 impl UtcTimestamp {
@@ -132,15 +143,34 @@ impl UtcTimestamp {
             return Err(MarketWireError::InvalidTimestamp);
         }
         let instant = parsed.with_timezone(&Utc);
+        let arrow_ns_compatible =
+            has_exact_utc_nanosecond_lexeme(value) && instant.timestamp_nanos_opt().is_some();
         Ok(Self {
             canonical: canonical_utc_timestamp(&instant),
             instant,
+            arrow_ns_compatible,
         })
+    }
+
+    /// Parse the original RFC3339 lexeme for storage in an Arrow nanosecond timestamp column.
+    ///
+    /// Unlike the legacy parser, this rejects timestamps outside signed `i64` epoch nanoseconds,
+    /// leap seconds, non-canonical separators, and fractional precision beyond nanoseconds.
+    pub fn parse_for_arrow_nanoseconds(value: &str) -> Result<Self, MarketWireError> {
+        let timestamp = Self::parse(value)?;
+        if !timestamp.arrow_ns_compatible {
+            return Err(MarketWireError::InvalidTimestamp);
+        }
+        Ok(timestamp)
     }
 
     /// Return the normalized RFC3339 value.
     pub fn as_str(&self) -> &str {
         &self.canonical
+    }
+
+    pub(crate) const fn is_arrow_ns_compatible(&self) -> bool {
+        self.arrow_ns_compatible
     }
 }
 
@@ -643,6 +673,43 @@ fn canonical_utc_timestamp(value: &DateTime<Utc>) -> String {
     formatted
 }
 
+fn has_exact_utc_nanosecond_lexeme(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() < 20
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b'T'
+        || bytes[13] != b':'
+        || bytes[16] != b':'
+    {
+        return false;
+    }
+    for (start, end) in [(0, 4), (5, 7), (8, 10), (11, 13), (14, 16), (17, 19)] {
+        if !bytes[start..end].iter().all(u8::is_ascii_digit) {
+            return false;
+        }
+    }
+    let second = (bytes[17] - b'0') * 10 + (bytes[18] - b'0');
+    if second > 59 {
+        return false;
+    }
+
+    let mut timezone_start = 19;
+    if bytes[timezone_start] == b'.' {
+        let fraction_start = timezone_start + 1;
+        let mut fraction_end = fraction_start;
+        while fraction_end < bytes.len() && bytes[fraction_end].is_ascii_digit() {
+            fraction_end += 1;
+        }
+        let fraction_len = fraction_end - fraction_start;
+        if !(1..=9).contains(&fraction_len) {
+            return false;
+        }
+        timezone_start = fraction_end;
+    }
+    matches!(&bytes[timezone_start..], b"Z" | b"+00:00" | b"-00:00")
+}
+
 fn valid_sha256(value: &str) -> bool {
     value.len() == 64
         && value
@@ -807,6 +874,30 @@ mod tests {
         assert!(one_tenth < eleven_hundredths);
         assert_eq!(one_tenth, same_instant);
         assert_eq!(one_tenth.as_str(), "2026-10-08T14:30:00.1Z");
+    }
+
+    #[test]
+    fn legacy_timestamp_quality_marker_does_not_change_v1_equality_hash_or_json() {
+        use std::hash::{Hash, Hasher};
+
+        let exact = UtcTimestamp::parse("2026-10-08T14:30:00.123456789Z").unwrap();
+        let lossy = UtcTimestamp::parse("2026-10-08T14:30:00.1234567899Z").unwrap();
+        assert!(!lossy.is_arrow_ns_compatible());
+        assert_eq!(exact, lossy);
+        assert_eq!(exact.as_str(), lossy.as_str());
+        assert_eq!(
+            serde_json::to_string(&exact).unwrap(),
+            serde_json::to_string(&lossy).unwrap()
+        );
+        assert!(
+            UtcTimestamp::parse_for_arrow_nanoseconds("2026-10-08T14:30:00.1234567899Z").is_err()
+        );
+
+        let mut exact_hash = std::collections::hash_map::DefaultHasher::new();
+        exact.hash(&mut exact_hash);
+        let mut lossy_hash = std::collections::hash_map::DefaultHasher::new();
+        lossy.hash(&mut lossy_hash);
+        assert_eq!(exact_hash.finish(), lossy_hash.finish());
     }
 
     #[test]

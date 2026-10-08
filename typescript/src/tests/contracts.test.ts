@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
@@ -31,6 +32,20 @@ import {
   type SchemaDescriptor,
 } from "../contracts/schema-fingerprint.js";
 import {
+  MARKET_EVENT_V3_SCHEMA_ID,
+  MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  MARKET_RAW_JSON_FRAME_V2_SCHEMA_ID,
+  MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES,
+  MAX_RAW_FRAME_EVENT_COUNT,
+  MAX_RAW_FRAME_SYMBOLS_JSON_BYTES,
+  validateCaptureInstanceIdV2,
+  validateEventAgainstRawFrameRowV2,
+  validateMarketEventRowV3,
+  validateRawEventChunkV2,
+  validateRawFrameRowV2,
+  type ParquetRow,
+} from "../contracts/raw-frame.js";
+import {
   FiniteBatchCompletionV2Schema,
   FiniteBatchSourceKindV2,
 } from "../gen/lqepoch/dataset/v2/manifest_pb.js";
@@ -42,6 +57,370 @@ function readFixture<T>(path: string): T {
 
 const require = createRequire(import.meta.url);
 const addFormats = require("ajv-formats").default as (ajv: Ajv2020) => Ajv2020;
+
+type RawFrameFixture = {
+  row: Record<string, unknown>;
+  frame_bytes_hex: string;
+};
+type RawFrameCaptureFixture = {
+  messagepack_schema_id: string;
+  messagepack_frames: RawFrameFixture[];
+  messagepack_events: Record<string, unknown>[];
+  json_schema_id: string;
+  json_frame: RawFrameFixture;
+  json_event: Record<string, unknown>;
+};
+
+function materializeRawFrame(fixture: RawFrameFixture): Record<string, unknown> {
+  return {
+    ...fixture.row,
+    frame_bytes: Uint8Array.from(Buffer.from(fixture.frame_bytes_hex, "hex")),
+  };
+}
+
+const rawFrameCapture = readFixture<RawFrameCaptureFixture>(
+  "schemas/fixtures/raw-frame-capture-v2.json",
+);
+const messagepackFrames = rawFrameCapture.messagepack_frames.map(materializeRawFrame);
+const messagepackEvents = structuredClone(rawFrameCapture.messagepack_events);
+const jsonFrame = materializeRawFrame(rawFrameCapture.json_frame);
+const jsonEvent = structuredClone(rawFrameCapture.json_event);
+assert(rawFrameCapture.messagepack_schema_id === MARKET_RAW_FRAME_V2_SCHEMA_ID, "raw V2 schema ID changed");
+assert(rawFrameCapture.json_schema_id === MARKET_RAW_JSON_FRAME_V2_SCHEMA_ID, "raw JSON V2 schema ID changed");
+validateRawEventChunkV2(messagepackFrames, messagepackEvents, MARKET_RAW_FRAME_V2_SCHEMA_ID);
+validateRawFrameRowV2(jsonFrame, MARKET_RAW_JSON_FRAME_V2_SCHEMA_ID);
+validateEventAgainstRawFrameRowV2(jsonEvent, jsonFrame, MARKET_RAW_JSON_FRAME_V2_SCHEMA_ID);
+validateMarketEventRowV3(jsonEvent);
+assert(MARKET_EVENT_V3_SCHEMA_ID === "lqepoch.market_event.v3", "event V3 schema ID changed");
+
+type TimestampBoundaryCase = { name: string; timestamp_utc: string; epoch_nanoseconds?: string };
+type TimestampBoundaryFixture = { valid: TimestampBoundaryCase[]; invalid: TimestampBoundaryCase[] };
+const timestampBoundaries = readFixture<TimestampBoundaryFixture>(
+  "schemas/fixtures/raw-frame-timestamp-ns-v2.json",
+);
+for (const testCase of timestampBoundaries.valid) {
+  const frame = structuredClone(messagepackFrames[0]!);
+  frame.received_timestamp_utc = testCase.timestamp_utc;
+  validateRawFrameRowV2(frame, MARKET_RAW_FRAME_V2_SCHEMA_ID);
+
+  const event = structuredClone(messagepackEvents[0]!);
+  event.received_timestamp = testCase.timestamp_utc;
+  event.source_timestamp = testCase.timestamp_utc;
+  validateMarketEventRowV3(event);
+}
+for (const testCase of timestampBoundaries.invalid) {
+  const frame = structuredClone(messagepackFrames[0]!);
+  frame.received_timestamp_utc = testCase.timestamp_utc;
+  rejects(
+    () => validateRawFrameRowV2(frame, MARKET_RAW_FRAME_V2_SCHEMA_ID),
+    `raw V2 accepted ${testCase.name}`,
+  );
+
+  const invalidReceived = structuredClone(messagepackEvents[0]!);
+  invalidReceived.received_timestamp = testCase.timestamp_utc;
+  rejects(
+    () => validateMarketEventRowV3(invalidReceived),
+    `event V3 accepted ${testCase.name} in received_timestamp`,
+  );
+
+  const invalidSource = structuredClone(messagepackEvents[0]!);
+  invalidSource.source_timestamp = testCase.timestamp_utc;
+  rejects(
+    () => validateMarketEventRowV3(invalidSource),
+    `event V3 accepted ${testCase.name} in source_timestamp`,
+  );
+}
+const invalidEventSources = readFixture<{
+  invalid: Array<{
+    name: string;
+    provider: string;
+    feed: string;
+    numeric_encoding: string;
+    raw_frame_sha256: string | null;
+  }>;
+}>("schemas/fixtures/raw-frame-event-source-invalid-v3.json");
+for (const testCase of invalidEventSources.invalid) {
+  const event = structuredClone(messagepackEvents[0]!);
+  event.provider = testCase.provider;
+  event.feed = testCase.feed;
+  event.numeric_encoding = testCase.numeric_encoding;
+  event.raw_frame_sha256 = testCase.raw_frame_sha256;
+  for (const field of [
+    "raw_frame_capture_instance_id",
+    "raw_frame_source_generation",
+    "raw_frame_generation",
+    "raw_frame_sequence",
+    "raw_frame_event_ordinal",
+    "raw_frame_event_count",
+  ]) {
+    event[field] = null;
+  }
+  rejects(() => validateMarketEventRowV3(event), `event V3 accepted ${testCase.name}`);
+}
+const invalidUnicodeScalars = readFixture<{
+  valid_unicode_symbols_json: string;
+  valid_unicode_symbols_json_utf8_bytes: number;
+  invalid_symbols_json: string;
+  invalid_event_symbol_json: string;
+}>("schemas/fixtures/raw-frame-unicode-scalar-v2-v3.json");
+const unicodeFrame = { ...messagepackFrames[0]!, symbols_json: invalidUnicodeScalars.valid_unicode_symbols_json };
+validateRawFrameRowV2(unicodeFrame, MARKET_RAW_FRAME_V2_SCHEMA_ID);
+assert(
+  new TextEncoder().encode(unicodeFrame.symbols_json as string).byteLength ===
+    invalidUnicodeScalars.valid_unicode_symbols_json_utf8_bytes,
+  "UTF-8 metadata byte fixture differs",
+);
+rejects(
+  () => validateRawFrameRowV2(
+    { ...messagepackFrames[0]!, symbols_json: invalidUnicodeScalars.invalid_symbols_json },
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "raw-frame validator accepted an unpaired surrogate in symbols_json",
+);
+rejects(
+  () => validateRawFrameRowV2(
+    {
+      ...messagepackFrames[0]!,
+      symbols_json: invalidUnicodeScalars.invalid_symbols_json.replace("\\ud800", "\ud800"),
+    },
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "raw-frame validator accepted a symbols_json string with an unpaired surrogate",
+);
+const nativeTextEncoder = globalThis.TextEncoder;
+function rejectsTextBeforeEncoding(value: string, validate: () => void, message: string): void {
+  let encodedValue = false;
+  class TrackingTextEncoder extends nativeTextEncoder {
+    override encode(input?: string) {
+      if (input === value) encodedValue = true;
+      return super.encode(input);
+    }
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "TextEncoder");
+  assert(descriptor !== undefined, "TextEncoder descriptor is unavailable");
+  Object.defineProperty(globalThis, "TextEncoder", { ...descriptor, value: TrackingTextEncoder });
+  try {
+    rejects(validate, message);
+    assert(!encodedValue, "oversized or invalid text reached UTF-8 encoding");
+  } finally {
+    Object.defineProperty(globalThis, "TextEncoder", descriptor);
+  }
+}
+const oversizedSymbolsJson = "x".repeat(MAX_RAW_FRAME_SYMBOLS_JSON_BYTES + 1);
+rejectsTextBeforeEncoding(
+  oversizedSymbolsJson,
+  () => validateRawFrameRowV2(
+    { ...messagepackFrames[0]!, symbols_json: oversizedSymbolsJson },
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "raw-frame validator accepted oversized symbols_json",
+);
+const loneSurrogateSymbolsJson = '["\ud800"]';
+rejectsTextBeforeEncoding(
+  loneSurrogateSymbolsJson,
+  () => validateRawFrameRowV2(
+    { ...messagepackFrames[0]!, symbols_json: loneSurrogateSymbolsJson },
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "raw-frame validator accepted an unpaired surrogate before UTF-8 encoding",
+);
+const oversizedSourceRecordId = "x".repeat(129);
+rejectsTextBeforeEncoding(
+  oversizedSourceRecordId,
+  () => validateMarketEventRowV3({
+    ...messagepackEvents[0]!,
+    source_record_id: oversizedSourceRecordId,
+  }),
+  "event validator accepted an oversized source record identity",
+);
+const oversizedEventSymbol = "X".repeat(257);
+rejectsTextBeforeEncoding(
+  oversizedEventSymbol,
+  () => validateMarketEventRowV3({
+    ...messagepackEvents[0]!,
+    symbol: oversizedEventSymbol,
+  }),
+  "event validator accepted an oversized symbol identity",
+);
+rejects(
+  () => validateMarketEventRowV3({
+    ...messagepackEvents[0]!,
+    source_record_id: "é".repeat(65),
+  }),
+  "event validator accepted a source record identity over its UTF-8 byte limit",
+);
+rejects(
+  () => validateMarketEventRowV3({
+    ...messagepackEvents[0]!,
+    symbol: "é".repeat(129),
+  }),
+  "event validator accepted a symbol over its UTF-8 byte limit",
+);
+const byteOversizedSymbolsJson = `["${"é".repeat(
+  Math.floor((MAX_RAW_FRAME_SYMBOLS_JSON_BYTES - 4) / 2) + 1,
+)}"]`;
+assert(
+  byteOversizedSymbolsJson.length <= MAX_RAW_FRAME_SYMBOLS_JSON_BYTES &&
+    new nativeTextEncoder().encode(byteOversizedSymbolsJson).byteLength > MAX_RAW_FRAME_SYMBOLS_JSON_BYTES,
+  "multibyte over-limit fixture does not isolate the bounded UTF-8 check",
+);
+rejects(
+  () => validateRawFrameRowV2(
+    { ...messagepackFrames[0]!, symbols_json: byteOversizedSymbolsJson },
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "raw-frame validator accepted symbols_json above its UTF-8 byte cap",
+);
+rejects(
+  () => validateMarketEventRowV3({
+    ...messagepackEvents[0]!,
+    symbol: JSON.parse(invalidUnicodeScalars.invalid_event_symbol_json) as string,
+  }),
+  "event validator accepted an unpaired surrogate symbol",
+);
+rejects(
+  () => validateMarketEventRowV3({ ...messagepackEvents[0]!, source_record_id: "record-\ud800" }),
+  "event validator accepted an unpaired surrogate source identity",
+);
+rejects(
+  () => validateRawEventChunkV2(
+    new Array<ParquetRow>(1),
+    [],
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "capture validator accepted a sparse raw-frame array",
+);
+rejects(
+  () => validateRawEventChunkV2(
+    [messagepackFrames[0]!],
+    new Array<ParquetRow>(1),
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "capture validator accepted a sparse event array",
+);
+
+for (const invalid of [
+  "0123456789AB4def8123456789abcdef",
+  "0123456789ab3def8123456789abcdef",
+  "0123456789ab4def7123456789abcdef",
+  "01234567-89ab-4def-8123-456789abcdef",
+]) {
+  rejects(() => validateCaptureInstanceIdV2(invalid), `accepted invalid capture ID ${invalid}`);
+}
+const badHashFrame = structuredClone(messagepackFrames[0]!);
+badHashFrame.frame_sha256 = "0".repeat(64);
+rejects(
+  () => validateRawFrameRowV2(badHashFrame, MARKET_RAW_FRAME_V2_SCHEMA_ID),
+  "raw-frame validator accepted a mismatched exact-byte SHA",
+);
+const badCaptureFrame = structuredClone(messagepackFrames[0]!);
+badCaptureFrame.capture_instance_id = "0123456789ab4def7123456789abcdef";
+rejects(
+  () => validateRawFrameRowV2(badCaptureFrame, MARKET_RAW_FRAME_V2_SCHEMA_ID),
+  "raw-frame validator accepted a non-RFC capture ID",
+);
+const invalidClockFrame = structuredClone(messagepackFrames[0]!);
+invalidClockFrame.received_timestamp_utc = "2026-10-08T25:00:00Z";
+rejects(
+  () => validateRawFrameRowV2(invalidClockFrame, MARKET_RAW_FRAME_V2_SCHEMA_ID),
+  "raw-frame validator accepted an invalid UTC clock time",
+);
+const newlineGenerationEvent = structuredClone(messagepackEvents[0]!);
+newlineGenerationEvent.generation = "19\n";
+rejects(
+  () => validateMarketEventRowV3(newlineGenerationEvent),
+  "event validator accepted uint64 with a terminal newline",
+);
+const badReceivedAtEvent = structuredClone(messagepackEvents[0]!);
+badReceivedAtEvent.received_timestamp = "2026-10-08T14:30:00.000000001Z";
+rejects(
+  () => validateEventAgainstRawFrameRowV2(
+    badReceivedAtEvent,
+    messagepackFrames[0]!,
+    MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "raw/event validator accepted a receive-time mismatch",
+);
+const missingProjection = messagepackEvents.slice(0, 1);
+rejects(
+  () => validateRawEventChunkV2(messagepackFrames, missingProjection, MARKET_RAW_FRAME_V2_SCHEMA_ID),
+  "capture validator accepted a missing normalized projection",
+);
+const gapFrames = structuredClone(messagepackFrames);
+gapFrames[1]!.source_frame_sequence = "13";
+rejects(
+  () => validateRawEventChunkV2(gapFrames, messagepackEvents, MARKET_RAW_FRAME_V2_SCHEMA_ID),
+  "capture validator accepted a source-frame sequence gap",
+);
+const mixedCaptureFrames = structuredClone(messagepackFrames);
+mixedCaptureFrames[1]!.capture_instance_id = "fedcba9876544def8123456789abcdef";
+rejects(
+  () => validateRawEventChunkV2(mixedCaptureFrames, messagepackEvents, MARKET_RAW_FRAME_V2_SCHEMA_ID),
+  "capture validator accepted mixed capture IDs",
+);
+const mixedGenerationFrames = structuredClone(messagepackFrames);
+mixedGenerationFrames[1]!.source_generation = "8";
+rejects(
+  () => validateRawEventChunkV2(mixedGenerationFrames, messagepackEvents, MARKET_RAW_FRAME_V2_SCHEMA_ID),
+  "capture validator accepted mixed source generations",
+);
+const duplicateOrdinalFrame = structuredClone(messagepackFrames[0]!);
+duplicateOrdinalFrame.event_count = 2;
+const duplicateOrdinalEvents = [
+  structuredClone(messagepackEvents[0]!),
+  structuredClone(messagepackEvents[0]!),
+];
+duplicateOrdinalEvents[1]!.sequence = "112";
+duplicateOrdinalEvents[1]!.raw_frame_event_count = 2;
+rejects(
+  () => validateRawEventChunkV2(
+    [duplicateOrdinalFrame], duplicateOrdinalEvents, MARKET_RAW_FRAME_V2_SCHEMA_ID,
+  ),
+  "capture validator accepted duplicate event ordinals",
+);
+const tooManyFrames = Array.from({ length: 1025 }, () => structuredClone(messagepackFrames[0]!));
+rejects(
+  () => validateRawEventChunkV2(tooManyFrames, [], MARKET_RAW_FRAME_V2_SCHEMA_ID),
+  "capture validator accepted more than 1024 raw frames",
+);
+const largePayload = new Uint8Array(1024 * 1024).fill(120);
+const largePayloadSha = createHash("sha256").update(largePayload).digest("hex");
+const largeChunk = Array.from({ length: 17 }, (_, index) => ({
+  ...structuredClone(messagepackFrames[0]!),
+  source_frame_sequence: String(index + 1),
+  frame_bytes: largePayload,
+  frame_sha256: largePayloadSha,
+  event_count: 0,
+  disposition: "unknown_message",
+  symbols_json: "[]",
+}));
+rejects(
+  () => validateRawEventChunkV2(largeChunk, [], MARKET_RAW_FRAME_V2_SCHEMA_ID),
+  "capture validator accepted a raw chunk above 16 MiB",
+);
+const largeSymbols = Array.from(
+  { length: MAX_RAW_FRAME_EVENT_COUNT },
+  (_, index) => `A${'"'.repeat(250)}${index.toString(16).padStart(5, "0")}`,
+);
+const largeSymbolsJson = JSON.stringify(largeSymbols);
+assert(
+  new TextEncoder().encode(largeSymbolsJson).byteLength <= MAX_RAW_FRAME_SYMBOLS_JSON_BYTES,
+  "per-frame symbols fixture exceeds its own bound",
+);
+assert(
+  new TextEncoder().encode(largeSymbolsJson).byteLength * 65 > MAX_RAW_CAPTURE_CHUNK_METADATA_BYTES,
+  "aggregate symbols fixture does not exceed the chunk bound",
+);
+const largeMetadataChunk = Array.from({ length: 65 }, (_, index) => ({
+  ...structuredClone(messagepackFrames[0]!),
+  source_frame_sequence: String(index + 1),
+  event_count: MAX_RAW_FRAME_EVENT_COUNT,
+  symbols_json: largeSymbolsJson,
+}));
+rejects(
+  () => validateRawEventChunkV2(largeMetadataChunk, [], MARKET_RAW_FRAME_V2_SCHEMA_ID),
+  "capture validator accepted symbols metadata above 16 MiB",
+);
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -604,6 +983,8 @@ rejects(
 
 const rawSchemaSha256 = trustedParquetSchemaSha256("lqepoch.market_raw_frame.v1");
 const rawJsonSchemaSha256 = trustedParquetSchemaSha256("lqepoch.market_raw_json_frame.v1");
+const rawFrameV2SchemaSha256 = trustedParquetSchemaSha256("lqepoch.market_raw_frame.v2");
+const rawJsonFrameV2SchemaSha256 = trustedParquetSchemaSha256("lqepoch.market_raw_json_frame.v2");
 assert(
   rawSchemaSha256 === "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6",
   "published MessagePack raw-frame fingerprint changed",
@@ -926,13 +1307,31 @@ assert(
   validateDatasetV2HttpJson(watermarkBoundaryHttpJson),
   "OpenAPI rejects the V2 max-u64 watermark fixture",
 );
+const rawMessagepackDatasetV2HttpJson = structuredClone(datasetV2HttpJson);
+const rawMessagepackV2Source = rawMessagepackDatasetV2HttpJson.source as Record<string, unknown>;
+const rawMessagepackV2Object = rawMessagepackDatasetV2HttpJson.object as Record<string, unknown>;
+rawMessagepackV2Source.numeric_encoding = "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES";
+rawMessagepackDatasetV2HttpJson.source_timestamp_missing_rows = "1";
+delete rawMessagepackDatasetV2HttpJson.time_range;
+rawMessagepackV2Object.parquet_schema_sha256 = rawFrameV2SchemaSha256;
+assert(
+  validateDatasetV2HttpJson(rawMessagepackDatasetV2HttpJson),
+  "OpenAPI rejects valid raw-MessagePack V2",
+);
+assert(
+  !validateDatasetV2HttpJson({
+    ...rawMessagepackDatasetV2HttpJson,
+    object: { ...rawMessagepackV2Object, parquet_schema_sha256: rawJsonFrameV2SchemaSha256 },
+  }),
+  "OpenAPI accepted a crossed raw-JSON fingerprint for MessagePack bytes",
+);
 const rawJsonDatasetV2HttpJson = structuredClone(datasetV2HttpJson);
 const rawJsonV2Source = rawJsonDatasetV2HttpJson.source as Record<string, unknown>;
 const rawJsonV2Object = rawJsonDatasetV2HttpJson.object as Record<string, unknown>;
 rawJsonV2Source.numeric_encoding = "NUMERIC_ENCODING_RAW_JSON_BYTES";
 rawJsonDatasetV2HttpJson.source_timestamp_missing_rows = "1";
 delete rawJsonDatasetV2HttpJson.time_range;
-rawJsonV2Object.parquet_schema_sha256 = rawJsonSchemaSha256;
+rawJsonV2Object.parquet_schema_sha256 = rawJsonFrameV2SchemaSha256;
 assert(validateDatasetV2HttpJson(rawJsonDatasetV2HttpJson), "OpenAPI rejects valid raw-JSON V2");
 assert(
   !validateDatasetV2HttpJson({ ...rawJsonDatasetV2HttpJson, time_range: datasetV2HttpJson.time_range }),
@@ -941,7 +1340,7 @@ assert(
 assert(
   !validateDatasetV2HttpJson({
     ...rawJsonDatasetV2HttpJson,
-    object: { ...rawJsonV2Object, parquet_schema_sha256: rawSchemaSha256 },
+    object: { ...rawJsonV2Object, parquet_schema_sha256: rawFrameV2SchemaSha256 },
   }),
   "OpenAPI accepted a crossed raw-frame V2 schema fingerprint",
 );
@@ -986,6 +1385,13 @@ const rawDatasetHttpJson = {
   },
 };
 assert(validateDatasetHttpJson(rawDatasetHttpJson), "OpenAPI rejects a registered raw-frame manifest");
+assert(
+  validateDatasetHttpJson({
+    ...rawDatasetHttpJson,
+    object: { ...rawDatasetHttpJson.object, parquet_schema_sha256: rawFrameV2SchemaSha256 },
+  }),
+  "OpenAPI rejects an additive raw-frame V2 manifest",
+);
 for (const invalidRawManifest of [
   { ...rawDatasetHttpJson, time_range: {} },
   {
@@ -1006,6 +1412,13 @@ const rawJsonDatasetHttpJson = {
   object: { ...rawDatasetHttpJson.object, parquet_schema_sha256: rawJsonSchemaSha256 },
 };
 assert(validateDatasetHttpJson(rawJsonDatasetHttpJson), "OpenAPI rejects a registered raw-JSON manifest");
+assert(
+  validateDatasetHttpJson({
+    ...rawJsonDatasetHttpJson,
+    object: { ...rawJsonDatasetHttpJson.object, parquet_schema_sha256: rawJsonFrameV2SchemaSha256 },
+  }),
+  "OpenAPI rejects an additive raw-JSON V2 manifest",
+);
 for (const invalidRawJsonManifest of [
   {
     ...rawJsonDatasetHttpJson,

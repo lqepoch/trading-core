@@ -12,11 +12,18 @@ _LOCAL_TEST_TAIL = re.compile(r"[A-Za-z0-9_.:-]+\Z")
 
 
 def _bounded_text(value: str, maximum_utf8_bytes: int) -> bool:
-    return (
-        bool(value)
-        and len(value.encode("utf-8")) <= maximum_utf8_bytes
-        and value.strip() == value
-        and not any(unicodedata.category(character) == "Cc" for character in value)
+    # UTF-8 uses at least one byte per Python code point, so reject this cheap
+    # lower bound before allocating an encoded copy for large input strings.
+    if not isinstance(value, str) or not value or len(value) > maximum_utf8_bytes:
+        return False
+    try:
+        encoded = value.encode("utf-8")
+    except UnicodeEncodeError:
+        # Python strings can contain lone UTF-16 surrogate code points, unlike Rust `String`.
+        # Treat them as invalid input instead of leaking an exception from a validator.
+        return False
+    return len(encoded) <= maximum_utf8_bytes and value.strip() == value and not any(
+        unicodedata.category(character) == "Cc" for character in value
     )
 
 

@@ -113,7 +113,7 @@ export function parseMarketEventProtoJson(value: unknown): MarketEventEnvelopeV1
   validateUint64JsonPaths(value, [["generation"], ["sequence"]]);
   rejectDuplicateNumericEncodingAliases(value);
   const message = fromJson(MarketEventEnvelopeV1Schema, value as JsonValue);
-  if (rawFrameSchemaId(message.source?.numericEncoding) !== undefined) {
+  if (rawFrameSchemaIds(message.source?.numericEncoding) !== undefined) {
     throw new TypeError("raw byte-frame encodings are not normalized market-event encodings");
   }
   return message;
@@ -128,24 +128,28 @@ export function parseDatasetManifestProtoJson(value: unknown): DatasetManifestV1
   ]);
   rejectDuplicateNumericEncodingAliases(value);
   const message = fromJson(DatasetManifestV1Schema, value as JsonValue);
-  const rawSchemaId = rawFrameSchemaId(message.source?.numericEncoding);
+  const rawSchemaIdsForEncoding = rawFrameSchemaIds(message.source?.numericEncoding);
   const schemaSha256 = message.object?.parquetSchemaSha256;
   const rawSchemaIds = [
     "lqepoch.market_raw_frame.v1",
+    "lqepoch.market_raw_frame.v2",
     "lqepoch.market_raw_json_frame.v1",
+    "lqepoch.market_raw_json_frame.v2",
   ] as const;
   if (
-    (rawSchemaId === undefined &&
+    (rawSchemaIdsForEncoding === undefined &&
       rawSchemaIds.some((schemaId) => schemaSha256 === trustedParquetSchemaSha256(schemaId))) ||
-    (rawSchemaId !== undefined &&
-      schemaSha256 !== trustedParquetSchemaSha256(rawSchemaId))
+    (rawSchemaIdsForEncoding !== undefined &&
+      !rawSchemaIdsForEncoding.some(
+        (schemaId) => schemaSha256 === trustedParquetSchemaSha256(schemaId),
+      ))
   ) {
     throw new TypeError(
       "raw byte-frame encodings must be bound to their registered Parquet schema",
     );
   }
   if (
-    rawSchemaId !== undefined &&
+    rawSchemaIdsForEncoding !== undefined &&
     (message.timeRange !== undefined ||
       message.rowCount === 0n ||
       message.sourceTimestampMissingRows !== message.rowCount)
@@ -592,16 +596,21 @@ function validateDatasetManifestV2(message: DatasetManifestV2): void {
     throw new TypeError("dataset v2 object readback verification is inconsistent");
   }
 
-  const rawSchema = rawFrameSchemaId(source.numericEncoding);
-  const rawSchemaIds = ["lqepoch.market_raw_frame.v1", "lqepoch.market_raw_json_frame.v1"] as const;
+  const rawSchemaIdsForEncoding = rawFrameSchemaIds(source.numericEncoding);
+  const rawSchemaIds = [
+    "lqepoch.market_raw_frame.v1",
+    "lqepoch.market_raw_frame.v2",
+    "lqepoch.market_raw_json_frame.v1",
+    "lqepoch.market_raw_json_frame.v2",
+  ] as const;
   if (
-    (rawSchema === undefined && rawSchemaIds.some((id) => object.parquetSchemaSha256 === trustedParquetSchemaSha256(id))) ||
-    (rawSchema !== undefined && object.parquetSchemaSha256 !== trustedParquetSchemaSha256(rawSchema))
+    (rawSchemaIdsForEncoding === undefined && rawSchemaIds.some((id) => object.parquetSchemaSha256 === trustedParquetSchemaSha256(id))) ||
+    (rawSchemaIdsForEncoding !== undefined && !rawSchemaIdsForEncoding.some((id) => object.parquetSchemaSha256 === trustedParquetSchemaSha256(id)))
   ) {
     throw new TypeError("raw byte-frame source must match its trusted schema fingerprint");
   }
   const hasTimeRange = message.timeRange !== undefined;
-  if (rawSchema !== undefined) {
+  if (rawSchemaIdsForEncoding !== undefined) {
     if (hasTimeRange || message.sourceTimestampMissingRows !== message.rowCount) {
       throw new TypeError("raw-frame manifests require absent source time and all timestamps missing");
     }
@@ -1010,7 +1019,7 @@ export function parsePredictionEnvelopeProtoJson(value: unknown): PredictionEnve
   validateUint64JsonPaths(value, [["forecast", "sequence"]]);
   rejectDuplicateNumericEncodingAliases(value);
   const message = fromJson(PredictionEnvelopeV1Schema, value as JsonValue);
-  if (rawFrameSchemaId(message.source?.numericEncoding) !== undefined) {
+  if (rawFrameSchemaIds(message.source?.numericEncoding) !== undefined) {
     throw new TypeError("raw byte-frame encodings cannot identify a normalized prediction source");
   }
   return message;
@@ -1026,12 +1035,12 @@ function getRecordField(value: unknown, key: string): Record<string, unknown> | 
   return isRecord(field) ? field : undefined;
 }
 
-function rawFrameSchemaId(encoding: NumericEncodingV1 | undefined): string | undefined {
+function rawFrameSchemaIds(encoding: NumericEncodingV1 | undefined): readonly string[] | undefined {
   switch (encoding) {
     case NumericEncodingV1.NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES:
-      return "lqepoch.market_raw_frame.v1";
+      return ["lqepoch.market_raw_frame.v1", "lqepoch.market_raw_frame.v2"];
     case NumericEncodingV1.NUMERIC_ENCODING_RAW_JSON_BYTES:
-      return "lqepoch.market_raw_json_frame.v1";
+      return ["lqepoch.market_raw_json_frame.v1", "lqepoch.market_raw_json_frame.v2"];
     default:
       return undefined;
   }
