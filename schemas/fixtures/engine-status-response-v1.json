@@ -1,0 +1,15 @@
+{
+  "api_version": "v1",
+  "service": "offline-persist-preview",
+  "service_readiness": "read_only_ready",
+  "source_readiness": "unknown",
+  "mode": "synthetic_offline",
+  "projection_consistency": "best_effort_non_transactional",
+  "execution_enabled": false,
+  "mutation_routes_enabled": false,
+  "schema_version": 15,
+  "pending_unknown_count": 1,
+  "pending_unknown_count_capped": false,
+  "pending_unknown_consumed_risk_count": 1,
+  "pending_unknown_unverified_risk_count": 0
+}

@@ -26,7 +26,8 @@ protoc \
   lqepoch/market/v2/trade_bar.proto \
   lqepoch/dataset/v1/manifest.proto \
   lqepoch/dataset/v2/manifest.proto \
-  lqepoch/prediction/v1/prediction.proto
+  lqepoch/prediction/v1/prediction.proto \
+  lqepoch/engine/v1/offline_preview.proto
 
 protoc --proto_path=proto --proto_path=/usr/include \
   --encode=lqepoch.market.v1.MarketEventEnvelopeV1 \
@@ -56,6 +57,14 @@ protoc --proto_path=proto --proto_path=/usr/include \
   --encode=lqepoch.prediction.v1.PredictionEnvelopeV1 \
   lqepoch/prediction/v1/prediction.proto \
   < proto/fixtures/prediction-envelope-v1.textproto > "$scratch/prediction-envelope.pb"
+protoc --proto_path=proto --proto_path=/usr/include \
+  --encode=lqepoch.engine.v1.EngineStatusResponseV1 \
+  lqepoch/engine/v1/offline_preview.proto \
+  < proto/fixtures/engine-status-response-v1.textproto > "$scratch/engine-status.pb"
+protoc --proto_path=proto --proto_path=/usr/include \
+  --encode=lqepoch.engine.v1.SyntheticOfflinePreviewV1 \
+  lqepoch/engine/v1/offline_preview.proto \
+  < proto/fixtures/synthetic-offline-preview-v1.textproto > "$scratch/engine-preview.pb"
 
 "$repo_root/scripts/generate-typescript-proto.sh"
 "$repo_root/scripts/generate-python-proto.sh"

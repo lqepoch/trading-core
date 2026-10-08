@@ -19,7 +19,8 @@ protoc \
   lqepoch/market/v2/trade_bar.proto \
   lqepoch/dataset/v1/manifest.proto \
   lqepoch/dataset/v2/manifest.proto \
-  lqepoch/prediction/v1/prediction.proto
+  lqepoch/prediction/v1/prediction.proto \
+  lqepoch/engine/v1/offline_preview.proto
 python3 - <<'PY'
 from pathlib import Path
 

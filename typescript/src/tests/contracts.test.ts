@@ -15,10 +15,12 @@ import {
   parseDatasetManifestV2Json,
   parseDatasetManifestV2ProtoJson,
   datasetManifestV2ProtojsonBytes,
+  parseEngineStatusResponseV1ProtoJsonText,
   parseMarketEventProtoJson,
   parsePredictionEnvelopeProtoJson,
   parsePredictionEnvelopeProtoJsonText,
   parseUsEquityTradeBarV2ProtoJson,
+  parseSyntheticOfflinePreviewV1ProtoJsonText,
   validateUint64JsonPaths,
   validateBarV2CompletionEvidenceReference,
   validateUsEquityTradeBarV2AgainstManifest,
@@ -1384,6 +1386,180 @@ assert(
   "prediction parser rejected the shared snake-case ProtoJSON fixture",
 );
 
+const engineStatusText = readFileSync(
+  resolve(process.cwd(), "..", "schemas/fixtures/engine-status-response-v1.json"),
+  "utf8",
+).trim();
+const engineStatusFixture = JSON.parse(engineStatusText) as Record<string, unknown>;
+const engineStatus = parseEngineStatusResponseV1ProtoJsonText(engineStatusText);
+const parseEngineStatusFixture = (value: Record<string, unknown>) =>
+  parseEngineStatusResponseV1ProtoJsonText(JSON.stringify(value));
+assert(
+  engineStatus.apiVersion === "v1" &&
+    engineStatus.service === "offline-persist-preview" &&
+    engineStatus.executionEnabled === false &&
+    engineStatus.mutationRoutesEnabled === false &&
+    engineStatus.pendingUnknownCount === 1 &&
+    engineStatus.pendingUnknownConsumedRiskCount === 1 &&
+    engineStatus.pendingUnknownUnverifiedRiskCount === 0,
+  "engine status producer fixture changed or lost explicit safe values",
+);
+assert(
+  parseEngineStatusFixture(engineStatusFixture).schemaVersion === 15,
+  "engine status object parser changed the source schema version",
+);
+assert(
+  parseEngineStatusFixture({ ...engineStatusFixture, schema_version: 0xffff_ffff })
+    .schemaVersion === 0xffff_ffff,
+  "engine status rejected the uint32 schema-version maximum",
+);
+rejects(
+  () => parseEngineStatusResponseV1ProtoJsonText(
+    engineStatusText.replace('"api_version": "v1"', '"apiVersion": "v1"'),
+  ),
+  "engine status accepted a non-wire camelCase alias",
+);
+rejects(
+  () => parseEngineStatusResponseV1ProtoJsonText(
+    engineStatusText.replace('"api_version": "v1"', '"api_version": "v1", "api_version": "v1"'),
+  ),
+  "engine status accepted duplicate JSON keys",
+);
+rejects(
+  () => parseEngineStatusResponseV1ProtoJsonText(
+    engineStatusText.replace('"api_version": "v1"', '"api_version": "v1", "apiVersion": "v1"'),
+  ),
+  "engine status accepted camel/snake aliases together",
+);
+rejects(
+  () => parseEngineStatusFixture({ ...engineStatusFixture, execution_enabled: true }),
+  "engine status accepted an execution-enabled projection",
+);
+rejects(
+  () => {
+    const missing = { ...engineStatusFixture };
+    delete missing.mutation_routes_enabled;
+    return parseEngineStatusFixture(missing);
+  },
+  "engine status accepted an absent explicit false safety field",
+);
+rejects(
+  () => parseEngineStatusFixture({ ...engineStatusFixture, schema_version: 0 }),
+  "engine status accepted a zero source schema version",
+);
+rejects(
+  () => parseEngineStatusFixture({
+    ...engineStatusFixture,
+    schema_version: 0x1_0000_0000,
+  }),
+  "engine status accepted schema-version uint32 overflow",
+);
+rejects(
+  () => parseEngineStatusFixture({
+    ...engineStatusFixture,
+    pending_unknown_count: 257,
+    pending_unknown_count_capped: true,
+    pending_unknown_consumed_risk_count: 257,
+  }),
+  "engine status accepted a sample above the 256-row bound",
+);
+rejects(
+  () => parseEngineStatusFixture({
+    ...engineStatusFixture,
+    pending_unknown_consumed_risk_count: 0,
+  }),
+  "engine status accepted counts that do not partition the sample",
+);
+rejects(
+  () => parseEngineStatusFixture({
+    ...engineStatusFixture,
+    pending_unknown_count_capped: true,
+  }),
+  "engine status accepted an inconsistent sample cap flag",
+);
+const cappedEngineStatus = parseEngineStatusFixture({
+  ...engineStatusFixture,
+  pending_unknown_count: 256,
+  pending_unknown_count_capped: true,
+  pending_unknown_consumed_risk_count: 128,
+  pending_unknown_unverified_risk_count: 128,
+});
+assert(cappedEngineStatus.pendingUnknownCountCapped, "engine status rejected the exact cap boundary");
+const oversizedEngineResponseText = " ".repeat(2 * 1024 * 1024 + 1);
+rejectsTextBeforeEncoding(
+  oversizedEngineResponseText,
+  () => parseEngineStatusResponseV1ProtoJsonText(oversizedEngineResponseText),
+  "engine status parser accepted text above the configured byte limit",
+);
+
+const syntheticPreviewText = readFileSync(
+  resolve(process.cwd(), "..", "schemas/fixtures/synthetic-offline-preview-v1.json"),
+  "utf8",
+).trim();
+const syntheticPreviewFixture = JSON.parse(syntheticPreviewText) as Record<string, unknown>;
+const syntheticPreview = parseSyntheticOfflinePreviewV1ProtoJsonText(syntheticPreviewText);
+const parseSyntheticPreviewFixture = (value: Record<string, unknown>) =>
+  parseSyntheticOfflinePreviewV1ProtoJsonText(JSON.stringify(value));
+assert(
+  syntheticPreview.previewKind === "synthetic_session_state" &&
+    syntheticPreview.executionEnabled === false &&
+    syntheticPreview.orderMutationsEnabled === false &&
+    syntheticPreview.accountDataLoaded === false &&
+    syntheticPreview.marketDataConnected === false &&
+    syntheticPreview.disposition === "reconciliation_required",
+  "synthetic engine preview fixture changed or lost explicit safe values",
+);
+assert(
+  parseSyntheticPreviewFixture(syntheticPreviewFixture).sourceSchemaVersion === 15,
+  "synthetic engine preview object parser changed the source schema version",
+);
+rejects(
+  () => parseSyntheticPreviewFixture({ ...syntheticPreviewFixture, source_schema_version: 0 }),
+  "synthetic engine preview accepted a zero source schema version",
+);
+rejects(
+  () => parseSyntheticOfflinePreviewV1ProtoJsonText(
+    syntheticPreviewText.replace('"api_version": "v1"', '"api_version": "v1", "account_id": "x"'),
+  ),
+  "synthetic engine preview accepted an identity field",
+);
+rejects(
+  () => parseSyntheticPreviewFixture({
+    ...syntheticPreviewFixture,
+    market_data_connected: true,
+  }),
+  "synthetic engine preview accepted connected market data",
+);
+rejects(
+  () => parseSyntheticPreviewFixture({
+    ...syntheticPreviewFixture,
+    pending_unknown_unverified_risk_count: 1,
+  }),
+  "synthetic engine preview accepted a disposition inconsistent with risk evidence",
+);
+const unknownRiskPreview = parseSyntheticPreviewFixture({
+  ...syntheticPreviewFixture,
+  pending_unknown_consumed_risk_count: 0,
+  pending_unknown_unverified_risk_count: 1,
+  disposition: "unknown_reservation_state",
+});
+assert(
+  unknownRiskPreview.disposition === "unknown_reservation_state",
+  "synthetic preview rejected the unverified-risk classification",
+);
+const emptySyntheticPreview = parseSyntheticPreviewFixture({
+  ...syntheticPreviewFixture,
+  pending_unknown_count: 0,
+  pending_unknown_count_capped: false,
+  pending_unknown_consumed_risk_count: 0,
+  pending_unknown_unverified_risk_count: 0,
+  disposition: "no_pending_unknown_in_sample",
+});
+assert(
+  emptySyntheticPreview.disposition === "no_pending_unknown_in_sample",
+  "synthetic engine preview rejected the empty bounded sample classification",
+);
+
 const predictionCases = readFixture<PredictionProtoJsonCases>(
   "schemas/fixtures/prediction-envelope-v1-protojson-cases.json",
 );
@@ -1514,6 +1690,12 @@ const validateFiniteBatchReceiptHttpJson = ajv.compile({
 const validateBarV2HttpJson = ajv.compile({
   $ref: "lqepoch-openapi#/components/schemas/UsEquityTradeBarV2",
 });
+const validateEngineStatusHttpJson = ajv.compile({
+  $ref: "lqepoch-openapi#/components/schemas/EngineStatusResponseV1",
+});
+const validateSyntheticPreviewHttpJson = ajv.compile({
+  $ref: "lqepoch-openapi#/components/schemas/SyntheticOfflinePreviewV1",
+});
 function toOpenApiSnakeCase(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(toOpenApiSnakeCase);
   if (value !== null && typeof value === "object") {
@@ -1528,6 +1710,19 @@ function toOpenApiSnakeCase(value: unknown): unknown {
 }
 const datasetV2HttpJson = toOpenApiSnakeCase(datasetV2Json) as Record<string, unknown>;
 assert(validateDatasetV2HttpJson(datasetV2HttpJson), "OpenAPI rejects the finite-batch V2 fixture");
+assert(validateEngineStatusHttpJson(engineStatusFixture), "OpenAPI rejects the engine status fixture");
+assert(
+  validateSyntheticPreviewHttpJson(syntheticPreviewFixture),
+  "OpenAPI rejects the synthetic engine preview fixture",
+);
+assert(
+  !validateEngineStatusHttpJson({ ...engineStatusFixture, execution_enabled: true }),
+  "OpenAPI accepted an execution-enabled status projection",
+);
+assert(
+  !validateSyntheticPreviewHttpJson({ ...syntheticPreviewFixture, account_id: "x" }),
+  "OpenAPI accepted an identity field in the synthetic preview",
+);
 const barV2HttpJson = toOpenApiSnakeCase(barV2Json) as Record<string, unknown>;
 assert(validateBarV2HttpJson(barV2HttpJson), "OpenAPI rejects the BarV2 fixture");
 for (const caseName of ["provider-watermark", "diagnostic-stream"] as const) {
