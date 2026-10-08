@@ -332,7 +332,7 @@
     },
     {
       "path": "crates/market-contracts/src/dataset.rs",
-      "sha256": "136dcfb1d871bf45831276a800387b76cf1257a646fc5c209e63635b254e38eb",
+      "sha256": "f5315cad5682e8d3ca7818f576a927cd5a32a87e087e64454f0fea83fd484614",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -347,7 +347,7 @@
     },
     {
       "path": "crates/market-contracts/src/raw_frame.rs",
-      "sha256": "e9471d522d78569c97d8ff6315d6c2d8719687f65fa6e1f7becf175c48de4541",
+      "sha256": "c667f2c74596ffc93e143c61558ea46c9d5f71eae1d1caecf9682d86bb09800b",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -372,7 +372,7 @@
     },
     {
       "path": "docs/parquet-schema-v1.md",
-      "sha256": "3c3b9ac78e334e4deb94f481766e762cba240c7ca2d9f081b086061735865e7d",
+      "sha256": "ef5bd9e8d7afa5fc519405bd93a6fbf1cc68546c4711dcab728816a38fb6fc77",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {

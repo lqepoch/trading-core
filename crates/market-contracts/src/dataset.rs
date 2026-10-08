@@ -171,6 +171,11 @@ impl DatasetManifestV1 {
         if object_is_raw_frame_schema != source_is_raw_messagepack {
             return Err(DatasetManifestError::InvalidSource);
         }
+        if source_is_raw_messagepack
+            && (self.time_range.is_some() || self.source_timestamp_missing_rows != self.row_count)
+        {
+            return Err(DatasetManifestError::InvalidTimeRange);
+        }
 
         let object_id = self
             .object
@@ -358,6 +363,35 @@ mod tests {
         assert_eq!(
             wrong_schema.validate(),
             Err(DatasetManifestError::InvalidSource)
+        );
+    }
+
+    #[test]
+    fn raw_messagepack_manifest_has_no_source_time_range_and_all_rows_missing_time() {
+        let mut value = manifest();
+        value.source.numeric_encoding = NumericEncodingV1::RawMessagePackBytes;
+        value.time_range = None;
+        value.source_timestamp_missing_rows = value.row_count;
+        value.object.parquet_schema_sha256 =
+            crate::trusted_schema_fingerprint(crate::MARKET_RAW_FRAME_PARQUET_SCHEMA_ID).unwrap();
+        assert_eq!(value.validate(), Ok(()));
+
+        let mut with_time_range = value.clone();
+        with_time_range.time_range = Some(DatasetTimeRangeV1 {
+            start_inclusive: UtcTimestamp::parse("2026-10-08T14:30:00Z").unwrap(),
+            end_exclusive: UtcTimestamp::parse("2026-10-08T14:31:00Z").unwrap(),
+        });
+        with_time_range.source_timestamp_missing_rows = 0;
+        assert_eq!(
+            with_time_range.validate(),
+            Err(DatasetManifestError::InvalidTimeRange)
+        );
+
+        let mut incomplete_missing_count = value;
+        incomplete_missing_count.source_timestamp_missing_rows = 0;
+        assert_eq!(
+            incomplete_missing_count.validate(),
+            Err(DatasetManifestError::InvalidTimeRange)
         );
     }
 

@@ -11,6 +11,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::fmt;
 use thiserror::Error;
 
 /// Raw-frame row schema version.
@@ -19,6 +20,12 @@ pub const MARKET_RAW_FRAME_SCHEMA_VERSION: u32 = 1;
 pub const MAX_RAW_FRAME_BYTES: usize = 1024 * 1024;
 /// Maximum normalized market events expected from one raw frame.
 pub const MAX_RAW_FRAME_EVENT_COUNT: u32 = 512;
+/// Maximum distinct normalized symbols represented by one raw frame.
+pub const MAX_RAW_FRAME_SYMBOLS: usize = MAX_RAW_FRAME_EVENT_COUNT as usize;
+/// Worst-case compact JSON size for 512 identifiers of 256 bytes, escaped quotes/backslashes,
+/// separators, and array brackets. The cap is checked before JSON parsing allocates the vector.
+pub const MAX_RAW_FRAME_SYMBOLS_JSON_BYTES: usize =
+    MAX_RAW_FRAME_SYMBOLS * (2 * crate::v1::MAX_INSTRUMENT_ID_BYTES + 3) + 1;
 
 /// Known disposition for a captured inbound market-data frame.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -50,7 +57,7 @@ impl RawFrameDispositionV1 {
 }
 
 /// One exact inbound MessagePack frame row in `lqepoch.market_raw_frame.v1`.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct RawFrameStorageRecordV1 {
     /// Raw-frame schema version, fixed at 1.
     pub schema_version: u32,
@@ -78,6 +85,27 @@ pub struct RawFrameStorageRecordV1 {
     pub disposition: RawFrameDispositionV1,
     /// Compact JSON array of the frame's lexically sorted, unique normalizable symbols.
     pub symbols_json: String,
+}
+
+impl fmt::Debug for RawFrameStorageRecordV1 {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("RawFrameStorageRecordV1")
+            .field("schema_version", &self.schema_version)
+            .field("provider", &self.provider)
+            .field("feed", &self.feed)
+            .field("entitlement", &self.entitlement)
+            .field("source_numeric_encoding", &self.source_numeric_encoding)
+            .field("generation", &self.generation)
+            .field("frame_sequence", &self.frame_sequence)
+            .field("received_timestamp_utc", &self.received_timestamp_utc)
+            .field("frame_sha256", &self.frame_sha256)
+            .field("frame_bytes_len", &self.frame_bytes.len())
+            .field("event_count", &self.event_count)
+            .field("disposition", &self.disposition)
+            .field("symbols_json_bytes_len", &self.symbols_json.len())
+            .finish()
+    }
 }
 
 impl RawFrameStorageRecordV1 {
@@ -130,6 +158,10 @@ impl RawFrameStorageRecordV1 {
                 return Err(RawFrameContractError::InvalidDisposition);
             }
             _ => {}
+        }
+        if self.event_count > 0 && (symbols.is_empty() || symbols.len() > self.event_count as usize)
+        {
+            return Err(RawFrameContractError::InvalidDisposition);
         }
         Ok(())
     }
@@ -200,6 +232,7 @@ impl MarketEventParquetRowV2 {
             || self.event.metadata.source.provider != frame.provider
             || self.event.metadata.source.feed != frame.feed
             || self.event.metadata.source.entitlement != frame.entitlement
+            || self.event.metadata.received_timestamp != frame.received_timestamp_utc
             || frame
                 .source_numeric_encoding
                 .is_some_and(|encoding| encoding != self.event.metadata.source.numeric_encoding)
@@ -248,8 +281,14 @@ pub enum RawFrameContractError {
 }
 
 fn parse_canonical_symbols_json(value: &str) -> Result<Vec<String>, RawFrameContractError> {
+    if value.len() > MAX_RAW_FRAME_SYMBOLS_JSON_BYTES {
+        return Err(RawFrameContractError::InvalidSymbols);
+    }
     let symbols: Vec<String> =
         serde_json::from_str(value).map_err(|_| RawFrameContractError::InvalidSymbols)?;
+    if symbols.len() > MAX_RAW_FRAME_SYMBOLS {
+        return Err(RawFrameContractError::InvalidSymbols);
+    }
     let canonical =
         serde_json::to_string(&symbols).map_err(|_| RawFrameContractError::InvalidSymbols)?;
     if canonical != value
@@ -285,8 +324,9 @@ fn lower_hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        MAX_RAW_FRAME_BYTES, MAX_RAW_FRAME_EVENT_COUNT, MarketEventParquetRowV2,
-        RawFrameContractError, RawFrameDispositionV1, RawFrameReferenceV2, RawFrameStorageRecordV1,
+        MAX_RAW_FRAME_BYTES, MAX_RAW_FRAME_EVENT_COUNT, MAX_RAW_FRAME_SYMBOLS,
+        MAX_RAW_FRAME_SYMBOLS_JSON_BYTES, MarketEventParquetRowV2, RawFrameContractError,
+        RawFrameDispositionV1, RawFrameReferenceV2, RawFrameStorageRecordV1,
     };
     use crate::{
         DecimalString, EntitlementState, EventMetadataV1, MarketDataSourceV1,
@@ -417,6 +457,59 @@ mod tests {
             Err(RawFrameContractError::InvalidDisposition)
         );
 
+        let mut too_many_symbols = frame(synthetic_frame_bytes());
+        too_many_symbols.event_count = 2;
+        too_many_symbols.symbols_json =
+            r#"["IWM   261016C00600000","QQQ   261016C00600000","SPY   261016C00600000"]"#
+                .to_owned();
+        assert_eq!(
+            too_many_symbols.validate(),
+            Err(RawFrameContractError::InvalidDisposition)
+        );
+
+        let mut missing_symbols = frame(synthetic_frame_bytes());
+        missing_symbols.disposition = RawFrameDispositionV1::UnknownMessage;
+        missing_symbols.symbols_json = "[]".to_owned();
+        assert_eq!(
+            missing_symbols.validate(),
+            Err(RawFrameContractError::InvalidDisposition)
+        );
+
+        let mut diagnostic_empty = frame(synthetic_frame_bytes());
+        diagnostic_empty.disposition = RawFrameDispositionV1::UnknownMessage;
+        diagnostic_empty.event_count = 0;
+        diagnostic_empty.symbols_json = "[]".to_owned();
+        assert_eq!(diagnostic_empty.validate(), Ok(()));
+
+        let too_many = format!(
+            "[{}]",
+            (0..=MAX_RAW_FRAME_SYMBOLS)
+                .map(|index| format!("\"S{index:03}\""))
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+        let mut oversized_symbol_list = frame(synthetic_frame_bytes());
+        oversized_symbol_list.symbols_json = too_many;
+        assert_eq!(
+            oversized_symbol_list.validate(),
+            Err(RawFrameContractError::InvalidSymbols)
+        );
+        assert_eq!(
+            oversized_symbol_list.symbols(),
+            Err(RawFrameContractError::InvalidSymbols)
+        );
+
+        let mut oversized_json = frame(synthetic_frame_bytes());
+        oversized_json.symbols_json = " ".repeat(MAX_RAW_FRAME_SYMBOLS_JSON_BYTES + 1);
+        assert_eq!(
+            oversized_json.validate(),
+            Err(RawFrameContractError::InvalidSymbols)
+        );
+        assert_eq!(
+            oversized_json.symbols(),
+            Err(RawFrameContractError::InvalidSymbols)
+        );
+
         let mut control = frame(synthetic_frame_bytes());
         control.disposition = RawFrameDispositionV1::Control;
         control.event_count = 0;
@@ -453,6 +546,16 @@ mod tests {
             Err(RawFrameContractError::ReferenceMismatch)
         );
 
+        let mut mismatch_received_timestamp = event.clone();
+        mismatch_received_timestamp
+            .event
+            .metadata
+            .received_timestamp = UtcTimestamp::parse("2026-10-08T14:30:00.000000001Z").unwrap();
+        assert_eq!(
+            mismatch_received_timestamp.validate_against_frame(&frame),
+            Err(RawFrameContractError::ReferenceMismatch)
+        );
+
         let mut invalid_ordinal = event.clone();
         invalid_ordinal
             .raw_frame_reference
@@ -470,5 +573,19 @@ mod tests {
             event.validate_against_frame(&frame),
             Err(RawFrameContractError::MissingReference)
         );
+    }
+
+    #[test]
+    fn raw_frame_debug_hides_payload_and_symbols() {
+        let payload = b"PRIVATE_RAW_PAYLOAD_AND_SYMBOL".to_vec();
+        let mut value = frame(payload.clone());
+        value.symbols_json = r#"["PRIVATE_SYMBOL_VALUE"]"#.to_owned();
+
+        let debug = format!("{value:?}");
+        assert!(!debug.contains("PRIVATE_RAW_PAYLOAD_AND_SYMBOL"));
+        assert!(!debug.contains("PRIVATE_SYMBOL_VALUE"));
+        assert!(!debug.contains(&format!("{:?}", payload)));
+        assert!(debug.contains("frame_bytes_len"));
+        assert!(debug.contains("symbols_json_bytes_len"));
     }
 }
