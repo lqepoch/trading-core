@@ -394,6 +394,81 @@
     {
       "descriptor": {
         "schema_version": 1,
+        "schema_id": "lqepoch.market_raw_json_frame.v1",
+        "fields": [
+          {
+            "name": "schema_version",
+            "type": "uint32",
+            "nullable": false
+          },
+          {
+            "name": "provider",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "feed",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "entitlement",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "source_numeric_encoding",
+            "type": "utf8",
+            "nullable": true
+          },
+          {
+            "name": "generation",
+            "type": "uint64",
+            "nullable": false
+          },
+          {
+            "name": "frame_sequence",
+            "type": "uint64",
+            "nullable": false
+          },
+          {
+            "name": "received_timestamp_utc",
+            "type": "timestamp_ns_utc",
+            "nullable": false
+          },
+          {
+            "name": "frame_sha256",
+            "type": "sha256_hex",
+            "nullable": false
+          },
+          {
+            "name": "frame_bytes",
+            "type": "binary",
+            "nullable": false
+          },
+          {
+            "name": "event_count",
+            "type": "uint32",
+            "nullable": false
+          },
+          {
+            "name": "disposition",
+            "type": "utf8",
+            "nullable": false
+          },
+          {
+            "name": "symbols_json",
+            "type": "utf8",
+            "nullable": false
+          }
+        ]
+      },
+      "canonical_json": "{\"fields\":[{\"name\":\"schema_version\",\"nullable\":false,\"type\":\"uint32\"},{\"name\":\"provider\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"feed\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"entitlement\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"source_numeric_encoding\",\"nullable\":true,\"type\":\"utf8\"},{\"name\":\"generation\",\"nullable\":false,\"type\":\"uint64\"},{\"name\":\"frame_sequence\",\"nullable\":false,\"type\":\"uint64\"},{\"name\":\"received_timestamp_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"frame_sha256\",\"nullable\":false,\"type\":\"sha256_hex\"},{\"name\":\"frame_bytes\",\"nullable\":false,\"type\":\"binary\"},{\"name\":\"event_count\",\"nullable\":false,\"type\":\"uint32\"},{\"name\":\"disposition\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"symbols_json\",\"nullable\":false,\"type\":\"utf8\"}],\"schema_id\":\"lqepoch.market_raw_json_frame.v1\",\"schema_version\":1}",
+      "sha256": "86c266ec8e38b4d3eed507a41e10aeeb2c3cfa8fe183d6b7e4b9013fb3d94041"
+    },
+    {
+      "descriptor": {
+        "schema_version": 1,
         "schema_id": "lqepoch.market_event.v2",
         "fields": [
           {

@@ -279,7 +279,10 @@
                 "properties": {
                   "numeric_encoding": {
                     "not": {
-                      "const": "raw_messagepack_bytes"
+                      "enum": [
+                        "raw_messagepack_bytes",
+                        "raw_json_bytes"
+                      ]
                     }
                   }
                 }
@@ -502,7 +505,10 @@
                 "properties": {
                   "numeric_encoding": {
                     "not": {
-                      "const": "raw_messagepack_bytes"
+                      "enum": [
+                        "raw_messagepack_bytes",
+                        "raw_json_bytes"
+                      ]
                     }
                   }
                 }
@@ -698,7 +704,7 @@
             "$ref": "#/components/schemas/DatasetCompletionEvidenceV1"
           }
         },
-        "description": "Exactly one immutable Parquet object per manifest. readback_sha256 equals object.content_sha256; footer rows equal row_count. raw_messagepack_bytes is valid only with the registered lqepoch.market_raw_frame.v1 fingerprint and no source-time range; Rust and shared consumers enforce the cross-field equality. Legacy weekly archive manifests are a different schema and require explicit rejection or conversion.",
+        "description": "Exactly one immutable Parquet object per manifest. readback_sha256 equals object.content_sha256; footer rows equal row_count. raw_messagepack_bytes and raw_json_bytes are valid only with their matching registered raw-frame schema fingerprints, no source-time range, and every frame timestamp missing; Rust and shared consumers enforce cross-field equality. Legacy weekly archive manifests are a different schema and require explicit rejection or conversion.",
         "allOf": [
           {
             "if": {
@@ -759,6 +765,74 @@
                   "properties": {
                     "numeric_encoding": {
                       "const": "raw_messagepack_bytes"
+                    }
+                  },
+                  "required": [
+                    "numeric_encoding"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source": {
+                  "properties": {
+                    "numeric_encoding": {
+                      "const": "raw_json_bytes"
+                    }
+                  },
+                  "required": [
+                    "numeric_encoding"
+                  ]
+                }
+              },
+              "required": [
+                "source"
+              ]
+            },
+            "then": {
+              "properties": {
+                "object": {
+                  "properties": {
+                    "parquet_schema_sha256": {
+                      "const": "86c266ec8e38b4d3eed507a41e10aeeb2c3cfa8fe183d6b7e4b9013fb3d94041"
+                    }
+                  }
+                }
+              },
+              "not": {
+                "required": [
+                  "time_range"
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "object": {
+                  "properties": {
+                    "parquet_schema_sha256": {
+                      "const": "86c266ec8e38b4d3eed507a41e10aeeb2c3cfa8fe183d6b7e4b9013fb3d94041"
+                    }
+                  },
+                  "required": [
+                    "parquet_schema_sha256"
+                  ]
+                }
+              },
+              "required": [
+                "object"
+              ]
+            },
+            "then": {
+              "properties": {
+                "source": {
+                  "properties": {
+                    "numeric_encoding": {
+                      "const": "raw_json_bytes"
                     }
                   },
                   "required": [
@@ -862,7 +936,10 @@
               },
               {
                 "not": {
-                  "const": "raw_messagepack_bytes"
+                  "enum": [
+                    "raw_messagepack_bytes",
+                    "raw_json_bytes"
+                  ]
                 }
               }
             ]
@@ -1294,9 +1371,10 @@
           "integer_token",
           "binary_float64_shortest_decimal",
           "binary_float32_shortest_decimal",
-          "raw_messagepack_bytes"
+          "raw_messagepack_bytes",
+          "raw_json_bytes"
         ],
-        "description": "Protobuf enum names are NUMERIC_ENCODING_*; UNSPECIFIED is omitted and rejected. raw_messagepack_bytes is allowed only on a DatasetManifestV1 whose object schema fingerprint identifies lqepoch.market_raw_frame.v1; it is rejected for normalized event and prediction messages."
+        "description": "Protobuf enum names are NUMERIC_ENCODING_*; UNSPECIFIED is omitted and rejected. raw_messagepack_bytes and raw_json_bytes are allowed only on DatasetManifestV1 values whose object schema fingerprint identifies the matching registered raw-frame schema; both are rejected for normalized event and prediction messages."
       }
     }
   }

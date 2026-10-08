@@ -19,15 +19,16 @@ pub use legacy::{
 };
 pub use parquet_schema::{
     MARKET_EVENT_PARQUET_SCHEMA_ID, MARKET_EVENT_PARQUET_SCHEMA_V2_ID,
-    MARKET_RAW_FRAME_PARQUET_SCHEMA_ID, PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY,
-    PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY, ParquetSchemaDescriptorV1, ParquetSchemaError,
-    ParquetSchemaFieldV1, trusted_parquet_schema, trusted_parquet_schema_metadata,
-    trusted_schema_fingerprint, validate_optional_parquet_schema_metadata,
+    MARKET_RAW_FRAME_PARQUET_SCHEMA_ID, MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_ID,
+    PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY, PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY,
+    ParquetSchemaDescriptorV1, ParquetSchemaError, ParquetSchemaFieldV1, trusted_parquet_schema,
+    trusted_parquet_schema_metadata, trusted_schema_fingerprint,
+    validate_optional_parquet_schema_metadata,
 };
 pub use raw_frame::{
     MARKET_RAW_FRAME_SCHEMA_VERSION, MAX_RAW_FRAME_BYTES, MAX_RAW_FRAME_EVENT_COUNT,
     MarketEventParquetRowV2, RawFrameContractError, RawFrameDispositionV1, RawFrameReferenceV2,
-    RawFrameStorageRecordV1,
+    RawFrameStorageRecordV1, RawJsonFrameStorageRecordV1,
 };
 pub use v1::{
     ConnectionState, ControlEventEnvelopeV1, DecimalString, EntitlementState, EventMetadataV1,

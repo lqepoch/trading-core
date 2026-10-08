@@ -160,18 +160,31 @@ impl DatasetManifestV1 {
             return Err(DatasetManifestError::InvalidHash);
         }
 
-        let raw_frame_schema_sha256 = crate::parquet_schema::trusted_schema_fingerprint(
+        let raw_messagepack_schema_sha256 = crate::parquet_schema::trusted_schema_fingerprint(
             crate::parquet_schema::MARKET_RAW_FRAME_PARQUET_SCHEMA_ID,
         )
         .map_err(|_| DatasetManifestError::InvalidObject)?;
-        let object_is_raw_frame_schema =
-            self.object.parquet_schema_sha256 == raw_frame_schema_sha256;
-        let source_is_raw_messagepack =
-            self.source.numeric_encoding == crate::NumericEncodingV1::RawMessagePackBytes;
-        if object_is_raw_frame_schema != source_is_raw_messagepack {
+        let raw_json_schema_sha256 = crate::parquet_schema::trusted_schema_fingerprint(
+            crate::parquet_schema::MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_ID,
+        )
+        .map_err(|_| DatasetManifestError::InvalidObject)?;
+        let source_is_raw_bytes = self.source.numeric_encoding.is_raw_bytes();
+        let object_raw_schema_matches_encoding = match self.source.numeric_encoding {
+            crate::NumericEncodingV1::RawMessagePackBytes => {
+                self.object.parquet_schema_sha256 == raw_messagepack_schema_sha256
+            }
+            crate::NumericEncodingV1::RawJsonBytes => {
+                self.object.parquet_schema_sha256 == raw_json_schema_sha256
+            }
+            _ => {
+                self.object.parquet_schema_sha256 != raw_messagepack_schema_sha256
+                    && self.object.parquet_schema_sha256 != raw_json_schema_sha256
+            }
+        };
+        if !object_raw_schema_matches_encoding {
             return Err(DatasetManifestError::InvalidSource);
         }
-        if source_is_raw_messagepack
+        if source_is_raw_bytes
             && (self.time_range.is_some() || self.source_timestamp_missing_rows != self.row_count)
         {
             return Err(DatasetManifestError::InvalidTimeRange);
@@ -344,6 +357,10 @@ mod tests {
     #[test]
     fn raw_messagepack_manifest_is_bound_to_the_raw_frame_parquet_fingerprint() {
         let mut value = manifest();
+        assert_eq!(
+            crate::trusted_schema_fingerprint(crate::MARKET_RAW_FRAME_PARQUET_SCHEMA_ID).unwrap(),
+            "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6"
+        );
         value.source.numeric_encoding = NumericEncodingV1::RawMessagePackBytes;
         value.time_range = None;
         value.source_timestamp_missing_rows = value.row_count;
@@ -391,6 +408,44 @@ mod tests {
         incomplete_missing_count.source_timestamp_missing_rows = 0;
         assert_eq!(
             incomplete_missing_count.validate(),
+            Err(DatasetManifestError::InvalidTimeRange)
+        );
+    }
+
+    #[test]
+    fn raw_json_manifest_is_bound_to_its_distinct_frame_schema() {
+        let mut value = manifest();
+        value.source.numeric_encoding = NumericEncodingV1::RawJsonBytes;
+        value.time_range = None;
+        value.source_timestamp_missing_rows = value.row_count;
+        value.object.parquet_schema_sha256 =
+            crate::trusted_schema_fingerprint(crate::MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_ID)
+                .unwrap();
+        value.validate().unwrap();
+
+        let mut messagepack_schema = value.clone();
+        messagepack_schema.object.parquet_schema_sha256 =
+            crate::trusted_schema_fingerprint(crate::MARKET_RAW_FRAME_PARQUET_SCHEMA_ID).unwrap();
+        assert_eq!(
+            messagepack_schema.validate(),
+            Err(DatasetManifestError::InvalidSource)
+        );
+
+        let mut normalized_encoding = value.clone();
+        normalized_encoding.source.numeric_encoding = NumericEncodingV1::DecimalToken;
+        assert_eq!(
+            normalized_encoding.validate(),
+            Err(DatasetManifestError::InvalidSource)
+        );
+
+        let mut with_source_times = value.clone();
+        with_source_times.time_range = Some(DatasetTimeRangeV1 {
+            start_inclusive: UtcTimestamp::parse("2026-10-08T14:30:00Z").unwrap(),
+            end_exclusive: UtcTimestamp::parse("2026-10-08T14:31:00Z").unwrap(),
+        });
+        with_source_times.source_timestamp_missing_rows = 0;
+        assert_eq!(
+            with_source_times.validate(),
             Err(DatasetManifestError::InvalidTimeRange)
         );
     }

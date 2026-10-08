@@ -52,8 +52,8 @@ export function validateUint64JsonPaths(value: unknown, paths: readonly JsonPath
 
 export function parseMarketEventProtoJson(value: unknown): MarketEventEnvelopeV1 {
   validateUint64JsonPaths(value, [["generation"], ["sequence"]]);
-  if (hasRawMessagePackEncoding(value)) {
-    throw new TypeError("raw_messagepack_bytes is not a normalized market-event encoding");
+  if (rawFrameSchemaId(value) !== undefined) {
+    throw new TypeError("raw byte-frame encodings are not normalized market-event encodings");
   }
   return fromJson(MarketEventEnvelopeV1Schema, value as JsonValue);
 }
@@ -65,18 +65,26 @@ export function parseDatasetManifestProtoJson(value: unknown): DatasetManifestV1
     ["object", "sizeBytes"],
     ["object", "parquetFooterRows"],
   ]);
-  const rawEncoding = hasRawMessagePackEncoding(value);
+  const rawSchemaId = rawFrameSchemaId(value);
   const object = getRecordField(value, "object");
   const schemaSha256 = object?.parquetSchemaSha256;
-  const rawSchemaSha256 = trustedParquetSchemaSha256("lqepoch.market_raw_frame.v1");
+  const rawSchemaIds = [
+    "lqepoch.market_raw_frame.v1",
+    "lqepoch.market_raw_json_frame.v1",
+  ] as const;
   const root = isRecord(value) ? value : undefined;
-  if (rawEncoding !== (schemaSha256 === rawSchemaSha256)) {
+  if (
+    (rawSchemaId === undefined &&
+      rawSchemaIds.some((schemaId) => schemaSha256 === trustedParquetSchemaSha256(schemaId))) ||
+    (rawSchemaId !== undefined &&
+      schemaSha256 !== trustedParquetSchemaSha256(rawSchemaId))
+  ) {
     throw new TypeError(
-      "raw_messagepack_bytes must be bound to the registered market_raw_frame.v1 schema",
+      "raw byte-frame encodings must be bound to their registered Parquet schema",
     );
   }
   if (
-    rawEncoding &&
+    rawSchemaId !== undefined &&
     (root === undefined ||
       "timeRange" in root ||
       "time_range" in root ||
@@ -92,8 +100,8 @@ export function parseDatasetManifestProtoJson(value: unknown): DatasetManifestV1
 
 export function parsePredictionEnvelopeProtoJson(value: unknown): PredictionEnvelopeV1 {
   validateUint64JsonPaths(value, [["forecast", "sequence"]]);
-  if (hasRawMessagePackEncoding(value)) {
-    throw new TypeError("raw_messagepack_bytes cannot identify a normalized prediction source");
+  if (rawFrameSchemaId(value) !== undefined) {
+    throw new TypeError("raw byte-frame encodings cannot identify a normalized prediction source");
   }
   return fromJson(PredictionEnvelopeV1Schema, value as JsonValue);
 }
@@ -108,10 +116,16 @@ function getRecordField(value: unknown, key: string): Record<string, unknown> | 
   return isRecord(field) ? field : undefined;
 }
 
-function hasRawMessagePackEncoding(value: unknown): boolean {
+function rawFrameSchemaId(value: unknown): string | undefined {
   const source = getRecordField(value, "source");
-  return (
-    source?.numericEncoding === NumericEncodingV1.NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES ||
-    source?.numericEncoding === "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES"
-  );
+  switch (source?.numericEncoding) {
+    case NumericEncodingV1.NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES:
+    case "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES":
+      return "lqepoch.market_raw_frame.v1";
+    case NumericEncodingV1.NUMERIC_ENCODING_RAW_JSON_BYTES:
+    case "NUMERIC_ENCODING_RAW_JSON_BYTES":
+      return "lqepoch.market_raw_json_frame.v1";
+    default:
+      return undefined;
+  }
 }

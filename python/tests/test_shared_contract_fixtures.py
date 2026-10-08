@@ -192,11 +192,15 @@ class SharedContractFixturesTest(unittest.TestCase):
         ]["parquet_schema_sha256"]["const"]
         self.assertEqual(raw_hash_condition, raw_schema_sha)
 
-    def test_raw_messagepack_encoding_is_bound_only_to_raw_frame_dataset_schema(self) -> None:
+    def test_raw_byte_encodings_are_bound_only_to_their_registered_frame_schemas(self) -> None:
         from lqepoch_contracts.parquet_schema import trusted_parquet_schema_sha256
 
         raw_encoding = "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES"
         raw_schema_hash = trusted_parquet_schema_sha256("lqepoch.market_raw_frame.v1")
+        self.assertEqual(
+            raw_schema_hash,
+            "3dfcd21648d7a29e5717150f5470250c5a98db4e65f48f98a34594568fe01df6",
+        )
         event = {
             "schemaVersion": 1,
             "source": {
@@ -210,7 +214,7 @@ class SharedContractFixturesTest(unittest.TestCase):
             "receivedTimestamp": "2026-10-08T14:30:00Z",
             "event": {"stockTrade": {"symbol": "QQQ", "price": "1.25", "size": "1"}},
         }
-        with self.assertRaisesRegex(ValueError, "not a normalized market-event"):
+        with self.assertRaisesRegex(ValueError, "not normalized market-event"):
             parse_market_event_protojson(event)
 
         manifest = {
@@ -252,7 +256,7 @@ class SharedContractFixturesTest(unittest.TestCase):
                 parse_dataset_manifest_protojson(invalid_raw_manifest)
 
         wrong_hash = {**manifest, "object": {**manifest["object"], "parquetSchemaSha256": "b" * 64}}
-        with self.assertRaisesRegex(ValueError, "must be bound to the registered"):
+        with self.assertRaisesRegex(ValueError, "registered Parquet schema"):
             parse_dataset_manifest_protojson(wrong_hash)
 
         wrong_encoding = {
@@ -262,7 +266,7 @@ class SharedContractFixturesTest(unittest.TestCase):
                 "numericEncoding": "NUMERIC_ENCODING_DECIMAL_TOKEN",
             },
         }
-        with self.assertRaisesRegex(ValueError, "must be bound to the registered"):
+        with self.assertRaisesRegex(ValueError, "raw byte-frame schema fingerprint"):
             parse_dataset_manifest_protojson(wrong_encoding)
 
         prediction = {
@@ -279,6 +283,46 @@ class SharedContractFixturesTest(unittest.TestCase):
         }
         with self.assertRaisesRegex(ValueError, "cannot identify a normalized prediction"):
             parse_prediction_envelope_protojson(prediction)
+
+        raw_json_schema_sha256 = trusted_parquet_schema_sha256(
+            "lqepoch.market_raw_json_frame.v1"
+        )
+        raw_json_manifest = {
+            **manifest,
+            "source": {
+                **manifest["source"],
+                "numericEncoding": "NUMERIC_ENCODING_RAW_JSON_BYTES",
+            },
+            "object": {**manifest["object"], "parquetSchemaSha256": raw_json_schema_sha256},
+        }
+        raw_json_message = parse_dataset_manifest_protojson(raw_json_manifest)
+        self.assertEqual(raw_json_message.source.numeric_encoding, 6)
+
+        crossed_schema = {
+            **raw_json_manifest,
+            "object": {**raw_json_manifest["object"], "parquetSchemaSha256": raw_schema_hash},
+        }
+        with self.assertRaisesRegex(ValueError, "registered Parquet schema"):
+            parse_dataset_manifest_protojson(crossed_schema)
+
+        for raw_json_encoding in ("NUMERIC_ENCODING_RAW_JSON_BYTES", 6):
+            raw_json_event = {
+                **event,
+                "source": {**event["source"], "numericEncoding": raw_json_encoding},
+            }
+            with self.subTest(raw_json_encoding=raw_json_encoding), self.assertRaisesRegex(
+                ValueError, "not normalized market-event"
+            ):
+                parse_market_event_protojson(raw_json_event)
+
+            raw_json_prediction = {
+                **prediction,
+                "source": {**prediction["source"], "numericEncoding": raw_json_encoding},
+            }
+            with self.subTest(raw_json_encoding=raw_json_encoding), self.assertRaisesRegex(
+                ValueError, "normalized prediction"
+            ):
+                parse_prediction_envelope_protojson(raw_json_prediction)
 
 
 if __name__ == "__main__":

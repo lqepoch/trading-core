@@ -13,15 +13,18 @@ from lqepoch.prediction.v1 import prediction_pb2
 from .parquet_schema import trusted_parquet_schema_sha256
 from .uint64_json import validate_uint64_json_paths
 
-RAW_MESSAGEPACK_ENCODING = "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES"
-RAW_MESSAGEPACK_ENCODING_NUMBER = 5
-RAW_FRAME_SCHEMA_ID = "lqepoch.market_raw_frame.v1"
+RAW_ENCODING_SCHEMA_IDS = {
+    "NUMERIC_ENCODING_RAW_MESSAGEPACK_BYTES": "lqepoch.market_raw_frame.v1",
+    "NUMERIC_ENCODING_RAW_JSON_BYTES": "lqepoch.market_raw_json_frame.v1",
+    5: "lqepoch.market_raw_frame.v1",
+    6: "lqepoch.market_raw_json_frame.v1",
+}
 
 
 def parse_market_event_protojson(document: Mapping[str, object]) -> market_pb2.MarketEventEnvelopeV1:
     validate_uint64_json_paths(document, (("generation",), ("sequence",)))
-    if _has_raw_messagepack_encoding(document):
-        raise ValueError("raw_messagepack_bytes is not a normalized market-event encoding")
+    if _raw_encoding_schema_id(document) is not None:
+        raise ValueError("raw byte-frame encodings are not normalized market-event encodings")
     return json_format.ParseDict(document, market_pb2.MarketEventEnvelopeV1())
 
 
@@ -35,19 +38,25 @@ def parse_dataset_manifest_protojson(document: Mapping[str, object]) -> manifest
             ("object", "parquetFooterRows"),
         ),
     )
-    raw_schema_sha256 = trusted_parquet_schema_sha256(RAW_FRAME_SCHEMA_ID)
-    is_raw_encoding = _has_raw_messagepack_encoding(document)
+    raw_schema_id = _raw_encoding_schema_id(document)
     object_document = document.get("object")
     schema_sha256 = (
         object_document.get("parquetSchemaSha256")
         if isinstance(object_document, Mapping)
         else None
     )
-    if is_raw_encoding != (schema_sha256 == raw_schema_sha256):
+    raw_schema_hashes = {
+        trusted_parquet_schema_sha256(schema_id)
+        for schema_id in RAW_ENCODING_SCHEMA_IDS.values()
+    }
+    if raw_schema_id is None:
+        if schema_sha256 in raw_schema_hashes:
+            raise ValueError("raw byte-frame schema fingerprint requires its matching raw encoding")
+    elif schema_sha256 != trusted_parquet_schema_sha256(raw_schema_id):
         raise ValueError(
-            "raw_messagepack_bytes must be bound to the registered market_raw_frame.v1 schema"
+            f"{raw_schema_id} encoding must be bound to its registered Parquet schema"
         )
-    if is_raw_encoding:
+    if raw_schema_id is not None:
         row_count = document.get("rowCount")
         missing_rows = document.get("sourceTimestampMissingRows")
         if (
@@ -67,15 +76,19 @@ def parse_prediction_envelope_protojson(
 ) -> prediction_pb2.PredictionEnvelopeV1:
     validate_uint64_json_paths(document, (("forecast", "sequence"),))
     source = document.get("source")
-    if isinstance(source, Mapping) and _is_raw_encoding(source.get("numericEncoding")):
-        raise ValueError("raw_messagepack_bytes cannot identify a normalized prediction source")
+    if isinstance(source, Mapping) and _raw_schema_id_for_value(source.get("numericEncoding")):
+        raise ValueError("raw byte-frame encodings cannot identify a normalized prediction source")
     return json_format.ParseDict(document, prediction_pb2.PredictionEnvelopeV1())
 
 
-def _has_raw_messagepack_encoding(document: Mapping[str, object]) -> bool:
+def _raw_encoding_schema_id(document: Mapping[str, object]) -> str | None:
     source = document.get("source")
-    return isinstance(source, Mapping) and _is_raw_encoding(source.get("numericEncoding"))
+    if not isinstance(source, Mapping):
+        return None
+    return _raw_schema_id_for_value(source.get("numericEncoding"))
 
 
-def _is_raw_encoding(value: object) -> bool:
-    return value in (RAW_MESSAGEPACK_ENCODING, RAW_MESSAGEPACK_ENCODING_NUMBER)
+def _raw_schema_id_for_value(value: object) -> str | None:
+    if isinstance(value, str) or type(value) is int:
+        return RAW_ENCODING_SCHEMA_IDS.get(value)
+    return None

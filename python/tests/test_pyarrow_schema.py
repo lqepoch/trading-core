@@ -26,6 +26,7 @@ class PyArrowSchemaTest(unittest.TestCase):
             "lqepoch.market_event.v1",
             "lqepoch.us_equity_trade_bar_1m.v1",
             "lqepoch.market_raw_frame.v1",
+            "lqepoch.market_raw_json_frame.v1",
             "lqepoch.market_event.v2",
         ):
             with self.subTest(schema_id=schema_id):
@@ -38,6 +39,9 @@ class PyArrowSchemaTest(unittest.TestCase):
             raw_schema.field("received_timestamp_utc").type,
             pa.timestamp("ns", tz="UTC"),
         )
+
+        raw_json_schema = pyarrow_schema_for_trusted_schema("lqepoch.market_raw_json_frame.v1")
+        self.assertEqual(raw_json_schema.field("frame_bytes").type, pa.binary())
 
         bar_schema = pyarrow_schema_for_trusted_schema("lqepoch.us_equity_trade_bar_1m.v1")
         self.assertEqual(bar_schema.field("trade_date").type, pa.string())
