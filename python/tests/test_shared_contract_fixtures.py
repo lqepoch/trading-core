@@ -86,6 +86,16 @@ class SharedContractFixturesTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "version"):
             dataset_manifest_v2_protojson_bytes(invalid)
 
+    def test_dataset_manifest_v2_rejects_lone_surrogates_in_shared_fixtures(self) -> None:
+        for fixture_name in (
+            "dataset-manifest-v2-invalid-symbol-lone-surrogate.json",
+            "dataset-manifest-v2-invalid-source-id-lone-surrogate.json",
+        ):
+            with self.subTest(fixture=fixture_name):
+                raw = (REPO_ROOT / "schemas/fixtures" / fixture_name).read_bytes()
+                with self.assertRaises(ValueError):
+                    parse_dataset_manifest_v2_json(raw)
+
     def test_finite_batch_receipt_projection_matches_cross_language_bytes_and_sha256(self) -> None:
         manifest = parse_dataset_manifest_v2_protojson(
             read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")

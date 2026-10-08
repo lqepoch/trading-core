@@ -1103,6 +1103,20 @@ mod tests {
     }
 
     #[test]
+    fn manifest_v2_rejects_lone_surrogate_shared_fixtures() {
+        for fixture in [
+            "dataset-manifest-v2-invalid-symbol-lone-surrogate.json",
+            "dataset-manifest-v2-invalid-source-id-lone-surrogate.json",
+        ] {
+            let bytes = std::fs::read(shared_fixture_path(fixture)).unwrap();
+            assert!(
+                parse_dataset_manifest_v2_json(&bytes).is_err(),
+                "accepted lone surrogate from {fixture}"
+            );
+        }
+    }
+
+    #[test]
     fn finite_batch_receipt_projection_matches_cross_language_bytes_and_sha256() {
         let value = fixture();
         let Some(finite_batch) = value.completion_evidence.finite_batch.as_ref() else {

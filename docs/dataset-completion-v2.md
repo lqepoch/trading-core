@@ -61,6 +61,9 @@ and has no trailing newline. Shared input/output fixtures and SHA-256 values und
 `schemas/fixtures/dataset-manifest-v2-protojson-*` pin the exact bytes across all three languages.
 The digest of these bytes identifies the serialized manifest; the helper does not add a self-hash,
 authenticate a receipt issuer, or grant data authority.
+Text identities and symbols must be valid Unicode scalar strings. Parsers and typed-message writers
+reject unpaired surrogate code units before UTF-8 size checks so TypeScript's `TextEncoder` cannot
+silently replace them during canonical serialization.
 
 BarV2 rows may carry the SHA-256 of the canonical ProtoJSON bytes for this unique completion oneof.
 That reference lets consumers detect a row joined to a different completion claim. The immutable

@@ -569,6 +569,50 @@ rejects(
   () => datasetManifestV2ProtojsonBytes(invalidManifestForWriter),
   "manifest ProtoJSON writer accepted an unsupported schema version",
 );
+for (const fixture of [
+  "dataset-manifest-v2-invalid-symbol-lone-surrogate.json",
+  "dataset-manifest-v2-invalid-source-id-lone-surrogate.json",
+]) {
+  const text = readFileSync(resolve(process.cwd(), "..", "schemas/fixtures", fixture), "utf8");
+  rejects(() => parseDatasetManifestV2Json(text), `dataset manifest parser accepted ${fixture}`);
+}
+const invalidUnicodeSymbols = {
+  ...datasetV2Message,
+  symbols: ["QQQ \uD800"],
+} as typeof datasetV2Message;
+rejects(
+  () => datasetManifestV2ProtojsonBytes(invalidUnicodeSymbols),
+  "manifest ProtoJSON writer encoded an unpaired surrogate in symbols",
+);
+if (datasetV2Message.source === undefined) throw new Error("dataset v2 source missing from fixture");
+const invalidUnicodeSourceId = {
+  ...datasetV2Message,
+  source: { ...datasetV2Message.source, sourceRecordId: "synthetic-record\uD800" },
+} as typeof datasetV2Message;
+rejects(
+  () => datasetManifestV2ProtojsonBytes(invalidUnicodeSourceId),
+  "manifest ProtoJSON writer encoded an unpaired surrogate in source identity",
+);
+const invalidUnicodeProvider = {
+  ...datasetV2Message,
+  source: { ...datasetV2Message.source, provider: "alpaca\uD800" },
+} as typeof datasetV2Message;
+rejects(
+  () => datasetManifestV2ProtojsonBytes(invalidUnicodeProvider),
+  "manifest ProtoJSON writer encoded an unpaired surrogate in provider identity",
+);
+const invalidUnicodeObjectId = {
+  ...datasetV2Message,
+  object: {
+    ...datasetV2Message.object,
+    objectId: "drive-object\uD800",
+    transport: "rclone_google_drive",
+  },
+} as typeof datasetV2Message;
+rejects(
+  () => datasetManifestV2ProtojsonBytes(invalidUnicodeObjectId),
+  "manifest ProtoJSON writer encoded an unpaired surrogate in object identity",
+);
 if (datasetV2Message.completionEvidence.evidence.case !== "finiteBatch") {
   throw new Error("dataset v2 finite receipt fixture selected the wrong oneof case");
 }

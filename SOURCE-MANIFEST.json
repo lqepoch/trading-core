@@ -326,7 +326,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "c7636b3401d686f09be874cc7b6ae58db4285b46ae81c1709f2992706651d423",
+      "sha256": "71f5a7cc2d226fb0368a0c756a33886ad89d3127da1870244e428374dc43aa4e",
       "origin": "Updated repository documentation for the canonical DatasetManifestV2 ProtoJSON writer and the public offline American diagnostic API; positive-time production pricing remains unavailable and the diagnostic is unverified/non-tradable."
     },
     {
@@ -352,7 +352,7 @@
     {
       "path": "crates/market-contracts/src/dataset_v2.rs",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "7cc197433d7aed7154269737c08f355faa543b182fdeae6f6178700f48a0fd21"
+      "sha256": "173b98acccda62110488af75afeb93a55b513617a99c6eec370919d6ec1a3b68"
     },
     {
       "path": "crates/market-contracts/src/lib.rs",
@@ -452,7 +452,7 @@
     {
       "path": "docs/dataset-completion-v2.md",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "c1d40e28f8129a61b31333dc15599748d8474be30d48f960ebc70af72b111a8f"
+      "sha256": "448dfd4ad24529fc154664e11f4fae1c9707eed7e9ad5be2ea1f3eefcdcea344"
     },
     {
       "path": "docs/development.md",
@@ -581,7 +581,7 @@
     },
     {
       "path": "python/tests/test_shared_contract_fixtures.py",
-      "sha256": "1b4a09bb11c1116d0ffafa3b56521f4652424a191ec94ab2c873d92be5126a8d",
+      "sha256": "ce8aede390c2dcd50246f483c79d95cf2d12a1b2725a299caa3a4fbdfdbb2408",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -618,6 +618,16 @@
       "path": "schemas/fixtures/dataset-manifest-v2-historical-non-paged.json",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
       "sha256": "380f9d238944cf53febd0122ca7ef63d95a197bf9cef4228011253a0d0cf32f3"
+    },
+    {
+      "path": "schemas/fixtures/dataset-manifest-v2-invalid-source-id-lone-surrogate.json",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "121004e9317e37794a1f10761a5e6a2c99ba05e2ccea2f5527f778823b9deb2d"
+    },
+    {
+      "path": "schemas/fixtures/dataset-manifest-v2-invalid-symbol-lone-surrogate.json",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "773b3ba56d5e028c04792ef98c4236256e7c8304cbe0b56eedf9c2d27d75c84d"
     },
     {
       "path": "schemas/fixtures/dataset-manifest-v2-protojson-cases.json",
@@ -892,7 +902,7 @@
     {
       "path": "typescript/src/contracts/raw-frame.ts",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "5f9eee19f7dca4c444b855538b171cdbf3a8cd9107ac8c40c86f52f828f80ca3"
+      "sha256": "3fafd96c12cba2a734f9178995d3121262ee119f9b67f2838fed0b9f2dbc8389"
     },
     {
       "path": "typescript/src/contracts/schema-fingerprint.ts",
@@ -901,7 +911,7 @@
     },
     {
       "path": "typescript/src/contracts/uint64-json.ts",
-      "sha256": "c9bf57a8553dcf870f4d260e31456dd3fa0db1082628ec949353e7eacd3fdbcd",
+      "sha256": "2306aa0db036b2af70b6e683f0a8c763872f609e9e649ca363d79fcbb93590f8",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -926,7 +936,7 @@
     },
     {
       "path": "typescript/src/tests/contracts.test.ts",
-      "sha256": "9b1ff63cfed1e390e10162c07401e9c3d6ee8d8600f52a3a092372819aec615b",
+      "sha256": "258362c69233726a50bcdc89a8b27aa4872929fc70d918597c26e9a8f3789e9e",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
