@@ -250,6 +250,8 @@ impl TradeMinuteBarV2 {
             && self.bar_start_utc >= self.session_start_utc
             && self.bar_end_exclusive_utc <= self.session_end_exclusive_utc
             && self.available_at_utc >= self.bar_end_exclusive_utc
+            && self.source_start_utc >= self.bar_start_utc
+            && self.source_end_exclusive_utc <= self.bar_end_exclusive_utc
             && self.source_start_utc < self.source_end_exclusive_utc;
         let open = parse_positive_decimal(&self.open);
         let high = parse_positive_decimal(&self.high);
@@ -418,11 +420,52 @@ mod tests {
 
         let mut changed = bar_value();
         changed["sourceStartUtc"] = json!("2026-10-08T14:29:59Z");
-        let row = TradeMinuteBarV2::parse_json(&serde_json::to_vec(&changed).unwrap()).unwrap();
         assert!(matches!(
-            row.validate_against_manifest(&manifest),
+            TradeMinuteBarV2::parse_json(&serde_json::to_vec(&changed).unwrap()),
             Err(TradeMinuteBarV2Error::InvalidRow)
         ));
+    }
+
+    #[test]
+    fn v2_bar_rejects_source_bounds_outside_its_minute_even_within_manifest_range() {
+        let fixture: Value = serde_json::from_slice(include_bytes!(
+            "../../../schemas/fixtures/us-equity-trade-bar-v2-source-bounds-invalid.json"
+        ))
+        .unwrap();
+        let mut manifest_json: Value = serde_json::from_slice(include_bytes!(
+            "../../../schemas/fixtures/dataset-manifest-v2-provider-watermark.json"
+        ))
+        .unwrap();
+        manifest_json["timeRange"]["startInclusive"] =
+            fixture["manifestRange"]["startInclusive"].clone();
+        manifest_json["timeRange"]["endExclusive"] =
+            fixture["manifestRange"]["endExclusive"].clone();
+        manifest_json["completionEvidence"]["providerWatermark"]["completeUpToExclusive"] =
+            fixture["manifestRange"]["endExclusive"].clone();
+        let manifest =
+            crate::parse_dataset_manifest_v2_json(&serde_json::to_vec(&manifest_json).unwrap())
+                .unwrap();
+        let range = manifest.time_range.as_ref().unwrap();
+        let mut base_row: Value = serde_json::from_slice(include_bytes!(
+            "../../../schemas/fixtures/us-equity-trade-bar-v2-provider-watermark.json"
+        ))
+        .unwrap();
+        base_row["completionEvidenceSha256"] =
+            json!(crate::dataset_completion_evidence_v2_sha256(&manifest).unwrap());
+
+        for case in fixture["cases"].as_array().unwrap() {
+            let field = case["field"].as_str().unwrap();
+            let value = case["value"].as_str().unwrap();
+            let timestamp = crate::ProtoTimestampV2::parse(value).unwrap();
+            assert!(timestamp >= range.start_inclusive && timestamp < range.end_exclusive);
+            let mut row = base_row.clone();
+            row[field] = json!(value);
+            assert!(
+                TradeMinuteBarV2::parse_json(&serde_json::to_vec(&row).unwrap()).is_err(),
+                "accepted source bound outside the bar: {}",
+                case["name"]
+            );
+        }
     }
 
     #[test]

@@ -199,6 +199,33 @@ class SharedContractFixturesTest(unittest.TestCase):
                 parse_us_equity_trade_bar_v2_protojson(invalid_row), manifest
             )
 
+        source_bounds = read_json_fixture(
+            "schemas/fixtures/us-equity-trade-bar-v2-source-bounds-invalid.json"
+        )
+        wide_manifest_document = read_json_fixture(
+            "schemas/fixtures/dataset-manifest-v2-provider-watermark.json"
+        )
+        wide_manifest_document["timeRange"] = source_bounds["manifestRange"]
+        wide_manifest_document["completionEvidence"]["providerWatermark"][
+            "completeUpToExclusive"
+        ] = source_bounds["manifestRange"]["endExclusive"]
+        wide_manifest = parse_dataset_manifest_v2_protojson(wide_manifest_document)
+        wide_range = json_format.MessageToDict(wide_manifest)["timeRange"]
+        base_bar = read_json_fixture(
+            "schemas/fixtures/us-equity-trade-bar-v2-provider-watermark.json"
+        )
+        base_bar["completionEvidenceSha256"] = dataset_completion_evidence_v2_sha256(
+            wide_manifest
+        )
+        for case in source_bounds["cases"]:
+            with self.subTest(source_bounds=case["name"]):
+                self.assertLess(wide_range["startInclusive"], case["value"])
+                self.assertLess(case["value"], wide_range["endExclusive"])
+                invalid_bar = copy.deepcopy(base_bar)
+                invalid_bar[case["field"]] = case["value"]
+                with self.assertRaisesRegex(ValueError, "timestamps are inconsistent"):
+                    parse_us_equity_trade_bar_v2_protojson(invalid_bar)
+
     def test_dataset_manifest_v2_protojson_is_bounded_and_keeps_completion_evidence_distinct(self) -> None:
         fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")
         manifest = parse_dataset_manifest_v2_protojson(fixture)

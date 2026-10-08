@@ -1,0 +1,18 @@
+{
+  "manifestRange": {
+    "startInclusive": "2026-10-08T14:29:00Z",
+    "endExclusive": "2026-10-08T14:32:00Z"
+  },
+  "cases": [
+    {
+      "name": "source_start_before_bar_but_inside_manifest",
+      "field": "sourceStartUtc",
+      "value": "2026-10-08T14:29:59.999999999Z"
+    },
+    {
+      "name": "source_end_after_bar_but_inside_manifest",
+      "field": "sourceEndExclusiveUtc",
+      "value": "2026-10-08T14:31:00.000000001Z"
+    }
+  ]
+}

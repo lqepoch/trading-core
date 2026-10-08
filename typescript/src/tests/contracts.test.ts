@@ -258,6 +258,35 @@ rejects(
   ),
   "BarV2 accepted missing page-exhaustion presence for a paged manifest",
 );
+const sourceBoundsFixture = readFixture<{
+  manifestRange: { startInclusive: string; endExclusive: string };
+  cases: Array<{ name: string; field: string; value: string }>;
+}>("schemas/fixtures/us-equity-trade-bar-v2-source-bounds-invalid.json");
+const wideManifestJson = readFixture<Record<string, any>>(
+  "schemas/fixtures/dataset-manifest-v2-provider-watermark.json",
+);
+wideManifestJson.timeRange = sourceBoundsFixture.manifestRange;
+wideManifestJson.completionEvidence.providerWatermark.completeUpToExclusive =
+  sourceBoundsFixture.manifestRange.endExclusive;
+const wideManifest = parseDatasetManifestV2ProtoJson(wideManifestJson);
+const wideBarJson = readFixture<Record<string, unknown>>(
+  "schemas/fixtures/us-equity-trade-bar-v2-provider-watermark.json",
+);
+wideBarJson.completionEvidenceSha256 = datasetCompletionEvidenceV2Sha256(wideManifest);
+for (const sourceBoundsCase of sourceBoundsFixture.cases) {
+  assert(
+    sourceBoundsCase.value > sourceBoundsFixture.manifestRange.startInclusive &&
+      sourceBoundsCase.value < sourceBoundsFixture.manifestRange.endExclusive,
+    `${sourceBoundsCase.name} must remain inside the wider manifest range`,
+  );
+  rejects(
+    () => parseUsEquityTradeBarV2ProtoJson({
+      ...wideBarJson,
+      [sourceBoundsCase.field]: sourceBoundsCase.value,
+    }),
+    `BarV2 accepted ${sourceBoundsCase.name}`,
+  );
+}
 const nonpagedReceipt = create(FiniteBatchCompletionV2Schema, {
   ...finiteBatchReceipt,
   sourceKind: FiniteBatchSourceKindV2.FINITE_BATCH_SOURCE_KIND_HISTORICAL_NON_PAGED,

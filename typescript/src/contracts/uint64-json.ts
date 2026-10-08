@@ -457,6 +457,8 @@ function validateUsEquityTradeBarV2Shape(row: UsEquityTradeBarV2): void {
     compareTimestamp(barStart, sessionStart) < 0 ||
     compareTimestamp(barEnd, sessionEnd) > 0 ||
     compareTimestamp(availableAt, barEnd) < 0 ||
+    compareTimestamp(sourceStart, barStart) < 0 ||
+    compareTimestamp(sourceEnd, barEnd) > 0 ||
     compareTimestamp(sourceStart, sourceEnd) >= 0
   ) {
     throw new TypeError("BarV2 timestamps are inconsistent");

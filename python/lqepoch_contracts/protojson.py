@@ -508,6 +508,8 @@ def _validate_us_equity_trade_bar_v2_shape(row: trade_bar_pb2.UsEquityTradeBarV2
         or instants["bar_start_utc"] < instants["session_start_utc"]
         or instants["bar_end_exclusive_utc"] > instants["session_end_exclusive_utc"]
         or instants["available_at_utc"] < instants["bar_end_exclusive_utc"]
+        or instants["source_start_utc"] < instants["bar_start_utc"]
+        or instants["source_end_exclusive_utc"] > instants["bar_end_exclusive_utc"]
         or instants["source_start_utc"] >= instants["source_end_exclusive_utc"]
     ):
         raise ValueError("BarV2 timestamps are inconsistent")
