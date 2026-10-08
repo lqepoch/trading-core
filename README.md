@@ -19,6 +19,24 @@ lqepoch-trading-core-contracts = { git = "https://github.com/lqepoch/trading-cor
 
 The package exports strict `uint64` JSON helpers, manifest identity checks, canonical Parquet fingerprinting, the trusted Parquet schema registry, and validated ProtoJSON entry points. Python consumers can load the installed registry with `load_trusted_parquet_schema_registry()` and resolve a descriptor or fingerprint by schema ID; there is no second hand-maintained descriptor table. The optional `arrow` extra pins PyArrow for checking actual physical schemas against that registry. Rust data producers can use `market_contracts::wire_u64` with Serde and `NumericEncodingV1::as_str()` for the same wire spellings. BarV2 consumers can call `validate_us_equity_trade_bar_v2_against_manifest`; the helper checks row-to-manifest consistency but does not grant source or receipt authority. Raw V2/V3 validators reject unpaired surrogate code points before UTF-8 byte accounting; the legacy timestamp parser preserves V1 wire behavior and stores only an in-memory precision-quality bit, not the original timestamp string.
 
+## TypeScript server consumer
+
+The repository root is also a private npm Git package, `@lqepoch/trading-core-contracts`. It is not published to an npm registry. A Node.js server can install an exact reviewed commit:
+
+```bash
+npm install --save-exact @lqepoch/trading-core-contracts@git+https://github.com/lqepoch/trading-core.git#<40-character-sha>
+```
+
+The Git install runs the pinned `typescript/package-lock.json` build and packages the generated `typescript/dist` output, package metadata, README, and license notices; tests and TypeScript source are excluded. The root package exports `parsePredictionEnvelopeProtoJsonText`, `parsePredictionEnvelopeProtoJson`, `PredictionEnvelopeV1`, and its generated schema. Use the bounded raw-text parser for untrusted request bodies; it rejects duplicate JSON keys and camel/snake aliases before ProtoJSON conversion, along with numeric `uint64` values and unknown protobuf fields. The object parser is for already parsed objects and cannot recover duplicate keys discarded by `JSON.parse`. Neither parser performs complete semantic, manifest-readback, evidence-issuer, or research qualification checks. Keep this Node-only package in the server/BFF path because its current parser uses `node:crypto`.
+
+After committing the package revision, verify a clean Git consumer with:
+
+```bash
+scripts/test-typescript-package-consumer.sh <40-character-sha>
+```
+
+The consumer test installs the exact Git SHA, compiles against exported TypeScript declarations, parses a shared uint64 fixture, and checks lossy-input rejection. `typescript/package.json` remains a private build/test package; the installable private artifact is defined at the repository root for npm's Git dependency lifecycle.
+
 ## Safety and evidence limits
 
 OCC parsing is candidate creation only. It does not qualify an economic contract or prove provider entitlement. Pricing requires explicit quote, dividend, time, and model evidence. Positive-time American pricing remains unavailable with AmericanPricingAccuracyUnverified; the retained CRR candidate is test-only. European model metrics are estimates, not executable quotes or risk authority.
