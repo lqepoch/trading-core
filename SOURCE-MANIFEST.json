@@ -342,7 +342,7 @@
     {
       "path": "crates/market-contracts/src/bar_v2.rs",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "00d79c2a292c4d8d4ac38fe278ff163cc484f22f51b906e249d42ea0c0c490a4"
+      "sha256": "5f16001e3141f53920e623bcfa19cf62c77580ab7b901c3331d954629729c744"
     },
     {
       "path": "crates/market-contracts/src/dataset.rs",
@@ -646,7 +646,7 @@
     },
     {
       "path": "python/tests/test_shared_contract_fixtures.py",
-      "sha256": "a1c105e0cf95117805de243021d7205dc837389d0d30d9d738398e5b5bb74110",
+      "sha256": "f7ed076c01be75b989052c68c4edb2713026831afc1b6dae0c922362c1ed9c34",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -892,7 +892,7 @@
     {
       "path": "schemas/fixtures/raw-frame-timestamp-ns-v2.json",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "4ce711afc61d44b673995a1662ff6c8d0d398305cc5d5479aa9267a5aa2200f9"
+      "sha256": "63a984d4b994cd96434bcf38f34db37eb4136bc67175a5faa1b85619f2275a73"
     },
     {
       "path": "schemas/fixtures/raw-frame-unicode-scalar-v2-v3.json",

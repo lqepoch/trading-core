@@ -11,6 +11,7 @@ from google.protobuf import json_format
 from google.protobuf.json_format import MessageToDict
 
 from lqepoch.dataset.v2 import manifest_pb2 as manifest_v2_pb2
+from lqepoch.market.v2 import trade_bar_pb2
 from lqepoch_contracts.identities import (
     valid_dataset_id,
     valid_market_symbol,
@@ -358,6 +359,20 @@ class SharedContractFixturesTest(unittest.TestCase):
                     _validate_arrow_timestamp_nanoseconds(case["timestamp_utc"])
                 invalid_bar = dict(bar_document)
                 invalid_bar["availableAtUtc"] = case["timestamp_utc"]
+                with self.assertRaises(ValueError):
+                    parse_us_equity_trade_bar_v2_protojson(invalid_bar)
+
+        for case in fixture["bar_v2_proto_valid_but_arrow_ns_invalid"]:
+            with self.subTest(name=case["name"]):
+                invalid_bar = dict(bar_document)
+                invalid_bar.update(case["timestamps_utc"])
+                protobuf_row = json_format.ParseDict(
+                    invalid_bar, trade_bar_pb2.UsEquityTradeBarV2()
+                )
+                self.assertEqual(
+                    protobuf_row.bar_start_utc.seconds,
+                    protobuf_row.session_start_utc.seconds + 60,
+                )
                 with self.assertRaises(ValueError):
                     parse_us_equity_trade_bar_v2_protojson(invalid_bar)
 

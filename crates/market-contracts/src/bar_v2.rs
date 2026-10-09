@@ -402,6 +402,25 @@ mod tests {
             );
         }
 
+        for case in fixture["bar_v2_proto_valid_but_arrow_ns_invalid"]
+            .as_array()
+            .unwrap()
+        {
+            let timestamps = case["timestamps_utc"].as_object().unwrap();
+            for value in timestamps.values() {
+                assert!(ProtoTimestampV2::parse(value.as_str().unwrap()).is_ok());
+            }
+            let mut document = bar_value();
+            for (field, value) in timestamps {
+                document[field.as_str()] = value.clone();
+            }
+            assert!(
+                TradeMinuteBarV2::parse_json(&serde_json::to_vec(&document).unwrap()).is_err(),
+                "{}",
+                case["name"]
+            );
+        }
+
         let out_of_range = ProtoTimestampV2::parse("2262-04-11T23:47:16.854775808Z").unwrap();
         macro_rules! assert_bar_timestamp_rejected {
             ($field:ident) => {{
