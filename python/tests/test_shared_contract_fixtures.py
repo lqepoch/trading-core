@@ -5,6 +5,7 @@ import json
 import copy
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 from google.protobuf import json_format
 from google.protobuf.json_format import MessageToDict
@@ -30,6 +31,9 @@ from lqepoch_contracts import (
 )
 from lqepoch_contracts.parquet_schema import canonical_schema_json, fingerprint_schema_sha256
 from lqepoch_contracts.protojson import (
+    _timestamp_key,
+    _validate_arrow_timestamp_nanoseconds,
+    _validate_bar_v2_timestamp_range,
     parse_dataset_manifest_protojson,
     parse_dataset_manifest_v2_json,
     parse_dataset_manifest_v2_protojson,
@@ -309,6 +313,53 @@ class SharedContractFixturesTest(unittest.TestCase):
                             validate_us_equity_trade_bar_v2_against_manifest(
                                 invalid_paging_bar, paging_manifest
                             )
+
+    def test_bar_v2_timestamp_ns_fields_match_shared_arrow_boundary_fixture(
+        self,
+    ) -> None:
+        fixture = read_json_fixture("schemas/fixtures/raw-frame-timestamp-ns-v2.json")
+        year_one = SimpleNamespace(seconds=-62_135_596_800, nanos=0)
+        self.assertEqual(_timestamp_key(year_one), (-62_135_596_800, 0))
+        with self.assertRaises(ValueError):
+            _validate_bar_v2_timestamp_range({"year_one": _timestamp_key(year_one)})
+
+        for case in fixture["valid"]:
+            with self.subTest(name=case["name"]):
+                self.assertEqual(
+                    _validate_arrow_timestamp_nanoseconds(case["timestamp_utc"]),
+                    int(case["epoch_nanoseconds"]),
+                )
+
+        bar_document = read_json_fixture("schemas/fixtures/us-equity-trade-bar-v2.json")
+        row = parse_us_equity_trade_bar_v2_protojson(bar_document)
+        fields = (
+            "bar_start_utc",
+            "bar_end_exclusive_utc",
+            "available_at_utc",
+            "session_start_utc",
+            "session_end_exclusive_utc",
+            "window_start_utc",
+            "window_end_exclusive_utc",
+            "source_start_utc",
+            "source_end_exclusive_utc",
+        )
+        instants = {field: _timestamp_key(getattr(row, field)) for field in fields}
+        _validate_bar_v2_timestamp_range(instants)
+
+        for field in fields:
+            invalid_instants = dict(instants)
+            invalid_instants[field] = (253_402_300_799, 999_999_999)
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                _validate_bar_v2_timestamp_range(invalid_instants)
+
+        for case in fixture["invalid"]:
+            with self.subTest(name=case["name"]):
+                with self.assertRaises(ValueError):
+                    _validate_arrow_timestamp_nanoseconds(case["timestamp_utc"])
+                invalid_bar = dict(bar_document)
+                invalid_bar["availableAtUtc"] = case["timestamp_utc"]
+                with self.assertRaises(ValueError):
+                    parse_us_equity_trade_bar_v2_protojson(invalid_bar)
 
     def test_dataset_manifest_v2_protojson_is_bounded_and_keeps_completion_evidence_distinct(self) -> None:
         fixture = read_json_fixture("schemas/fixtures/dataset-manifest-v2.json")

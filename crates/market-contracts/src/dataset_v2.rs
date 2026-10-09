@@ -80,6 +80,11 @@ impl ProtoTimestampV2 {
         &self.canonical
     }
 
+    /// Whether this instant can be represented by an Arrow nanosecond timestamp.
+    pub(crate) fn is_arrow_ns_compatible(&self) -> bool {
+        crate::v1::arrow_ns_representable(&self.instant)
+    }
+
     fn to_v1_timestamp(&self) -> Result<UtcTimestamp, DatasetManifestV2Error> {
         UtcTimestamp::parse(&self.canonical).map_err(|_| DatasetManifestV2Error::InvalidTimestamp)
     }

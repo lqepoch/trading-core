@@ -13,6 +13,10 @@
   ],
   "invalid": [
     {
+      "name": "year_one_outside_signed_i64_nanoseconds",
+      "timestamp_utc": "0001-01-01T00:00:00Z"
+    },
+    {
       "name": "one_nanosecond_below_signed_i64_minimum",
       "timestamp_utc": "1677-09-21T00:12:43.145224191Z"
     },
