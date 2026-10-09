@@ -21,6 +21,11 @@ pub const MAX_MARKET_FRAME_BYTES: usize = 16 * 1024;
 /// Maximum accepted plus rejected instruments in one provider acknowledgement.
 pub const MAX_CONTROL_INSTRUMENTS: usize = 32;
 
+/// Check the common signed-`i64` nanosecond bound used by Arrow timestamp storage.
+pub(crate) fn arrow_ns_representable(instant: &DateTime<Utc>) -> bool {
+    instant.timestamp_nanos_opt().is_some()
+}
+
 /// Stable validation failures for a market contract value.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Error)]
 pub enum MarketWireError {
@@ -144,7 +149,7 @@ impl UtcTimestamp {
         }
         let instant = parsed.with_timezone(&Utc);
         let arrow_ns_compatible =
-            has_exact_utc_nanosecond_lexeme(value) && instant.timestamp_nanos_opt().is_some();
+            has_exact_utc_nanosecond_lexeme(value) && arrow_ns_representable(&instant);
         Ok(Self {
             canonical: canonical_utc_timestamp(&instant),
             instant,

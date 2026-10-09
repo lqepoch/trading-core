@@ -13,6 +13,10 @@
   ],
   "invalid": [
     {
+      "name": "year_one_outside_signed_i64_nanoseconds",
+      "timestamp_utc": "0001-01-01T00:00:00Z"
+    },
+    {
       "name": "one_nanosecond_below_signed_i64_minimum",
       "timestamp_utc": "1677-09-21T00:12:43.145224191Z"
     },
@@ -39,6 +43,36 @@
     {
       "name": "space_separator",
       "timestamp_utc": "2026-10-08 14:30:00Z"
+    }
+  ],
+  "bar_v2_proto_valid_but_arrow_ns_invalid": [
+    {
+      "name": "protobuf_year_one_valid_bar_timeline",
+      "timestamps_utc": {
+        "barStartUtc": "0001-01-01T00:01:00Z",
+        "barEndExclusiveUtc": "0001-01-01T00:02:00Z",
+        "availableAtUtc": "0001-01-01T00:02:00Z",
+        "sessionStartUtc": "0001-01-01T00:00:00Z",
+        "sessionEndExclusiveUtc": "0001-01-01T00:10:00Z",
+        "windowStartUtc": "0001-01-01T00:00:00Z",
+        "windowEndExclusiveUtc": "0001-01-01T00:10:00Z",
+        "sourceStartUtc": "0001-01-01T00:01:10Z",
+        "sourceEndExclusiveUtc": "0001-01-01T00:01:50Z"
+      }
+    },
+    {
+      "name": "protobuf_year_2500_valid_bar_timeline",
+      "timestamps_utc": {
+        "barStartUtc": "2500-01-01T00:01:00Z",
+        "barEndExclusiveUtc": "2500-01-01T00:02:00Z",
+        "availableAtUtc": "2500-01-01T00:02:00Z",
+        "sessionStartUtc": "2500-01-01T00:00:00Z",
+        "sessionEndExclusiveUtc": "2500-01-01T00:10:00Z",
+        "windowStartUtc": "2500-01-01T00:00:00Z",
+        "windowEndExclusiveUtc": "2500-01-01T00:10:00Z",
+        "sourceStartUtc": "2500-01-01T00:01:10Z",
+        "sourceEndExclusiveUtc": "2500-01-01T00:01:50Z"
+      }
     }
   ]
 }

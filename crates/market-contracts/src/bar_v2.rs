@@ -274,6 +274,7 @@ impl TradeMinuteBarV2 {
         if self.schema_version != US_EQUITY_TRADE_BAR_SCHEMA_VERSION_V2
             || source.validate().is_err()
             || !numeric_encoding_valid
+            || !self.arrow_timestamps_representable()
             || !valid_identifier(&self.symbol, 256)
             || !valid_sha256(&self.session_policy_sha256)
             || !valid_sha256(&self.completion_evidence_sha256)
@@ -296,6 +297,22 @@ impl TradeMinuteBarV2 {
             return Err(TradeMinuteBarV2Error::InvalidRow);
         }
         Ok(())
+    }
+
+    fn arrow_timestamps_representable(&self) -> bool {
+        [
+            &self.bar_start_utc,
+            &self.bar_end_exclusive_utc,
+            &self.available_at_utc,
+            &self.session_start_utc,
+            &self.session_end_exclusive_utc,
+            &self.window_start_utc,
+            &self.window_end_exclusive_utc,
+            &self.source_start_utc,
+            &self.source_end_exclusive_utc,
+        ]
+        .into_iter()
+        .all(ProtoTimestampV2::is_arrow_ns_compatible)
     }
 }
 
@@ -325,7 +342,7 @@ fn timestamp_instant(value: &ProtoTimestampV2) -> DateTime<Utc> {
 mod tests {
     use super::{TradeMinuteBarV2, TradeMinuteBarV2Error};
     use crate::{
-        DatasetManifestV2Error, parse_dataset_manifest_v2_json,
+        DatasetManifestV2Error, ProtoTimestampV2, parse_dataset_manifest_v2_json,
         validate_bar_v2_completion_evidence_reference,
     };
     use serde_json::{Value, json};
@@ -351,6 +368,85 @@ mod tests {
             .unwrap();
         assert_eq!(row.trade_count, 4);
         assert_eq!(row.bar_start_utc.as_str(), "2026-10-08T14:30:00Z");
+    }
+
+    #[test]
+    fn v2_bar_timestamps_fit_signed_arrow_nanoseconds() {
+        let fixture: Value = serde_json::from_slice(include_bytes!(
+            "../../../schemas/fixtures/raw-frame-timestamp-ns-v2.json"
+        ))
+        .unwrap();
+        let row = TradeMinuteBarV2::parse_json(bar_bytes()).unwrap();
+        assert!(row.arrow_timestamps_representable());
+
+        for case in fixture["valid"].as_array().unwrap() {
+            let timestamp =
+                ProtoTimestampV2::parse(case["timestamp_utc"].as_str().unwrap()).unwrap();
+            assert!(timestamp.is_arrow_ns_compatible(), "{case}");
+        }
+
+        let year_one = ProtoTimestampV2::parse("0001-01-01T00:00:00Z").unwrap();
+        assert!(!year_one.is_arrow_ns_compatible());
+
+        for case in fixture["invalid"].as_array().unwrap() {
+            let value = case["timestamp_utc"].as_str().unwrap();
+            if let Ok(timestamp) = ProtoTimestampV2::parse(value) {
+                assert!(!timestamp.is_arrow_ns_compatible(), "{case}");
+            }
+            let mut document = bar_value();
+            document["availableAtUtc"] = json!(value);
+            assert!(
+                TradeMinuteBarV2::parse_json(&serde_json::to_vec(&document).unwrap()).is_err(),
+                "{}",
+                case["name"]
+            );
+        }
+
+        for case in fixture["bar_v2_proto_valid_but_arrow_ns_invalid"]
+            .as_array()
+            .unwrap()
+        {
+            let timestamps = case["timestamps_utc"].as_object().unwrap();
+            for value in timestamps.values() {
+                assert!(ProtoTimestampV2::parse(value.as_str().unwrap()).is_ok());
+            }
+            let mut document = bar_value();
+            for (field, value) in timestamps {
+                document[field.as_str()] = value.clone();
+            }
+            assert!(
+                TradeMinuteBarV2::parse_json(&serde_json::to_vec(&document).unwrap()).is_err(),
+                "{}",
+                case["name"]
+            );
+        }
+
+        let out_of_range = ProtoTimestampV2::parse("2262-04-11T23:47:16.854775808Z").unwrap();
+        macro_rules! assert_bar_timestamp_rejected {
+            ($field:ident) => {{
+                let mut candidate = row.clone();
+                candidate.$field = out_of_range.clone();
+                assert!(
+                    !candidate.arrow_timestamps_representable(),
+                    stringify!($field)
+                );
+            }};
+        }
+        assert_bar_timestamp_rejected!(bar_start_utc);
+        assert_bar_timestamp_rejected!(bar_end_exclusive_utc);
+        assert_bar_timestamp_rejected!(available_at_utc);
+        assert_bar_timestamp_rejected!(session_start_utc);
+        assert_bar_timestamp_rejected!(session_end_exclusive_utc);
+        assert_bar_timestamp_rejected!(window_start_utc);
+        assert_bar_timestamp_rejected!(window_end_exclusive_utc);
+        assert_bar_timestamp_rejected!(source_start_utc);
+        assert_bar_timestamp_rejected!(source_end_exclusive_utc);
+
+        let mut maximum_endpoint = bar_value();
+        maximum_endpoint["availableAtUtc"] = json!("2262-04-11T23:47:16.854775807Z");
+        assert!(
+            TradeMinuteBarV2::parse_json(&serde_json::to_vec(&maximum_endpoint).unwrap()).is_ok()
+        );
     }
 
     #[test]

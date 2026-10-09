@@ -18,7 +18,15 @@ from lqepoch.prediction.v1 import prediction_pb2
 
 from .parquet_schema import trusted_parquet_schema_sha256
 from .parquet_schema import validate_date_iso8601
-from .identities import valid_dataset_id, valid_market_symbol, valid_object_id, valid_object_name, valid_source_identity, valid_sorted_symbols
+from .identities import (
+    valid_dataset_id,
+    valid_market_symbol,
+    valid_object_id,
+    valid_object_name,
+    valid_source_identity,
+    valid_sorted_symbols,
+)
+from .raw_frame import _timestamp_nanoseconds as _validate_arrow_timestamp_nanoseconds
 from .uint64_json import validate_uint64_json_paths
 
 MAX_DATASET_MANIFEST_V2_JSON_BYTES = 2 * 1024 * 1024
@@ -607,6 +615,7 @@ def _validate_us_equity_trade_bar_v2_shape(row: trade_bar_pb2.UsEquityTradeBarV2
             "window_end_exclusive_utc", "source_start_utc", "source_end_exclusive_utc",
         )
     }
+    _validate_bar_v2_timestamp_range(instants)
     minute_ns = 60_000_000_000
     if (
         instants["session_start_utc"] >= instants["session_end_exclusive_utc"]
@@ -639,6 +648,11 @@ def _timestamp_key(value: object) -> tuple[int, int]:
 
 def _timestamp_nanoseconds(value: tuple[int, int]) -> int:
     return value[0] * 1_000_000_000 + value[1]
+
+
+def _validate_bar_v2_timestamp_range(instants: Mapping[str, tuple[int, int]]) -> None:
+    for instant in instants.values():
+        _validate_arrow_timestamp_nanoseconds(_timestamp_nanoseconds(instant))
 
 
 def _valid_core_identity(value: str, max_bytes: int) -> bool:
