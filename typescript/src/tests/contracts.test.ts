@@ -1980,3 +1980,6 @@ for (const validator of [validateDatasetV2HttpJson]) {
 }
 assert(!validateDatasetHttpJson({...rawDatasetHttpJson,symbols:[identityFixture.negative.symbol_utf8_over_limit]}), "V1 manifest UTF8 symbol overflow accepted");
 assert(!validateBarV2HttpJson({...barV2HttpJson,symbol:identityFixture.negative.symbol_utf8_over_limit}), "BarV2 UTF8 symbol overflow accepted");
+
+assert(validateBarV2HttpJson({...barV2HttpJson, session_id:"s".repeat(128)}), "BarV2 128-byte session rejected");
+assert(!validateBarV2HttpJson({...barV2HttpJson, session_id:"s".repeat(129)}), "BarV2 oversized session accepted");

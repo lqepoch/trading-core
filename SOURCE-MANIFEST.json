@@ -961,7 +961,7 @@
     },
     {
       "path": "schemas/openapi.json",
-      "sha256": "46f72c7c258030c9bd63ccc597bee0650d5827e13571ac80362c75fbec2b47e6",
+      "sha256": "9c7d6f2f55f05cd9851911b1becdfa496436a09b8f50ebfc18d895a92cbc92da",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -1061,7 +1061,7 @@
     },
     {
       "path": "typescript/src/tests/contracts.test.ts",
-      "sha256": "d08ee0995c604d8bd07c1e13e4f559c62a2f66c7dad553dc0ef63dc0be82b70e",
+      "sha256": "acf2167e35eb77524c675186b1b9fdb2b7ecfebfe2bd205c2f02639e1d163314",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {

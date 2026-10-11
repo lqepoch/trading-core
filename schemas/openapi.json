@@ -2334,8 +2334,8 @@
           "session_id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 256,
-            "format": "utf8-bytes-256"
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "session_timezone": {
             "type": "string",
