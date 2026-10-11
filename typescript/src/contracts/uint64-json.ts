@@ -108,7 +108,7 @@ export function validateUint64JsonPaths(value: unknown, paths: readonly JsonPath
       const record = current;
       const snakeCase = part.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
       const spellings = snakeCase === part ? [part] : [part, snakeCase];
-      const present = spellings.filter((spelling) => spelling in record);
+      const present = spellings.filter((spelling) => Object.hasOwn(record, spelling));
       if (present.length !== 1) {
         throw new TypeError(
           present.length > 1

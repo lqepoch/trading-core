@@ -464,6 +464,11 @@ rejects(
   () => validateUint64JsonPaths({ rowCount: "1", row_count: "1" }, [["rowCount"]]),
   "uint64 accepted both ProtoJSON field spellings",
 );
+const inheritedUint64 = Object.create({ row_count: "1" }) as Record<string, unknown>;
+rejects(
+  () => validateUint64JsonPaths(inheritedUint64, [["row_count"]]),
+  "uint64 accepted an inherited property",
+);
 
 const marketJson = {
   schemaVersion: 1,
@@ -478,6 +483,15 @@ const marketJson = {
   receivedTimestamp: "2026-10-08T14:30:00Z",
   event: { optionQuote: { symbol: "QQQ261016C00600000", bid: "1.25" } },
 };
+const { generation, sequence, ...marketJsonWithoutUint64 } = marketJson;
+const inheritedMarketJson = Object.assign(
+  Object.create({ generation, sequence }) as Record<string, unknown>,
+  marketJsonWithoutUint64,
+);
+rejects(
+  () => parseMarketEventProtoJson(inheritedMarketJson),
+  "market envelope accepted inherited generation and sequence",
+);
 const marketMessage = parseMarketEventProtoJson(marketJson);
 assert(marketMessage.generation === 9_007_199_254_740_993n, "generation lost precision");
 assert(marketMessage.sequence === 18_446_744_073_709_551_615n, "sequence lost precision");
