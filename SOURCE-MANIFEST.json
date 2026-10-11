@@ -316,7 +316,7 @@
   "new_code": [
     {
       "path": "AGENTS.md",
-      "sha256": "afbebe7b4c49c4aa71449e45f57b04ea721f521049b95dd796f94936dce1f047",
+      "sha256": "408815047dfb1a9955c0c06a61e4ec7775c8a17718b9e5b165d892538ee72a1e",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
