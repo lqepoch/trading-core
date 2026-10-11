@@ -29,3 +29,5 @@ This repository owns provider-neutral financial values, deterministic models, an
 - Every imported source file must be listed in SOURCE-MANIFEST.json with its upstream repository, immutable commit, source path, target path, and content digest.
 - The root MIT and Apache-2.0 licenses apply only to source explicitly authorized for this repository. Preserve third-party notices and licenses. Never copy private source without explicit owner authorization.
 - Update NOTICE.md and the source manifest when importing or changing upstream-derived code.
+
+- OpenAPI custom UTF-8 byte formats must be registered as assertions before schema validation; generic annotation-only tools do not enforce domain byte bounds. Keep DatasetObject transport identity conditions aligned with Rust and the shared negative fixtures.

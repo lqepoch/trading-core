@@ -65,3 +65,11 @@ keys/aliases and require canonical string generation/sequence before protobuf co
 values beyond JavaScript's exact Number range. Object entry points cannot recover keys already
 lost during JSON decoding. Decoding a subscription ACK does not authenticate provider identity,
 entitlement, connection epoch or subscription authority; consumers must validate those separately.
+
+OpenAPI identity byte ceilings use custom `utf8-bytes-128/256/512` assertion formats.
+Call exported `registerOpenApiUtf8ByteFormats(ajv)` before compiling schemas; generic
+OpenAPI generators may treat unknown formats only as annotations and cannot provide
+these bounds. The formats reject unpaired Unicode surrogates and byte overflow, while
+full identifier, instrument, source and receipt validation remains with domain owners.
+DatasetObject V1/V2 require object IDs; local IDs require a traversal-safe `local-test:`
+tail, and Drive identities reject that prefix. These constraints do not authenticate storage.

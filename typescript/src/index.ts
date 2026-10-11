@@ -25,3 +25,4 @@ export {
   ControlEventEnvelopeV1Schema,
   type ControlEventEnvelopeV1,
 } from "./gen/lqepoch/market/v1/market_pb.js";
+export { registerOpenApiUtf8ByteFormats } from "./contracts/openapi-formats.js";

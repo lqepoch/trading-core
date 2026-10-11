@@ -316,7 +316,7 @@
   "new_code": [
     {
       "path": "AGENTS.md",
-      "sha256": "c4c892927782c2fe1f22832bc4eff345a5e3d2324aebeb0f9e386cba103154fe",
+      "sha256": "afbebe7b4c49c4aa71449e45f57b04ea721f521049b95dd796f94936dce1f047",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -326,7 +326,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "b3c53558c6f0d69f021c9f2cbfcb5fd39ea10f3b877fa48823bbfb5bf3e8d9c7",
+      "sha256": "761b69e8974f46f977b3c5f552107baacd1cbc4e91ffb542aa3938d4f3c27f91",
       "origin": "Updated repository documentation for the canonical DatasetManifestV2 ProtoJSON writer, public offline American diagnostic API, and bounded read-only PredictionEnvelopeV1 Rust projection; these descriptions do not imply pricing or research authority."
     },
     {
@@ -961,7 +961,7 @@
     },
     {
       "path": "schemas/openapi.json",
-      "sha256": "93eb760316d758753829ff7f4d348925998e87aefa741fd4026b85e6843a3543",
+      "sha256": "46f72c7c258030c9bd63ccc597bee0650d5827e13571ac80362c75fbec2b47e6",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
@@ -1010,6 +1010,11 @@
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
+      "path": "typescript/src/contracts/openapi-formats.ts",
+      "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
+      "sha256": "c8bacd11327dab91fe1129ee4c59a5ab0a66d17d3998484e7682c72a94d397a7"
+    },
+    {
       "path": "typescript/src/contracts/parquet-schema-registry.ts",
       "sha256": "50832852f909b2d8b32133d01cbaec140341092bb4536fa497e5e64c9ed45218",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
@@ -1052,11 +1057,11 @@
     {
       "path": "typescript/src/index.ts",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied.",
-      "sha256": "8cc326f16c4165b69c2ab145212b754266385e8d2854dca8cd6e1e76d9fc4516"
+      "sha256": "13a4c48a5b020aaf1cca47beaae530efae70a2924c90bc842154dcec8f893ea0"
     },
     {
       "path": "typescript/src/tests/contracts.test.ts",
-      "sha256": "bf8b46423b132ca38a5d2d79926fd6f89c81c5fac7ec33279c73e770b572a70f",
+      "sha256": "d08ee0995c604d8bd07c1e13e4f559c62a2f66c7dad553dc0ef63dc0be82b70e",
       "origin": "New or generated trading-core work for CHG-2026-001; no upstream source copied."
     },
     {
