@@ -190,7 +190,7 @@ try {
 assert(rejectedRawFrameEncoding, "prediction parser accepted a raw-frame source encoding");
 EOF
 
-npm --prefix "$temporary_consumer" install
+(cd "$temporary_consumer" && npm_config_omit=dev npm install --no-audit --no-fund)
 node --input-type=commonjs - "$revision" "$temporary_consumer/package-lock.json" <<'NODE'
 const fs = require("node:fs");
 
@@ -203,4 +203,5 @@ if (typeof resolved !== "string" || !resolved.endsWith(`#${expectedRevision}`)) 
 }
 console.log(`consumer lockfile pins trading-core ${expectedRevision}`);
 NODE
-npm --prefix "$temporary_consumer" test
+(cd "$temporary_consumer" && npm prune --omit=dev --no-audit --no-fund)
+(cd "$temporary_consumer" && npm test)
