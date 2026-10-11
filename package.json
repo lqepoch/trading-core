@@ -31,6 +31,6 @@
     "@bufbuild/protobuf": "2.16.0"
   },
   "scripts": {
-    "prepare": "npm --prefix typescript ci && npm --prefix typescript run build"
+    "prepare": "npm --prefix typescript ci --include=dev && npm --prefix typescript run build"
   }
 }
