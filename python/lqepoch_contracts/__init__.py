@@ -10,6 +10,8 @@ from .parquet_schema import (
     validate_optional_parquet_schema_metadata,
 )
 from .protojson import (
+    parse_control_event_protojson,
+    parse_control_event_protojson_json,
     dataset_manifest_v2_protojson_bytes,
     dataset_completion_evidence_v2_protojson_bytes,
     dataset_completion_evidence_v2_sha256,
@@ -35,6 +37,8 @@ from .raw_frame import (
 )
 
 __all__ = [
+    "parse_control_event_protojson",
+    "parse_control_event_protojson_json",
     "load_trusted_parquet_schema_registry",
     "PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY",
     "PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY",

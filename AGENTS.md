@@ -12,6 +12,7 @@ This repository owns provider-neutral financial values, deterministic models, an
 ## Safety
 
 - Parsing an OCC or provider symbol creates a candidate. A qualified contract also requires trading class, currency, multiplier, deliverable, exercise style, settlement type, and provider evidence.
+- Control JSON consumers must use the strict uint64 entry points before protobuf conversion; direct generated parsers can accept rounded numeric JSON values. Parsing does not authenticate provider ACKs.
 - Preserve exact decimal values at API boundaries. Do not silently convert invalid or missing values to zero.
 - Keep unverified models fail closed. Positive-time American IV/Greeks remain unavailable until the independent accuracy gate is accepted.
 - This repository must not add broker network clients, OAuth, account credentials, mutation transports, or order dispatch.

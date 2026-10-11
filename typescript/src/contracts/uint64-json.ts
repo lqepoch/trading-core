@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { create, fromJson, toJsonString, type JsonValue } from "@bufbuild/protobuf";
 import {
   MarketEventEnvelopeV1Schema,
+  ControlEventEnvelopeV1Schema,
+  type ControlEventEnvelopeV1,
   NumericEncodingV1,
   type MarketEventEnvelopeV1,
 } from "../gen/lqepoch/market/v1/market_pb.js";
@@ -118,6 +120,23 @@ export function validateUint64JsonPaths(value: unknown, paths: readonly JsonPath
     }
     parseCanonicalUint64Json(current);
   }
+}
+
+/** Decode control sequencing without Number coercion; no provider ACK authority is granted. */
+export function parseControlEventProtoJson(value: unknown): ControlEventEnvelopeV1 {
+  if (encodedJsonSize(value) > MAX_PROTOJSON_TEXT_BYTES) {
+    throw new RangeError("control ProtoJSON exceeds the configured byte limit");
+  }
+  rejectDuplicateProtoFieldSpellings(value);
+  validateUint64JsonPaths(value, [["generation"], ["sequence"]]);
+  return fromJson(ControlEventEnvelopeV1Schema, value as JsonValue);
+}
+
+/** Preserve duplicate-key checks for untrusted wire input before JSON.parse. */
+export function parseControlEventProtoJsonText(text: string): ControlEventEnvelopeV1 {
+  assertBoundedProtoJsonText(text);
+  rejectDuplicateJsonObjectKeys(text);
+  return parseControlEventProtoJson(JSON.parse(text) as unknown);
 }
 
 export function parseMarketEventProtoJson(value: unknown): MarketEventEnvelopeV1 {

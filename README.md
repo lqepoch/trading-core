@@ -56,3 +56,12 @@ Use Rust 1.98.1 with locked dependencies. Run `scripts/validate-rust.sh` for for
 
 See [docs/development.md](docs/development.md) for local and cross-target checks, [docs/parquet-schema-v1.md](docs/parquet-schema-v1.md) for physical mappings and row constraints, [docs/dataset-completion-v2.md](docs/dataset-completion-v2.md) for V2 completion semantics, [docs/prediction-envelope-v1.md](docs/prediction-envelope-v1.md) for the Rust prediction projection, and [SECURITY.md](SECURITY.md) for the repository security boundary.
 See [docs/engine-offline-preview-v1.md](docs/engine-offline-preview-v1.md) for the engine-owned synthetic read-response contract and its diagnostic limits.
+
+### CHG control envelope decoding
+
+Use `parseControlEventProtoJsonText` (TypeScript) or `parse_control_event_protojson_json`
+(Python) for untrusted ControlEventEnvelopeV1 JSON. These bounded wire parsers reject duplicate
+keys/aliases and require canonical string generation/sequence before protobuf conversion, including
+values beyond JavaScript's exact Number range. Object entry points cannot recover keys already
+lost during JSON decoding. Decoding a subscription ACK does not authenticate provider identity,
+entitlement, connection epoch or subscription authority; consumers must validate those separately.

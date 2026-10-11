@@ -7,6 +7,8 @@ import { create, fromJson, toJsonString } from "@bufbuild/protobuf";
 import type { JsonValue } from "@bufbuild/protobuf";
 import {
   parseCanonicalUint64Json,
+  parseControlEventProtoJson,
+  parseControlEventProtoJsonText,
   finiteBatchSealReceiptProtojsonBytes,
   finiteBatchSealReceiptSha256,
   datasetCompletionEvidenceV2ProtojsonBytes,
@@ -27,6 +29,7 @@ import {
 } from "../contracts/uint64-json.js";
 import {
   canonicalSchemaJson,
+  PARQUET_LOGICAL_TYPES,
   fingerprintSchemaSha256,
   PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY,
   PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY,
@@ -1898,3 +1901,48 @@ rejects(
 // Keep the imported ProtoJSON type in this compile target as a compile-time contract.
 const _jsonTypecheck: JsonValue = marketJson;
 void _jsonTypecheck;
+
+const controlAck = readFixture<Record<string, unknown>>("schemas/fixtures/control-ack-v1.json");
+for (const field of ["generation", "sequence"]) {
+  for (const invalid of [0, 9007199254740992, "01", "-1", "18446744073709551616", null]) {
+    let rejected = false;
+    try { parseControlEventProtoJson({ ...controlAck, [field]: invalid }); } catch { rejected = true; }
+    assert(rejected, `control ${field} accepted noncanonical or rounded uint64`);
+  }
+  let rejected = false;
+  const missing = structuredClone(controlAck); delete missing[field];
+  try { parseControlEventProtoJson(missing); } catch { rejected = true; }
+  assert(rejected, `control ${field} omission accepted`);
+}
+const parsedControl = parseControlEventProtoJson(controlAck);
+assert(parsedControl.generation === 18446744073709551615n, "control generation rounded");
+assert(parsedControl.sequence === 9007199254740993n, "control sequence rounded");
+const snakeControl = structuredClone(controlAck);
+snakeControl.schema_version = snakeControl.schemaVersion; delete snakeControl.schemaVersion;
+snakeControl.received_timestamp = snakeControl.receivedTimestamp; delete snakeControl.receivedTimestamp;
+assert(parseControlEventProtoJson(snakeControl).sequence === parsedControl.sequence, "snake control changed uint64");
+const rawControl = JSON.stringify(controlAck);
+assert(parseControlEventProtoJsonText(rawControl).sequence === parsedControl.sequence, "wire control rounded");
+for (const raw of [
+  rawControl.replace('"sequence":"9007199254740993"', '"sequence":"0","sequence":"9007199254740993"'),
+  rawControl.replace('"schemaVersion":1', '"schemaVersion":1,"schema_version":1'),
+  rawControl.replace('"sequence":"9007199254740993"', '"sequence":9007199254740993'),
+  rawControl.replace('"generation":"18446744073709551615"', '"generation":18446744073709551615'),
+  '[{}]',
+]) {
+  let rejected = false;
+  try { parseControlEventProtoJsonText(raw); } catch { rejected = true; }
+  assert(rejected, "control duplicate key/alias or non-object accepted");
+}
+
+const externallyMutableTypes = PARQUET_LOGICAL_TYPES as Set<string>;
+externallyMutableTypes.add("attacker_custom_type");
+let mutatedGrammarAccepted = false;
+try {
+  canonicalSchemaJson({schema_version: 1, schema_id: "lqepoch.mutation.v1", fields: [
+    {name: "value", nullable: false, type: "attacker_custom_type"},
+  ]});
+  mutatedGrammarAccepted = true;
+} catch { /* The private grammar must still reject the new logical type. */ }
+assert(!mutatedGrammarAccepted, "exported logical-type view changed validator grammar");
+externallyMutableTypes.delete("attacker_custom_type");
