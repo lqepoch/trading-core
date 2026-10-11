@@ -4,7 +4,7 @@ import { TRUSTED_PARQUET_SCHEMA_REGISTRY } from "./parquet-schema-registry.js";
 export const PARQUET_SCHEMA_FINGERPRINT_PREFIX = "LQEpoch-Parquet-Schema-v1\n";
 export const PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY = "lqepoch.schema_descriptor.v1";
 export const PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY = "lqepoch.schema_fingerprint_sha256";
-export const PARQUET_LOGICAL_TYPES = new Set([
+const APPROVED_PARQUET_LOGICAL_TYPES = new Set([
 	"binary",
 	"bool",
   "date_iso8601",
@@ -15,6 +15,9 @@ export const PARQUET_LOGICAL_TYPES = new Set([
   "uint64",
   "utf8",
 ]);
+
+// Export an independent compatibility view; external mutation cannot alter validation.
+export const PARQUET_LOGICAL_TYPES: ReadonlySet<string> = new Set(APPROVED_PARQUET_LOGICAL_TYPES);
 
 export type SchemaField = { name: string; nullable: boolean; type: string };
 export type SchemaDescriptor = {
@@ -104,7 +107,7 @@ export function canonicalSchemaJson(value: unknown): string {
       names.has(field.name) ||
       typeof field.nullable !== "boolean" ||
       typeof field.type !== "string" ||
-      !PARQUET_LOGICAL_TYPES.has(field.type)
+      !APPROVED_PARQUET_LOGICAL_TYPES.has(field.type)
     ) {
       throw new TypeError("invalid schema field descriptor");
     }

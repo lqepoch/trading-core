@@ -12,6 +12,7 @@ This repository owns provider-neutral financial values, deterministic models, an
 ## Safety
 
 - Parsing an OCC or provider symbol creates a candidate. A qualified contract also requires trading class, currency, multiplier, deliverable, exercise style, settlement type, and provider evidence.
+- Control JSON consumers must use the strict uint64 entry points before protobuf conversion; direct generated parsers can accept rounded numeric JSON values. Parsing does not authenticate provider ACKs.
 - Preserve exact decimal values at API boundaries. Do not silently convert invalid or missing values to zero.
 - Keep unverified models fail closed. Positive-time American IV/Greeks remain unavailable until the independent accuracy gate is accepted.
 - This repository must not add broker network clients, OAuth, account credentials, mutation transports, or order dispatch.
@@ -28,3 +29,5 @@ This repository owns provider-neutral financial values, deterministic models, an
 - Every imported source file must be listed in SOURCE-MANIFEST.json with its upstream repository, immutable commit, source path, target path, and content digest.
 - The root MIT and Apache-2.0 licenses apply only to source explicitly authorized for this repository. Preserve third-party notices and licenses. Never copy private source without explicit owner authorization.
 - Update NOTICE.md and the source manifest when importing or changing upstream-derived code.
+
+- OpenAPI custom UTF-8 byte formats must be registered as assertions before schema validation; generic annotation-only tools do not enforce domain byte bounds. Keep DatasetObject transport identity conditions aligned with Rust and the shared negative fixtures.

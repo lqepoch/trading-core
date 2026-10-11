@@ -56,3 +56,20 @@ Use Rust 1.98.1 with locked dependencies. Run `scripts/validate-rust.sh` for for
 
 See [docs/development.md](docs/development.md) for local and cross-target checks, [docs/parquet-schema-v1.md](docs/parquet-schema-v1.md) for physical mappings and row constraints, [docs/dataset-completion-v2.md](docs/dataset-completion-v2.md) for V2 completion semantics, [docs/prediction-envelope-v1.md](docs/prediction-envelope-v1.md) for the Rust prediction projection, and [SECURITY.md](SECURITY.md) for the repository security boundary.
 See [docs/engine-offline-preview-v1.md](docs/engine-offline-preview-v1.md) for the engine-owned synthetic read-response contract and its diagnostic limits.
+
+### CHG control envelope decoding
+
+Use `parseControlEventProtoJsonText` (TypeScript) or `parse_control_event_protojson_json`
+(Python) for untrusted ControlEventEnvelopeV1 JSON. These bounded wire parsers reject duplicate
+keys/aliases and require canonical string generation/sequence before protobuf conversion, including
+values beyond JavaScript's exact Number range. Object entry points cannot recover keys already
+lost during JSON decoding. Decoding a subscription ACK does not authenticate provider identity,
+entitlement, connection epoch or subscription authority; consumers must validate those separately.
+
+OpenAPI identity byte ceilings use custom `utf8-bytes-128/256/512` assertion formats.
+Call exported `registerOpenApiUtf8ByteFormats(ajv)` before compiling schemas; generic
+OpenAPI generators may treat unknown formats only as annotations and cannot provide
+these bounds. The formats reject unpaired Unicode surrogates and byte overflow, while
+full identifier, instrument, source and receipt validation remains with domain owners.
+DatasetObject V1/V2 require object IDs; local IDs require a traversal-safe `local-test:`
+tail, and Drive identities reject that prefix. These constraints do not authenticate storage.

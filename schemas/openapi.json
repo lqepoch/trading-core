@@ -3,7 +3,7 @@
   "info": {
     "title": "LQEpoch Cross-Language Contracts",
     "version": "1.0.0",
-    "description": "Versioned JSON projections only. No HTTP endpoint is declared by trading-core. uint64 fields use canonical decimal strings to preserve JavaScript precision; Rust and Python consumers must reject numeric, leading-zero, and overflow forms. Rust validation enforces invariants that JSON Schema cannot express exactly. Numeric encoding is explicit: binary-float shortest-decimal values require a raw-frame SHA and remain unqualified."
+    "description": "Versioned JSON projections only. No HTTP endpoint is declared by trading-core. uint64 fields use canonical decimal strings to preserve JavaScript precision; Rust and Python consumers must reject numeric, leading-zero, and overflow forms. Rust validation enforces invariants that JSON Schema cannot express exactly. Numeric encoding is explicit: binary-float shortest-decimal values require a raw-frame SHA and remain unqualified. Custom utf8-bytes-128/256/512 formats require assertion registration to enforce Rust UTF-8 byte ceilings; generic annotation-only validators are insufficient. Domain/source/authority validation remains separate."
   },
   "paths": {},
   "components": {
@@ -18,7 +18,8 @@
         "type": "string",
         "maxLength": 128,
         "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?(?:0|[1-9][0-9]*))?$",
-        "description": "Exact bounded JSON-number token encoded as a string; Rust ExactDecimal applies exponent, scale, and coefficient bounds."
+        "description": "Exact bounded JSON-number token encoded as a string; Rust ExactDecimal applies exponent, scale, and coefficient bounds.",
+        "format": "utf8-bytes-128"
       },
       "NonNegativeDecimalString": {
         "allOf": [
@@ -67,12 +68,14 @@
           "provider": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "feed": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "entitlement": {
             "type": "string",
@@ -86,7 +89,8 @@
           "source_record_id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "numeric_encoding": {
             "$ref": "#/components/schemas/NumericEncodingV1"
@@ -108,7 +112,8 @@
           "symbol": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 256
+            "maxLength": 256,
+            "format": "utf8-bytes-256"
           },
           "bid": {
             "$ref": "#/components/schemas/NonNegativeDecimalString"
@@ -162,7 +167,8 @@
           "symbol": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 256
+            "maxLength": 256,
+            "format": "utf8-bytes-256"
           },
           "price": {
             "$ref": "#/components/schemas/NonNegativeDecimalString"
@@ -365,12 +371,14 @@
           "symbol": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 256
+            "maxLength": 256,
+            "format": "utf8-bytes-256"
           },
           "reason_code": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           }
         }
       },
@@ -414,12 +422,14 @@
           "request_id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 256
+            "maxLength": 256,
+            "format": "utf8-bytes-256"
           },
           "subscription_id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 256
+            "maxLength": 256,
+            "format": "utf8-bytes-256"
           },
           "acknowledged": {
             "type": "array",
@@ -428,7 +438,8 @@
             "items": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 256
+              "maxLength": 256,
+              "format": "utf8-bytes-256"
             }
           },
           "rejected": {
@@ -473,12 +484,14 @@
           "request_id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 256
+            "maxLength": 256,
+            "format": "utf8-bytes-256"
           },
           "reason_code": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           }
         }
       },
@@ -602,6 +615,7 @@
         "additionalProperties": false,
         "required": [
           "object_name",
+          "object_id",
           "size_bytes",
           "content_sha256",
           "parquet_schema_sha256",
@@ -614,13 +628,21 @@
             "minLength": 1,
             "maxLength": 512,
             "pattern": "^[A-Za-z0-9_.-]{1,512}$",
-            "description": "ASCII basename only; no path separators, wildcard characters, dot, or dot-dot."
+            "description": "ASCII basename only; no path separators, wildcard characters, dot, or dot-dot.",
+            "format": "utf8-bytes-512",
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            }
           },
           "object_id": {
             "type": "string",
             "minLength": 1,
             "maxLength": 512,
-            "description": "Opaque provider identity; never use it as a local path. local-test identifiers have a restricted traversal-safe tail."
+            "description": "Opaque provider identity; never use it as a local path. local-test identifiers have a restricted traversal-safe tail.",
+            "format": "utf8-bytes-512"
           },
           "size_bytes": {
             "$ref": "#/components/schemas/PositiveUInt64String"
@@ -641,7 +663,52 @@
               "local_test"
             ]
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "transport": {
+                  "const": "local_test"
+                }
+              },
+              "required": [
+                "transport"
+              ]
+            },
+            "then": {
+              "properties": {
+                "object_id": {
+                  "pattern": "^local-test:[A-Za-z0-9_.:-]+$",
+                  "not": {
+                    "pattern": "\\.\\."
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "transport": {
+                  "const": "rclone_google_drive"
+                }
+              },
+              "required": [
+                "transport"
+              ]
+            },
+            "then": {
+              "properties": {
+                "object_id": {
+                  "not": {
+                    "pattern": "^local-test:"
+                  }
+                }
+              }
+            }
+          }
+        ]
       },
       "DatasetCompletionEvidenceV1": {
         "type": "object",
@@ -689,7 +756,8 @@
             "minLength": 1,
             "maxLength": 256,
             "description": "Immutable identity, not a family/latest selector; Rust also rejects dot-dot and latest/fallback identity tokens.",
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$"
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$",
+            "format": "utf8-bytes-256"
           },
           "source": {
             "$ref": "#/components/schemas/MarketDataSourceV1"
@@ -702,7 +770,8 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 256,
-              "description": "UTF-8 identity, 1..256 bytes, no edge whitespace/control characters; internal OCC root padding is allowed."
+              "description": "UTF-8 identity, 1..256 bytes, no edge whitespace/control characters; internal OCC root padding is allowed.",
+              "format": "utf8-bytes-256"
             },
             "description": "Lexically sorted, unique symbol identities."
           },
@@ -1433,12 +1502,14 @@
           "provider": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "feed": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "entitlement": {
             "type": "string",
@@ -1451,7 +1522,8 @@
           "source_record_id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "numeric_encoding": {
             "$ref": "#/components/schemas/NumericEncodingProtoJsonV2"
@@ -1492,13 +1564,21 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 512,
-            "pattern": "^[A-Za-z0-9_.-]{1,512}$"
+            "pattern": "^[A-Za-z0-9_.-]{1,512}$",
+            "format": "utf8-bytes-512",
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            }
           },
           "object_id": {
             "type": "string",
             "minLength": 1,
             "maxLength": 512,
-            "description": "Opaque storage identity; never a path. Local test IDs must use a traversal-safe local-test tail."
+            "description": "Opaque storage identity; never a path. Local test IDs must use a traversal-safe local-test tail.",
+            "format": "utf8-bytes-512"
           },
           "size_bytes": {
             "$ref": "#/components/schemas/PositiveUInt64String"
@@ -1519,7 +1599,52 @@
               "local_test"
             ]
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "transport": {
+                  "const": "local_test"
+                }
+              },
+              "required": [
+                "transport"
+              ]
+            },
+            "then": {
+              "properties": {
+                "object_id": {
+                  "pattern": "^local-test:[A-Za-z0-9_.:-]+$",
+                  "not": {
+                    "pattern": "\\.\\."
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "transport": {
+                  "const": "rclone_google_drive"
+                }
+              },
+              "required": [
+                "transport"
+              ]
+            },
+            "then": {
+              "properties": {
+                "object_id": {
+                  "not": {
+                    "pattern": "^local-test:"
+                  }
+                }
+              }
+            }
+          }
+        ]
       },
       "DatasetStorageVerificationV2": {
         "type": "object",
@@ -1560,7 +1685,8 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 256,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "format": "utf8-bytes-256"
           },
           "input_sha256": {
             "$ref": "#/components/schemas/Sha256"
@@ -1622,7 +1748,8 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 256,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "format": "utf8-bytes-256"
           },
           "input_sha256": {
             "$ref": "#/components/schemas/Sha256"
@@ -1741,18 +1868,21 @@
           "provider": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "feed": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "subscription_instance_id": {
             "type": "string",
             "minLength": 1,
             "maxLength": 256,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "format": "utf8-bytes-256"
           },
           "generation": {
             "$ref": "#/components/schemas/PositiveUInt64String"
@@ -1801,7 +1931,8 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 256,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "format": "utf8-bytes-256"
           },
           "generation": {
             "$ref": "#/components/schemas/PositiveUInt64String"
@@ -1890,7 +2021,8 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 256,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "format": "utf8-bytes-256"
           },
           "source": {
             "$ref": "#/components/schemas/DatasetSourceV2"
@@ -1903,7 +2035,8 @@
             "items": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 256
+              "maxLength": 256,
+              "format": "utf8-bytes-256"
             }
           },
           "time_range": {
@@ -2146,12 +2279,14 @@
           "source_provider": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "source_feed": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "source_entitlement": {
             "type": "string",
@@ -2161,7 +2296,8 @@
               "unknown",
               "authorized",
               "unauthorized"
-            ]
+            ],
+            "format": "utf8-bytes-256"
           },
           "source_numeric_encoding": {
             "type": "string",
@@ -2172,12 +2308,14 @@
               "integer_token",
               "binary_float64_shortest_decimal",
               "binary_float32_shortest_decimal"
-            ]
+            ],
+            "format": "utf8-bytes-256"
           },
           "symbol": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 256
+            "maxLength": 256,
+            "format": "utf8-bytes-256"
           },
           "bar_start_utc": {
             "$ref": "#/components/schemas/ProtoTimestampV2"
@@ -2196,17 +2334,20 @@
           "session_id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 256
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "session_timezone": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "session_policy_id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 256
+            "maxLength": 256,
+            "format": "utf8-bytes-256"
           },
           "session_policy_sha256": {
             "$ref": "#/components/schemas/Sha256"
@@ -2280,12 +2421,14 @@
               "finite_batch",
               "provider_watermark",
               "diagnostic_stream"
-            ]
+            ],
+            "format": "utf8-bytes-256"
           },
           "nbbo_input_status": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
           },
           "completion_evidence_sha256": {
             "$ref": "#/components/schemas/Sha256"

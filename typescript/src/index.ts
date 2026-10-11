@@ -1,4 +1,6 @@
 export {
+  parseControlEventProtoJson,
+  parseControlEventProtoJsonText,
   datasetManifestV2ProtojsonBytes,
   parseEngineStatusResponseV1ProtoJsonText,
   parsePredictionEnvelopeProtoJson,
@@ -19,3 +21,8 @@ export {
   PredictionEnvelopeV1Schema,
   type PredictionEnvelopeV1,
 } from "./gen/lqepoch/prediction/v1/prediction_pb.js";
+export {
+  ControlEventEnvelopeV1Schema,
+  type ControlEventEnvelopeV1,
+} from "./gen/lqepoch/market/v1/market_pb.js";
+export { registerOpenApiUtf8ByteFormats } from "./contracts/openapi-formats.js";

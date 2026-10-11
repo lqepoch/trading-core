@@ -130,6 +130,32 @@ RAW_ENCODING_SCHEMA_IDS = {
 }
 
 
+def parse_control_event_protojson(document: Mapping[str, object]) -> market_pb2.ControlEventEnvelopeV1:
+    """Validate uint64 sequencing before conversion; this does not authenticate an ACK."""
+    if not isinstance(document, Mapping):
+        raise ValueError("control ProtoJSON must be an object")
+    if len(json.dumps(document, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")) > MAX_DATASET_MANIFEST_V2_JSON_BYTES:
+        raise ValueError("control ProtoJSON exceeds the configured byte limit")
+    _reject_duplicate_proto_field_spellings(document)
+    validate_uint64_json_paths(document, (("generation",), ("sequence",)))
+    return json_format.ParseDict(document, market_pb2.ControlEventEnvelopeV1())
+
+
+def parse_control_event_protojson_json(document: bytes | str) -> market_pb2.ControlEventEnvelopeV1:
+    """Reject duplicate wire keys before parsing the bounded control envelope."""
+    try:
+        raw = document.encode("utf-8") if isinstance(document, str) else document
+    except UnicodeEncodeError as error:
+        raise ValueError("control ProtoJSON must be valid UTF-8") from error
+    if not isinstance(raw, bytes) or len(raw) > MAX_DATASET_MANIFEST_V2_JSON_BYTES:
+        raise ValueError("control ProtoJSON must be bounded bytes or text")
+    try:
+        value = json.loads(raw, object_pairs_hook=_unique_object_pairs, parse_constant=_reject_json_constant)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError("control ProtoJSON is malformed") from error
+    return parse_control_event_protojson(value)
+
+
 def parse_market_event_protojson(document: Mapping[str, object]) -> market_pb2.MarketEventEnvelopeV1:
     validate_uint64_json_paths(document, (("generation",), ("sequence",)))
     _reject_duplicate_numeric_encoding_aliases(document)
