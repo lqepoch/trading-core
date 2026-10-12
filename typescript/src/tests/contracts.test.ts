@@ -102,7 +102,14 @@ validateMarketEventRowV3(jsonEvent);
 assert(MARKET_EVENT_V3_SCHEMA_ID === "lqepoch.market_event.v3", "event V3 schema ID changed");
 
 type TimestampBoundaryCase = { name: string; timestamp_utc: string; epoch_nanoseconds?: string };
-type TimestampBoundaryFixture = { valid: TimestampBoundaryCase[]; invalid: TimestampBoundaryCase[] };
+type TimestampBoundaryFixture = {
+  valid: TimestampBoundaryCase[];
+  invalid: TimestampBoundaryCase[];
+  bar_v2_proto_valid_but_arrow_ns_invalid: Array<{
+    name: string;
+    timestamps_utc: Record<string, string>;
+  }>;
+};
 const timestampBoundaries = readFixture<TimestampBoundaryFixture>(
   "schemas/fixtures/raw-frame-timestamp-ns-v2.json",
 );
@@ -444,6 +451,19 @@ function rejects(callback: () => unknown, message: string): void {
   assert(rejected, message);
 }
 
+function rejectsWithRangeError(callback: () => unknown, message: string): void {
+  try {
+    callback();
+  } catch (error) {
+    assert(
+      error instanceof RangeError && error.message.includes("signed-i64 Arrow nanoseconds"),
+      `${message}: wrong validation error`,
+    );
+    return;
+  }
+  throw new Error(message);
+}
+
 type NamedValue = { name: string; value: unknown };
 type UInt64Fixture = { valid: NamedValue[]; invalid: NamedValue[] };
 const uint64Fixture = readFixture<UInt64Fixture>("schemas/fixtures/uint64-json-v1.json");
@@ -683,6 +703,83 @@ const barV2Json = readFixture<Record<string, unknown>>(
 const barV2 = parseUsEquityTradeBarV2ProtoJson(barV2Json);
 validateBarV2CompletionEvidenceReference(barV2, datasetV2Message);
 validateUsEquityTradeBarV2AgainstManifest(barV2, datasetV2Message);
+const barV2TimestampFields = [
+  "barStartUtc", "barEndExclusiveUtc", "availableAtUtc", "sessionStartUtc",
+  "sessionEndExclusiveUtc", "windowStartUtc", "windowEndExclusiveUtc",
+  "sourceStartUtc", "sourceEndExclusiveUtc",
+] as const;
+for (const testCase of timestampBoundaries.bar_v2_proto_valid_but_arrow_ns_invalid) {
+  rejectsWithRangeError(
+    () => parseUsEquityTradeBarV2ProtoJson({ ...barV2Json, ...testCase.timestamps_utc }),
+    `BarV2 accepted ${testCase.name}`,
+  );
+}
+
+const barAtArrowTimestampBoundary = (
+  tradeDate: string,
+  barStartUtc: string,
+  barEndExclusiveUtc: string,
+  sourceStartUtc: string,
+  sourceEndExclusiveUtc: string,
+): Record<string, unknown> => ({
+  ...barV2Json,
+  tradeDate,
+  barStartUtc,
+  barEndExclusiveUtc,
+  availableAtUtc: barEndExclusiveUtc,
+  sessionStartUtc: barStartUtc,
+  sessionEndExclusiveUtc: barEndExclusiveUtc,
+  windowStartUtc: barStartUtc,
+  windowEndExclusiveUtc: barEndExclusiveUtc,
+  sourceStartUtc,
+  sourceEndExclusiveUtc,
+});
+const minArrowNsBar = barAtArrowTimestampBoundary(
+  "1677-09-21",
+  "1677-09-21T00:12:43.145224192Z",
+  "1677-09-21T00:13:43.145224192Z",
+  "1677-09-21T00:12:53.145224192Z",
+  "1677-09-21T00:13:33.145224192Z",
+);
+const minArrowNsParsed = parseUsEquityTradeBarV2ProtoJson(minArrowNsBar);
+assert(
+  minArrowNsParsed.barStartUtc!.seconds * 1_000_000_000n +
+    BigInt(minArrowNsParsed.barStartUtc!.nanos) === -9_223_372_036_854_775_808n,
+  "BarV2 lost the inclusive signed-i64 Arrow minimum",
+);
+const offsetMinArrowNsParsed = parseUsEquityTradeBarV2ProtoJson({
+  ...minArrowNsBar,
+  barStartUtc: "1677-09-21T05:42:43.145224192+05:30",
+});
+assert(
+  offsetMinArrowNsParsed.barStartUtc!.seconds * 1_000_000_000n +
+    BigInt(offsetMinArrowNsParsed.barStartUtc!.nanos) === -9_223_372_036_854_775_808n,
+  "BarV2 compared an offset timestamp by its local spelling rather than its UTC instant",
+);
+const maxArrowNsBar = barAtArrowTimestampBoundary(
+  "2262-04-11",
+  "2262-04-11T23:46:16.854775807Z",
+  "2262-04-11T23:47:16.854775807Z",
+  "2262-04-11T23:46:26.854775807Z",
+  "2262-04-11T23:47:06.854775807Z",
+);
+const maxArrowNsParsed = parseUsEquityTradeBarV2ProtoJson(maxArrowNsBar);
+assert(
+  maxArrowNsParsed.availableAtUtc!.seconds * 1_000_000_000n +
+    BigInt(maxArrowNsParsed.availableAtUtc!.nanos) === 9_223_372_036_854_775_807n,
+  "BarV2 lost the inclusive signed-i64 Arrow maximum",
+);
+for (const field of barV2TimestampFields) {
+  for (const [name, timestamp] of [
+    ["minimum minus one nanosecond", "1677-09-21T00:12:43.145224191Z"],
+    ["maximum plus one nanosecond", "2262-04-11T23:47:16.854775808Z"],
+  ] as const) {
+    rejectsWithRangeError(
+      () => parseUsEquityTradeBarV2ProtoJson({ ...barV2Json, [field]: timestamp }),
+      `BarV2 accepted ${field} at ${name}`,
+    );
+  }
+}
 const barV2Snake = parseUsEquityTradeBarV2ProtoJson(
   readFixture<Record<string, unknown>>("schemas/fixtures/us-equity-trade-bar-v2-snake.json"),
 );

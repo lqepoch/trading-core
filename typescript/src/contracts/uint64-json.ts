@@ -38,6 +38,8 @@ import { trustedParquetSchemaSha256 } from "./schema-fingerprint.js";
 import { hasOnlyUnicodeScalars } from "./raw-frame.js";
 
 const UINT64_MAX = 18_446_744_073_709_551_615n;
+const ARROW_I64_NANOSECONDS_MIN = -(1n << 63n);
+const ARROW_I64_NANOSECONDS_MAX = (1n << 63n) - 1n;
 const PROTO_TIMESTAMP_MIN_SECONDS = -62_135_596_800n;
 const PROTO_TIMESTAMP_MAX_SECONDS = 253_402_300_799n;
 const CANONICAL_UINT64 = /^(0|[1-9][0-9]*)$/;
@@ -488,8 +490,25 @@ function validateUsEquityTradeBarV2Shape(row: UsEquityTradeBarV2): void {
   if (timestamps.some((value) => value === undefined || !validTimestampValue(value))) {
     throw new TypeError("BarV2 timestamp fields are required");
   }
+  const timestampValues = timestamps as NonNullable<(typeof timestamps)[number]>[];
+  const timestampNames = [
+    "barStartUtc", "barEndExclusiveUtc", "availableAtUtc", "sessionStartUtc",
+    "sessionEndExclusiveUtc", "windowStartUtc", "windowEndExclusiveUtc",
+    "sourceStartUtc", "sourceEndExclusiveUtc",
+  ] as const;
+  for (const [index, value] of timestampValues.entries()) {
+    const epochNanoseconds = timestampNanoseconds(value);
+    if (
+      epochNanoseconds < ARROW_I64_NANOSECONDS_MIN ||
+      epochNanoseconds > ARROW_I64_NANOSECONDS_MAX
+    ) {
+      throw new RangeError(
+        `BarV2 ${timestampNames[index]} is outside signed-i64 Arrow nanoseconds`,
+      );
+    }
+  }
   const [barStart, barEnd, availableAt, sessionStart, sessionEnd, windowStart, windowEnd, sourceStart, sourceEnd] =
-    timestamps as NonNullable<(typeof timestamps)[number]>[];
+    timestampValues;
   if (
     compareTimestamp(sessionStart, sessionEnd) >= 0 ||
     compareTimestamp(windowStart, windowEnd) >= 0 ||
