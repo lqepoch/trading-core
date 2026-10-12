@@ -28,6 +28,19 @@ def spdx_id(identity: str) -> str:
     return "SPDXRef-Package-" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24]
 
 
+def cargo_identity(package: dict[str, object]) -> str:
+    package_id = str(package["id"])
+    if package.get("source"):
+        return package_id
+
+    manifest_path = Path(str(package["manifest_path"])).resolve()
+    try:
+        relative_manifest = manifest_path.relative_to(ROOT.resolve()).as_posix()
+    except ValueError as error:
+        raise ValueError("local Cargo packages must be inside the repository for stable SBOM IDs") from error
+    return f"path:{relative_manifest}#{package['name']}@{package['version']}"
+
+
 def created_timestamp() -> str:
     epoch = os.environ.get("SOURCE_DATE_EPOCH")
     value = datetime.fromtimestamp(int(epoch), timezone.utc) if epoch else datetime.now(timezone.utc)
@@ -50,7 +63,11 @@ def package_record(
     elif ecosystem == "pypi":
         purl = f"pkg:pypi/{quote(name, safe='-._~')}@{version}"
     elif ecosystem == "npm":
-        escaped_name = quote(name, safe="-._~")
+        if name.startswith("@") and "/" in name:
+            scope, package_name = name[1:].split("/", 1)
+            escaped_name = f"%40{quote(scope, safe='-._~')}/{quote(package_name, safe='-._~')}"
+        else:
+            escaped_name = quote(name, safe="-._~")
         purl = f"pkg:npm/{escaped_name}@{version}" if version != "UNVERSIONED" else f"pkg:npm/{escaped_name}"
     else:
         raise ValueError(f"unsupported package ecosystem: {ecosystem}")
@@ -99,7 +116,7 @@ def cargo_graph() -> tuple[list[dict[str, object]], list[dict[str, str]], set[st
         )
     )
     packages = metadata["packages"]
-    ids = {package["id"]: spdx_id(package["id"]) for package in packages}
+    ids = {package["id"]: spdx_id(cargo_identity(package)) for package in packages}
     workspace_ids = set(metadata["workspace_members"])
     records: list[dict[str, object]] = []
     for package in sorted(packages, key=lambda item: (item["name"], item["version"], item["id"])):
@@ -112,7 +129,7 @@ def cargo_graph() -> tuple[list[dict[str, object]], list[dict[str, str]], set[st
         checksum = package.get("checksum")
         records.append(
             package_record(
-                identity=package["id"],
+                identity=cargo_identity(package),
                 name=package["name"],
                 version=package["version"],
                 ecosystem="cargo",
@@ -278,22 +295,30 @@ def npm_graph() -> tuple[list[dict[str, object]], list[dict[str, str]], set[str]
         return package_id_by_path.get(top_level)
 
     relationships: list[dict[str, str]] = []
+    root_package = packages[""]
+    root_dependency_names = set().union(
+        *(set(root_package.get(field, {})) for field in (
+            "dependencies",
+            "devDependencies",
+            "optionalDependencies",
+            "peerDependencies",
+        ))
+    )
     root_dependencies = {
         dependency_id
-        for dependency_name in packages[""].get("dependencies", {})
+        for dependency_name in root_dependency_names
         if (dependency_id := resolve("", dependency_name)) is not None
     }
-    root_dependencies.update(
-        dependency_id
-        for dependency_name in packages[""].get("devDependencies", {})
-        if (dependency_id := resolve("", dependency_name)) is not None
-    )
     relationships.extend(dependency_relationships(root_id, root_dependencies))
     for package_path, package in packages.items():
         package_id = package_id_by_path.get(package_path)
         if not package_id:
             continue
-        dependency_names = set(package.get("dependencies", {})) | set(package.get("optionalDependencies", {}))
+        dependency_names = (
+            set(package.get("dependencies", {}))
+            | set(package.get("optionalDependencies", {}))
+            | set(package.get("peerDependencies", {}))
+        )
         dependencies = {
             dependency_id
             for dependency_name in dependency_names
