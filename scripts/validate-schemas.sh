@@ -9,18 +9,8 @@ python3 scripts/sync-parquet-schema-registry.py --check
   printf 'protoc 3.21.12 is required; found %s\n' "$(protoc --version)" >&2
   exit 1
 }
-protoc_bin_dir="$(cd "$(dirname "$(command -v protoc)")" && pwd -P)"
-protoc_include_candidate="${protoc_bin_dir}/../include"
-if [[ -d "$protoc_include_candidate/google/protobuf" ]]; then
-  default_protoc_include_dir="$(cd "$protoc_include_candidate" && pwd -P)"
-else
-  default_protoc_include_dir="/usr/include"
-fi
-PROTOC_INCLUDE_DIR="${PROTOC_INCLUDE_DIR:-$default_protoc_include_dir}"
-[[ -d "$PROTOC_INCLUDE_DIR/google/protobuf" ]] || {
-  printf 'protobuf include directory not found: %s\n' "$PROTOC_INCLUDE_DIR" >&2
-  exit 1
-}
+source "$repo_root/scripts/protoc-env.sh"
+configure_protoc_include
 
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
