@@ -8,9 +8,11 @@ uv sync --project python --python 3.14 --locked
   printf 'protoc 3.21.12 is required; found %s\n' "$(protoc --version)" >&2
   exit 1
 }
+source "$repo_root/scripts/protoc-env.sh"
+configure_protoc_include
 protoc \
   --proto_path=proto \
-  --proto_path=/usr/include \
+  --proto_path="$PROTOC_INCLUDE_DIR" \
   --python_out=python \
   lqepoch/market/v1/market.proto \
   lqepoch/market/v2/trade_bar.proto \

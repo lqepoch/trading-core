@@ -8,11 +8,13 @@ npm ci
   printf 'protoc 3.21.12 is required; found %s\n' "$(protoc --version)" >&2
   exit 1
 }
+source "$repo_root/scripts/protoc-env.sh"
+configure_protoc_include
 rm -rf src/gen
 mkdir -p src/gen
 protoc \
   --proto_path="$repo_root/proto" \
-  --proto_path=/usr/include \
+  --proto_path="$PROTOC_INCLUDE_DIR" \
   --plugin=protoc-gen-es="$repo_root/typescript/node_modules/.bin/protoc-gen-es" \
   --es_out=target=ts,import_extension=js:src/gen \
   lqepoch/market/v1/market.proto \
