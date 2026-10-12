@@ -9,6 +9,18 @@ python3 scripts/sync-parquet-schema-registry.py --check
   printf 'protoc 3.21.12 is required; found %s\n' "$(protoc --version)" >&2
   exit 1
 }
+protoc_bin_dir="$(cd "$(dirname "$(command -v protoc)")" && pwd -P)"
+protoc_include_candidate="${protoc_bin_dir}/../include"
+if [[ -d "$protoc_include_candidate/google/protobuf" ]]; then
+  default_protoc_include_dir="$(cd "$protoc_include_candidate" && pwd -P)"
+else
+  default_protoc_include_dir="/usr/include"
+fi
+PROTOC_INCLUDE_DIR="${PROTOC_INCLUDE_DIR:-$default_protoc_include_dir}"
+[[ -d "$PROTOC_INCLUDE_DIR/google/protobuf" ]] || {
+  printf 'protobuf include directory not found: %s\n' "$PROTOC_INCLUDE_DIR" >&2
+  exit 1
+}
 
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
@@ -19,7 +31,7 @@ PYTHONPATH="$repo_root/python" \
   -s "$repo_root/python/tests" -p test_pyarrow_schema.py -v
 protoc \
   --proto_path=proto \
-  --proto_path=/usr/include \
+  --proto_path="$PROTOC_INCLUDE_DIR" \
   --descriptor_set_out="$scratch/contracts.pb" \
   --include_imports \
   lqepoch/market/v1/market.proto \
@@ -29,39 +41,39 @@ protoc \
   lqepoch/prediction/v1/prediction.proto \
   lqepoch/engine/v1/offline_preview.proto
 
-protoc --proto_path=proto --proto_path=/usr/include \
+protoc --proto_path=proto --proto_path="$PROTOC_INCLUDE_DIR" \
   --encode=lqepoch.market.v1.MarketEventEnvelopeV1 \
   lqepoch/market/v1/market.proto \
   < proto/fixtures/market-event-v1.textproto > "$scratch/market-event.pb"
-protoc --proto_path=proto --proto_path=/usr/include \
+protoc --proto_path=proto --proto_path="$PROTOC_INCLUDE_DIR" \
   --encode=lqepoch.market.v1.ControlEventEnvelopeV1 \
   lqepoch/market/v1/market.proto \
   < proto/fixtures/control-ack-v1.textproto > "$scratch/control-ack.pb"
-protoc --proto_path=proto --proto_path=/usr/include \
+protoc --proto_path=proto --proto_path="$PROTOC_INCLUDE_DIR" \
   --encode=lqepoch.market.v2.UsEquityTradeBarV2 \
   lqepoch/market/v2/trade_bar.proto \
   < proto/fixtures/us-equity-trade-bar-v2.textproto > "$scratch/us-equity-trade-bar-v2.pb"
-protoc --proto_path=proto --proto_path=/usr/include \
+protoc --proto_path=proto --proto_path="$PROTOC_INCLUDE_DIR" \
   --encode=lqepoch.dataset.v1.DatasetManifestV1 \
   lqepoch/dataset/v1/manifest.proto \
   < proto/fixtures/dataset-manifest-v1.textproto > "$scratch/dataset-manifest.pb"
-protoc --proto_path=proto --proto_path=/usr/include \
+protoc --proto_path=proto --proto_path="$PROTOC_INCLUDE_DIR" \
   --encode=lqepoch.dataset.v2.DatasetManifestV2 \
   lqepoch/dataset/v2/manifest.proto \
   < proto/fixtures/dataset-manifest-v2.textproto > "$scratch/dataset-manifest-v2.pb"
-protoc --proto_path=proto --proto_path=/usr/include \
+protoc --proto_path=proto --proto_path="$PROTOC_INCLUDE_DIR" \
   --encode=lqepoch.dataset.v2.FiniteBatchSealReceiptV2 \
   lqepoch/dataset/v2/manifest.proto \
   < proto/fixtures/finite-batch-seal-receipt-v2.textproto > "$scratch/finite-batch-seal-receipt-v2.pb"
-protoc --proto_path=proto --proto_path=/usr/include \
+protoc --proto_path=proto --proto_path="$PROTOC_INCLUDE_DIR" \
   --encode=lqepoch.prediction.v1.PredictionEnvelopeV1 \
   lqepoch/prediction/v1/prediction.proto \
   < proto/fixtures/prediction-envelope-v1.textproto > "$scratch/prediction-envelope.pb"
-protoc --proto_path=proto --proto_path=/usr/include \
+protoc --proto_path=proto --proto_path="$PROTOC_INCLUDE_DIR" \
   --encode=lqepoch.engine.v1.EngineStatusResponseV1 \
   lqepoch/engine/v1/offline_preview.proto \
   < proto/fixtures/engine-status-response-v1.textproto > "$scratch/engine-status.pb"
-protoc --proto_path=proto --proto_path=/usr/include \
+protoc --proto_path=proto --proto_path="$PROTOC_INCLUDE_DIR" \
   --encode=lqepoch.engine.v1.SyntheticOfflinePreviewV1 \
   lqepoch/engine/v1/offline_preview.proto \
   < proto/fixtures/synthetic-offline-preview-v1.textproto > "$scratch/engine-preview.pb"
