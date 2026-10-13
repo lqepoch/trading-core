@@ -2,6 +2,8 @@
 
 trading-core is the shared source of truth for exact financial values, canonical provider-neutral domain types, analytical option models, and versioned market-data contracts. Broker connectors and the trading engine consume these crates at pinned Git revisions.
 
+Boundary: this provider-neutral Rust library owns exact values, domain models, deterministic pricing, and shared contracts; it does not own provider clients, collection, persistence, or order dispatch. The nine-repository map is a [governance candidate in Draft PR #20](https://github.com/lqepoch/platform-ops/blob/codex/chg-2026-001-workspace-layout/docs/NINE-REPOSITORY-ARCHITECTURE.md), not yet the `main` authority; current behavior is defined by this repository's source, manifests, locks, and local documentation.
+
 ## Crates
 
 - exact-decimal: bounded base-10 values with checked, non-rounding arithmetic.
