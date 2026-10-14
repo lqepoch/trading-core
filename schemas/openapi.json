@@ -3,10 +3,68 @@
   "info": {
     "title": "LQEpoch Cross-Language Contracts",
     "version": "1.0.0",
-    "description": "Versioned JSON projections only. No HTTP endpoint is declared by trading-core. uint64 fields use canonical decimal strings to preserve JavaScript precision; Rust and Python consumers must reject numeric, leading-zero, and overflow forms. Rust validation enforces invariants that JSON Schema cannot express exactly. Numeric encoding is explicit: binary-float shortest-decimal values require a raw-frame SHA and remain unqualified. Custom utf8-bytes-128/256/512 formats require assertion registration to enforce Rust UTF-8 byte ceilings; generic annotation-only validators are insufficient. Domain/source/authority validation remains separate."
+    "description": "Versioned shared JSON contracts. GET /v1/market/bars is a consumer endpoint contract; trading-core provides DTOs and validators, not an HTTP server. uint64 fields use canonical decimal strings to preserve JavaScript precision; Rust and Python consumers must reject numeric, leading-zero, and overflow forms. Rust validation enforces invariants that JSON Schema cannot express exactly. Numeric encoding is explicit: binary-float shortest-decimal values require a raw-frame SHA and remain unqualified. Custom utf8-bytes-128/256/512 formats require assertion registration to enforce Rust UTF-8 byte ceilings; generic annotation-only validators are insufficient. Domain/source/authority validation remains separate."
   },
-  "paths": {},
+  "paths": {
+    "/v1/market/bars": {
+      "get": {
+        "operationId": "getMarketBarsV1",
+        "summary": "Read exact market bars with coverage and provenance",
+        "security": [
+          {
+            "marketReadBearer": []
+          }
+        ],
+        "parameters": [
+          { "name": "symbol", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/BarsRequestV1/properties/symbol" } },
+          { "name": "asset_class", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/BarsRequestV1/properties/asset_class" } },
+          { "name": "start", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/BarsRequestV1/properties/start" } },
+          { "name": "end", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/BarsRequestV1/properties/end" } },
+          { "name": "resolution", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/BarsRequestV1/properties/resolution" } },
+          { "name": "session_scope", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/BarsRequestV1/properties/session_scope" } },
+          { "name": "adjustment", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/BarsRequestV1/properties/adjustment" } },
+          { "name": "provider_mode", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/BarsRequestV1/properties/provider_mode" } },
+          { "name": "allow_daily_downgrade", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/BarsRequestV1/properties/allow_daily_downgrade" } },
+          { "name": "limit", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/BarsRequestV1/properties/limit" } },
+          { "name": "cursor", "in": "query", "required": false, "schema": { "$ref": "#/components/schemas/BarsRequestV1/properties/cursor" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exact decimal bars with their source provenance, session coverage, gaps, and paging state.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BarsResponseV1" },
+                "examples": {
+                  "singleSource": {
+                    "$ref": "#/components/examples/MarketBarsV1"
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "The query is malformed or outside the supported contract." },
+          "401": { "description": "The short-lived market-read bearer token is missing or invalid." },
+          "403": { "description": "The bearer token lacks the market:read scope." },
+          "502": { "description": "The selected provider could not produce a usable response." }
+        }
+      }
+    }
+  },
   "components": {
+    "securitySchemes": {
+      "marketReadBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Independent HS256 market-read delegation; maximum lifetime 60 seconds and required scope market:read."
+      }
+    },
+    "examples": {
+      "MarketBarsV1": {
+        "summary": "Synthetic contract fixture with explicit coverage and provenance",
+        "externalValue": "fixtures/market-bars-v1.json"
+      }
+    },
     "schemas": {
       "UtcTimestamp": {
         "type": "string",
@@ -2603,6 +2661,591 @@
           }
         },
         "description": "Exact snake_case projection shape emitted by the source-owned offline preview reader. This is a synthetic, bounded, best-effort non-transactional diagnostic; it does not establish account or market readiness, full reconciliation, risk authority, or execution. The bounded sample is at most 256 rows; count partition and cap-flag consistency are enforced by the TypeScript parser. This schema declares no HTTP route."
+      },
+      "BarsRequestV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "symbol",
+          "asset_class",
+          "start",
+          "end",
+          "resolution",
+          "session_scope",
+          "adjustment",
+          "provider_mode",
+          "allow_daily_downgrade",
+          "limit"
+        ],
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "format": "utf8-bytes-256"
+          },
+          "asset_class": {
+            "type": "string",
+            "enum": [
+              "stock",
+              "etf"
+            ],
+            "description": "Instrument class for the requested symbol."
+          },
+          "start": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UtcTimestamp"
+              }
+            ],
+            "description": "Inclusive UTC RFC3339 request bound."
+          },
+          "end": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UtcTimestamp"
+              }
+            ],
+            "description": "Exclusive UTC RFC3339 request bound."
+          },
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "1m",
+              "5m",
+              "15m",
+              "1h",
+              "1d"
+            ],
+            "description": "Requested bar interval."
+          },
+          "session_scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "regular",
+              "extended",
+              "overnight"
+            ],
+            "description": "Requested exchange sessions."
+          },
+          "adjustment": {
+            "type": "string",
+            "enum": [
+              "unadjusted",
+              "split",
+              "dividend",
+              "all"
+            ],
+            "description": "Provider adjustment policy."
+          },
+          "provider_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "alpaca_only",
+              "futu_only",
+              "research"
+            ],
+            "description": "Provider selection policy; it does not identify the actual returned source."
+          },
+          "allow_daily_downgrade": {
+            "type": "boolean",
+            "description": "Whether an unsupported intraday request may fall back to daily bars."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "format": "utf8-bytes-2048"
+          }
+        },
+        "description": "Shared query DTO for GET /v1/market/bars. The HTTP adapter maps query-string values to these types."
+      },
+      "BarsEntitlementStatusV1": {
+        "type": "string",
+        "enum": [
+          "authorized",
+          "unauthorized",
+          "unknown",
+          "mixed"
+        ],
+        "description": "Source entitlement observation; mixed is reserved for a response summary, never one source record."
+      },
+      "BarsCoverageStatusV1": {
+        "type": "string",
+        "enum": [
+          "complete",
+          "partial",
+          "empty",
+          "unknown",
+          "unsupported"
+        ],
+        "description": "Coverage for the requested interval. A truncated response is never complete."
+      },
+      "BarsCacheStatusV1": {
+        "type": "string",
+        "enum": [
+          "hit",
+          "miss",
+          "stale",
+          "bypass",
+          "unavailable",
+          "unknown"
+        ],
+        "description": "Observed cache state for the response."
+      },
+      "BarsValidationStateV1": {
+        "type": "string",
+        "enum": [
+          "validated",
+          "provisional",
+          "conflict"
+        ],
+        "description": "Validation result for one row. Conflict and provisional evidence remain explicit."
+      },
+      "CoverageGapReasonV1": {
+        "type": "string",
+        "enum": [
+          "source_gap",
+          "provider_unavailable",
+          "entitlement_limited",
+          "unsupported_resolution",
+          "session_excluded",
+          "validation_conflict",
+          "unknown"
+        ],
+        "description": "Stable machine-readable classification for a missing interval."
+      },
+      "BarSourceProvenanceV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provenance_id",
+          "provider",
+          "feed",
+          "entitlement_status",
+          "numeric_encoding",
+          "source"
+        ],
+        "properties": {
+          "provenance_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
+          },
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
+          },
+          "feed": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
+          },
+          "entitlement_status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BarsEntitlementStatusV1"
+              }
+            ],
+            "not": {
+              "const": "mixed"
+            }
+          },
+          "numeric_encoding": {
+            "type": "string",
+            "enum": [
+              "decimal_token",
+              "integer_token",
+              "binary_float64_shortest_decimal",
+              "binary_float32_shortest_decimal"
+            ],
+            "description": "Numeric encoding observed from the source; raw byte encodings are not row encodings."
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "format": "utf8-bytes-128",
+            "description": "Actual data origin, for example Yahoo Finance, Futu OpenD, or Alpaca SIP; not a UI label."
+          }
+        },
+        "description": "Actual provider/feed identity for rows and coverage segments. The response summary never replaces this source-level identity."
+      },
+      "BarCoverageSegmentV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "start_utc",
+          "end_exclusive_utc",
+          "coverage_status",
+          "session_instance_id"
+        ],
+        "properties": {
+          "start_utc": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UtcTimestamp"
+              }
+            ],
+            "description": "Inclusive UTC segment bound."
+          },
+          "end_exclusive_utc": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UtcTimestamp"
+              }
+            ],
+            "description": "Exclusive UTC segment bound."
+          },
+          "coverage_status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BarsCoverageStatusV1"
+              }
+            ],
+            "not": {
+              "enum": [
+                "empty",
+                "unsupported"
+              ]
+            }
+          },
+          "provenance_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
+          },
+          "session_instance_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
+          }
+        },
+        "description": "A half-open interval under one explicit session instance and, when known, one actual source provenance."
+      },
+      "BarCoverageGapV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "start_utc",
+          "end_exclusive_utc",
+          "reason_code"
+        ],
+        "properties": {
+          "start_utc": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UtcTimestamp"
+              }
+            ],
+            "description": "Inclusive UTC gap bound."
+          },
+          "end_exclusive_utc": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UtcTimestamp"
+              }
+            ],
+            "description": "Exclusive UTC gap bound."
+          },
+          "reason_code": {
+            "$ref": "#/components/schemas/CoverageGapReasonV1"
+          }
+        }
+      },
+      "BarRowV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "symbol",
+          "asset_class",
+          "resolution",
+          "adjustment",
+          "bar_start_utc",
+          "bar_end_exclusive_utc",
+          "received_at_utc",
+          "available_at_utc",
+          "open",
+          "high",
+          "low",
+          "close",
+          "volume",
+          "provenance_id",
+          "session_instance_id",
+          "validation_state"
+        ],
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "format": "utf8-bytes-256"
+          },
+          "asset_class": {
+            "type": "string",
+            "enum": [
+              "stock",
+              "etf"
+            ],
+            "description": "Instrument class."
+          },
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "1m",
+              "5m",
+              "15m",
+              "1h",
+              "1d"
+            ],
+            "description": "Effective interval represented by the row."
+          },
+          "bar_start_utc": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UtcTimestamp"
+              }
+            ],
+            "description": "Inclusive event interval start."
+          },
+          "bar_end_exclusive_utc": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UtcTimestamp"
+              }
+            ],
+            "description": "Exclusive event interval end."
+          },
+          "received_at_utc": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UtcTimestamp"
+              }
+            ],
+            "description": "Time the source payload reached the collector."
+          },
+          "available_at_utc": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UtcTimestamp"
+              }
+            ],
+            "description": "Time the normalized row became readable."
+          },
+          "open": {
+            "$ref": "#/components/schemas/PositiveDecimalString"
+          },
+          "high": {
+            "$ref": "#/components/schemas/PositiveDecimalString"
+          },
+          "low": {
+            "$ref": "#/components/schemas/PositiveDecimalString"
+          },
+          "close": {
+            "$ref": "#/components/schemas/PositiveDecimalString"
+          },
+          "volume": {
+            "$ref": "#/components/schemas/NonNegativeDecimalString"
+          },
+          "provenance_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
+          },
+          "session_instance_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
+          },
+          "validation_state": {
+            "$ref": "#/components/schemas/BarsValidationStateV1"
+          },
+          "adjustment": {
+            "type": "string",
+            "enum": [
+              "unadjusted",
+              "split",
+              "dividend",
+              "all"
+            ],
+            "description": "Corporate-action adjustment already applied to this row."
+          }
+        },
+        "description": "A bar is associated with a matching source provenance and a covering session segment. Exact decimal values are strings; Rust additionally checks OHLC ordering and timestamps."
+      },
+      "BarsResponseV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "provider",
+          "feed",
+          "entitlement_status",
+          "requested_resolution",
+          "effective_resolution",
+          "adjustment",
+          "rows",
+          "coverage_status",
+          "segments",
+          "gaps",
+          "source_provenance",
+          "fetched_at",
+          "cache_status",
+          "truncated"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "format": "utf8-bytes-128",
+            "description": "Summary only; mixed or unknown when no single provider applies."
+          },
+          "feed": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "format": "utf8-bytes-128",
+            "description": "Summary only; mixed or unknown when no single feed applies."
+          },
+          "entitlement_status": {
+            "$ref": "#/components/schemas/BarsEntitlementStatusV1"
+          },
+          "requested_resolution": {
+            "type": "string",
+            "enum": [
+              "1m",
+              "5m",
+              "15m",
+              "1h",
+              "1d"
+            ],
+            "description": "Requested bar interval."
+          },
+          "effective_resolution": {
+            "type": "string",
+            "enum": [
+              "1m",
+              "5m",
+              "15m",
+              "1h",
+              "1d"
+            ],
+            "description": "Interval represented by returned rows."
+          },
+          "rows": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/components/schemas/BarRowV1"
+            }
+          },
+          "coverage_status": {
+            "$ref": "#/components/schemas/BarsCoverageStatusV1"
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BarCoverageSegmentV1"
+            }
+          },
+          "gaps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BarCoverageGapV1"
+            }
+          },
+          "source_provenance": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BarSourceProvenanceV1"
+            }
+          },
+          "as_of": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/UtcTimestamp"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Source observation cutoff when supplied by the source; omitted or null when unknown."
+          },
+          "fetched_at": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UtcTimestamp"
+              }
+            ],
+            "description": "Local fetch completion time."
+          },
+          "verified_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{0,8}[1-9])?Z$",
+            "description": "Independent verification time when present."
+          },
+          "cache_status": {
+            "$ref": "#/components/schemas/BarsCacheStatusV1"
+          },
+          "market_calendar_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128,
+            "format": "utf8-bytes-128"
+          },
+          "continuation_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 2048,
+            "format": "utf8-bytes-2048"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "adjustment": {
+            "type": "string",
+            "enum": [
+              "unadjusted",
+              "split",
+              "dividend",
+              "all"
+            ],
+            "description": "Adjustment applied to every row and echoed from the query."
+          }
+        },
+        "description": "Versioned read-only bars response. Top-level provider/feed/entitlement are summaries; rows and segments retain actual source and session identity. A truncated response cannot claim complete coverage."
       }
     }
   }

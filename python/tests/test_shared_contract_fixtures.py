@@ -12,6 +12,7 @@ from google.protobuf.json_format import MessageToDict
 
 from lqepoch.dataset.v2 import manifest_pb2 as manifest_v2_pb2
 from lqepoch.market.v2 import trade_bar_pb2
+from lqepoch.market.v1 import bars_pb2
 from lqepoch_contracts.identities import (
     valid_dataset_id,
     valid_market_symbol,
@@ -63,6 +64,54 @@ def refresh_finite_batch_receipt_hash(document: dict[str, object]) -> None:
 
 
 class SharedContractFixturesTest(unittest.TestCase):
+    def test_market_bars_v1_request_and_response_match_shared_snake_case_fixture(self) -> None:
+        fixture = read_json_fixture("schemas/fixtures/market-bars-v1.json")
+        request = json_format.ParseDict(fixture["request"], bars_pb2.BarsRequestV1())
+        response = json_format.ParseDict(fixture["response"], bars_pb2.BarsResponseV1())
+
+        self.assertEqual(request.symbol, "QQQ")
+        self.assertEqual(request.resolution, "1m")
+        self.assertEqual(request.limit, 1000)
+        self.assertEqual(request.start.nanos, 0)
+        self.assertEqual(response.schema_version, 1)
+        self.assertEqual(response.rows[0].open, "10.00")
+        self.assertEqual(response.rows[0].adjustment, "unadjusted")
+        self.assertEqual(response.rows[0].provenance_id, "synthetic-bars-2026-10-08")
+        self.assertEqual(response.rows[0].session_instance_id, "synthetic-session-2026-10-08-regular")
+        self.assertEqual(response.source_provenance[0].provider, "synthetic")
+        self.assertEqual(response.source_provenance[0].feed, "fixture")
+        self.assertEqual(response.source_provenance[0].source, "Synthetic test fixture")
+        self.assertEqual(response.source_provenance[0].entitlement_status, "unknown")
+        self.assertEqual(response.adjustment, "unadjusted")
+        self.assertFalse(response.truncated)
+
+    def test_market_bars_v1_preserves_unknown_feed_without_claiming_verification(self) -> None:
+        fixture = read_json_fixture("schemas/fixtures/market-bars-v1-unknown-feed.json")
+        response = json_format.ParseDict(fixture["response"], bars_pb2.BarsResponseV1())
+        self.assertEqual(response.provider, "alpaca")
+        self.assertEqual(response.feed, "unknown")
+        self.assertEqual(response.source_provenance[0].feed, "unknown")
+        self.assertEqual(response.source_provenance[0].entitlement_status, "unknown")
+        self.assertEqual(response.rows[0].validation_state, "provisional")
+        self.assertEqual(
+            response.source_provenance[0].source,
+            "Alpaca synthetic compatibility fixture",
+        )
+
+        for as_of_value in (None, "missing"):
+            with self.subTest(as_of=as_of_value):
+                no_source_cutoff = copy.deepcopy(fixture["response"])
+                if as_of_value is None:
+                    no_source_cutoff["as_of"] = None
+                else:
+                    no_source_cutoff.pop("as_of")
+                parsed = json_format.ParseDict(
+                    no_source_cutoff,
+                    bars_pb2.BarsResponseV1(),
+                )
+                self.assertFalse(parsed.HasField("as_of"))
+                self.assertTrue(parsed.HasField("fetched_at"))
+
     def test_dataset_manifest_v2_writer_matches_shared_bytes_and_roundtrips(self) -> None:
         cases = read_json_fixture(
             "schemas/fixtures/dataset-manifest-v2-protojson-cases.json"
@@ -701,6 +750,12 @@ class SharedContractFixturesTest(unittest.TestCase):
         fixture = read_json_fixture("schemas/fixtures/parquet-schema-registry.json")
         self.assertEqual(load_trusted_parquet_schema_registry(), fixture)
         self.assertEqual(fixture["fingerprint_prefix"], "LQEpoch-Parquet-Schema-v1\n")
+        market_bars = trusted_parquet_schema_descriptor("lqepoch.market_bars.v1")
+        self.assertIn("adjustment", [field["name"] for field in market_bars["fields"]])
+        self.assertEqual(
+            trusted_parquet_schema_sha256("lqepoch.market_bars.v1"),
+            "6534a31150d14121ba30c6abae707104479b6ea6750150769b1d5d6235faf180",
+        )
         for golden in [fixture["generic_golden"], *fixture["schemas"]]:
             with self.subTest(schema_id=golden["descriptor"]["schema_id"]):
                 schema_id = golden["descriptor"]["schema_id"]

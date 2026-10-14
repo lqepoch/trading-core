@@ -4,6 +4,7 @@
 //! envelopes and keep provider evidence separate from contract qualification.
 
 pub mod bar_v2;
+pub mod bars_v1;
 pub mod dataset;
 pub mod dataset_v2;
 pub mod legacy;
@@ -18,6 +19,13 @@ pub mod wire_u64;
 pub use bar_v2::{
     BarCompletionModeV2, MAX_US_EQUITY_TRADE_BAR_V2_JSON_BYTES, TradeMinuteBarV2,
     TradeMinuteBarV2Error, US_EQUITY_TRADE_BAR_SCHEMA_VERSION_V2,
+};
+pub use bars_v1::{
+    AdjustmentV1, AssetClassV1, BARS_SCHEMA_VERSION_V1, BarCoverageGapV1, BarCoverageSegmentV1,
+    BarResolutionV1, BarRowV1, BarSourceProvenanceV1, BarsCacheStatusV1, BarsContractErrorV1,
+    BarsCoverageStatusV1, BarsEntitlementStatusV1, BarsProviderModeV1, BarsRequestV1,
+    BarsResponseV1, BarsValidationStateV1, CoverageGapReasonV1, MAX_BARS_CURSOR_BYTES_V1,
+    MAX_BARS_REQUEST_JSON_BYTES_V1, MAX_BARS_RESPONSE_JSON_BYTES_V1, SessionScopeV1,
 };
 
 pub use dataset::{
@@ -40,14 +48,14 @@ pub use legacy::{
     Bar, ContractError, MarketEvent, OccContract, OptionSnapshot, Right, StockSnapshot, parse_occ,
 };
 pub use parquet_schema::{
-    MARKET_EVENT_PARQUET_SCHEMA_ID, MARKET_EVENT_PARQUET_SCHEMA_V2_ID,
-    MARKET_EVENT_PARQUET_SCHEMA_V3_ID, MARKET_RAW_FRAME_PARQUET_SCHEMA_ID,
-    MARKET_RAW_FRAME_PARQUET_SCHEMA_V2_ID, MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_ID,
-    MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_V2_ID, PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY,
-    PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY, ParquetSchemaDescriptorV1, ParquetSchemaError,
-    ParquetSchemaFieldV1, US_EQUITY_TRADE_BAR_1M_V2_SCHEMA_ID, trusted_parquet_schema,
-    trusted_parquet_schema_metadata, trusted_schema_fingerprint,
-    validate_optional_parquet_schema_metadata,
+    MARKET_BARS_PARQUET_SCHEMA_V1_ID, MARKET_EVENT_PARQUET_SCHEMA_ID,
+    MARKET_EVENT_PARQUET_SCHEMA_V2_ID, MARKET_EVENT_PARQUET_SCHEMA_V3_ID,
+    MARKET_RAW_FRAME_PARQUET_SCHEMA_ID, MARKET_RAW_FRAME_PARQUET_SCHEMA_V2_ID,
+    MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_ID, MARKET_RAW_JSON_FRAME_PARQUET_SCHEMA_V2_ID,
+    PARQUET_SCHEMA_DESCRIPTOR_METADATA_KEY, PARQUET_SCHEMA_FINGERPRINT_METADATA_KEY,
+    ParquetSchemaDescriptorV1, ParquetSchemaError, ParquetSchemaFieldV1,
+    US_EQUITY_TRADE_BAR_1M_V2_SCHEMA_ID, trusted_parquet_schema, trusted_parquet_schema_metadata,
+    trusted_schema_fingerprint, validate_optional_parquet_schema_metadata,
 };
 pub use prediction::{
     ForecastHorizonUnitV1, ForecastHorizonV1, ForecastSnapshotV2,

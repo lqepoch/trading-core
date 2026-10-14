@@ -25,6 +25,7 @@ protoc \
   --descriptor_set_out="$scratch/contracts.pb" \
   --include_imports \
   lqepoch/market/v1/market.proto \
+  lqepoch/market/v1/bars.proto \
   lqepoch/market/v2/trade_bar.proto \
   lqepoch/dataset/v1/manifest.proto \
   lqepoch/dataset/v2/manifest.proto \

@@ -58,6 +58,10 @@ import {
   FiniteBatchSourceKindV2,
 } from "../gen/lqepoch/dataset/v2/manifest_pb.js";
 import { MarketEventEnvelopeV1Schema } from "../gen/lqepoch/market/v1/market_pb.js";
+import {
+  BarsRequestV1Schema,
+  BarsResponseV1Schema,
+} from "../gen/lqepoch/market/v1/bars_pb.js";
 
 function readFixture<T>(path: string): T {
   return JSON.parse(readFileSync(resolve(process.cwd(), "..", path), "utf8")) as T;
@@ -100,6 +104,45 @@ validateRawFrameRowV2(jsonFrame, MARKET_RAW_JSON_FRAME_V2_SCHEMA_ID);
 validateEventAgainstRawFrameRowV2(jsonEvent, jsonFrame, MARKET_RAW_JSON_FRAME_V2_SCHEMA_ID);
 validateMarketEventRowV3(jsonEvent);
 assert(MARKET_EVENT_V3_SCHEMA_ID === "lqepoch.market_event.v3", "event V3 schema ID changed");
+
+type MarketBarsFixture = { request: JsonValue; response: JsonValue };
+const marketBarsFixture = readFixture<MarketBarsFixture>("schemas/fixtures/market-bars-v1.json");
+const marketBarsRequest = fromJson(BarsRequestV1Schema, marketBarsFixture.request);
+const marketBarsResponse = fromJson(BarsResponseV1Schema, marketBarsFixture.response);
+assert(marketBarsRequest.symbol === "QQQ", "market bars v1 request symbol changed");
+assert(marketBarsRequest.resolution === "1m", "market bars v1 request resolution changed");
+assert(marketBarsRequest.limit === 1000, "market bars v1 request limit changed");
+assert(marketBarsResponse.rows.length === 1, "market bars v1 row count changed");
+assert(marketBarsResponse.rows[0]?.open === "10.00", "market bars v1 decimal string was rounded");
+assert(marketBarsResponse.rows[0]?.adjustment === "unadjusted", "market bars v1 row adjustment changed");
+assert(marketBarsResponse.rows[0]?.receivedAtUtc !== undefined, "market bars v1 receive timestamp missing");
+assert(marketBarsResponse.rows[0]?.availableAtUtc !== undefined, "market bars v1 availability timestamp missing");
+assert(marketBarsResponse.rows[0]?.provenanceId === "synthetic-bars-2026-10-08", "market bars v1 source link changed");
+assert(marketBarsResponse.rows[0]?.sessionInstanceId === "synthetic-session-2026-10-08-regular", "market bars v1 session link changed");
+assert(marketBarsResponse.sourceProvenance[0]?.source === "Synthetic test fixture", "market bars v1 fixture source changed");
+assert(marketBarsResponse.adjustment === "unadjusted", "market bars v1 response adjustment changed");
+const unknownFeedBarsFixture = readFixture<MarketBarsFixture>(
+  "schemas/fixtures/market-bars-v1-unknown-feed.json",
+);
+const unknownFeedBarsResponse = fromJson(BarsResponseV1Schema, unknownFeedBarsFixture.response);
+assert(unknownFeedBarsResponse.provider === "alpaca", "unknown-feed fixture lost provider identity");
+assert(unknownFeedBarsResponse.feed === "unknown", "unknown feed must remain explicit");
+assert(
+  unknownFeedBarsResponse.sourceProvenance[0]?.entitlementStatus === "unknown" &&
+    unknownFeedBarsResponse.rows[0]?.validationState === "provisional",
+  "unknown feed or entitlement must remain unverified",
+);
+const unknownFeedWithoutAsOf = structuredClone(unknownFeedBarsFixture.response) as Record<string, JsonValue>;
+delete unknownFeedWithoutAsOf.as_of;
+assert(
+  fromJson(BarsResponseV1Schema, unknownFeedWithoutAsOf).asOf === undefined,
+  "an unknown source cutoff must remain absent",
+);
+const unknownFeedNullAsOf = { ...unknownFeedWithoutAsOf, as_of: null };
+assert(
+  fromJson(BarsResponseV1Schema, unknownFeedNullAsOf).asOf === undefined,
+  "a null source cutoff must remain absent",
+);
 
 type TimestampBoundaryCase = { name: string; timestamp_utc: string; epoch_nanoseconds?: string };
 type TimestampBoundaryFixture = {
@@ -1776,6 +1819,30 @@ rejects(
 const openapi = JSON.parse(
   readFileSync(resolve(process.cwd(), "..", "schemas/openapi.json"), "utf8"),
 ) as object;
+const openapiWithBarsPath = openapi as {
+  paths: Record<string, {
+    get?: {
+      parameters: Array<{ name: string; in: string; required?: boolean }>;
+      security?: Array<Record<string, string[]>>;
+    };
+  }>;
+};
+const marketBarsOperation = openapiWithBarsPath.paths["/v1/market/bars"]?.get;
+assert(marketBarsOperation, "OpenAPI market bars GET contract is missing");
+assert(
+  marketBarsOperation.parameters.map((parameter) => parameter.name).join(",") ===
+    "symbol,asset_class,start,end,resolution,session_scope,adjustment,provider_mode,allow_daily_downgrade,limit,cursor",
+  "OpenAPI market bars query fields drifted",
+);
+assert(
+  marketBarsOperation.parameters.every((parameter) => parameter.in === "query") &&
+    marketBarsOperation.parameters.filter((parameter) => parameter.required).length === 10,
+  "OpenAPI market bars query requiredness drifted",
+);
+assert(
+  JSON.stringify(marketBarsOperation.security) === JSON.stringify([{ marketReadBearer: [] }]),
+  "OpenAPI market bars auth contract drifted",
+);
 const ajv = new Ajv2020({ strict: false, allErrors: true });
 addFormats(ajv);
 registerOpenApiUtf8ByteFormats(ajv);
@@ -1812,6 +1879,12 @@ const validateEngineStatusHttpJson = ajv.compile({
 const validateSyntheticPreviewHttpJson = ajv.compile({
   $ref: "lqepoch-openapi#/components/schemas/SyntheticOfflinePreviewV1",
 });
+const validateBarsRequestHttpJson = ajv.compile({
+  $ref: "lqepoch-openapi#/components/schemas/BarsRequestV1",
+});
+const validateBarsResponseHttpJson = ajv.compile({
+  $ref: "lqepoch-openapi#/components/schemas/BarsResponseV1",
+});
 function toOpenApiSnakeCase(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(toOpenApiSnakeCase);
   if (value !== null && typeof value === "object") {
@@ -1826,6 +1899,18 @@ function toOpenApiSnakeCase(value: unknown): unknown {
 }
 const datasetV2HttpJson = toOpenApiSnakeCase(datasetV2Json) as Record<string, unknown>;
 assert(validateDatasetV2HttpJson(datasetV2HttpJson), "OpenAPI rejects the finite-batch V2 fixture");
+assert(validateBarsRequestHttpJson(marketBarsFixture.request), "OpenAPI rejects the market bars v1 request");
+assert(validateBarsResponseHttpJson(marketBarsFixture.response), "OpenAPI rejects the market bars v1 response");
+assert(
+  validateBarsResponseHttpJson(unknownFeedBarsFixture.response),
+  "OpenAPI rejects the unverified unknown-feed fixture",
+);
+const unknownFeedWithoutSourceCutoff = structuredClone(unknownFeedBarsFixture.response) as Record<string, JsonValue>;
+delete unknownFeedWithoutSourceCutoff.as_of;
+assert(
+  validateBarsResponseHttpJson(unknownFeedWithoutSourceCutoff),
+  "OpenAPI requires an unavailable source cutoff",
+);
 assert(validateEngineStatusHttpJson(engineStatusFixture), "OpenAPI rejects the engine status fixture");
 assert(
   validateSyntheticPreviewHttpJson(syntheticPreviewFixture),

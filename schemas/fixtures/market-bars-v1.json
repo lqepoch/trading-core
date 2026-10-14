@@ -1,0 +1,70 @@
+{
+  "request": {
+    "symbol": "QQQ",
+    "asset_class": "etf",
+    "start": "2026-10-08T14:30:00Z",
+    "end": "2026-10-08T14:31:00Z",
+    "resolution": "1m",
+    "session_scope": "regular",
+    "adjustment": "unadjusted",
+    "provider_mode": "auto",
+    "allow_daily_downgrade": false,
+    "limit": 1000
+  },
+  "response": {
+    "schema_version": 1,
+    "provider": "synthetic",
+    "feed": "fixture",
+    "entitlement_status": "unknown",
+    "requested_resolution": "1m",
+    "effective_resolution": "1m",
+    "adjustment": "unadjusted",
+    "rows": [
+      {
+        "symbol": "QQQ",
+        "asset_class": "etf",
+        "resolution": "1m",
+        "adjustment": "unadjusted",
+        "bar_start_utc": "2026-10-08T14:30:00Z",
+        "bar_end_exclusive_utc": "2026-10-08T14:31:00Z",
+        "received_at_utc": "2026-10-08T14:31:02Z",
+        "available_at_utc": "2026-10-08T14:31:03Z",
+        "open": "10.00",
+        "high": "10.50",
+        "low": "9.50",
+        "close": "10.25",
+        "volume": "40.5",
+        "provenance_id": "synthetic-bars-2026-10-08",
+        "session_instance_id": "synthetic-session-2026-10-08-regular",
+        "validation_state": "validated"
+      }
+    ],
+    "coverage_status": "complete",
+    "segments": [
+      {
+        "start_utc": "2026-10-08T14:30:00Z",
+        "end_exclusive_utc": "2026-10-08T14:31:00Z",
+        "coverage_status": "complete",
+        "provenance_id": "synthetic-bars-2026-10-08",
+        "session_instance_id": "synthetic-session-2026-10-08-regular"
+      }
+    ],
+    "gaps": [],
+    "source_provenance": [
+      {
+        "provenance_id": "synthetic-bars-2026-10-08",
+        "provider": "synthetic",
+        "feed": "fixture",
+        "source": "Synthetic test fixture",
+        "entitlement_status": "unknown",
+        "numeric_encoding": "decimal_token"
+      }
+    ],
+    "as_of": "2026-10-08T14:31:00Z",
+    "fetched_at": "2026-10-08T14:31:04Z",
+    "verified_at": "2026-10-08T14:31:05Z",
+    "cache_status": "miss",
+    "market_calendar_version": "synthetic-calendar-v1",
+    "truncated": false
+  }
+}
