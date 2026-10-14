@@ -24,7 +24,8 @@ The nine-repository map is a [governance candidate in Draft PR #20](https://gith
 - Use the toolchain in rust-toolchain.toml, locked dependencies, and synthetic fixtures.
 - Run the narrowest relevant package tests, formatting and strict Clippy for changed crates, and scripts/validate-schemas.sh for schema changes.
 - Record exact commands and any unavailable language generators as NOT RUN or NOT IMPLEMENTED.
-- No repository-defined GitHub Actions workflow is currently configured. GitHub's default CodeQL analysis may run without repository secrets; the local validation scripts remain this repository's project validation gate. If custom workflows are added later, they may build, test, lint, and scan only public source and fixtures. They must not read private repositories, credentials, private market archives, account data, or invoke any broker or trading operation.
+- `.github/workflows/public-validation.yml` runs the Rust and cross-language schema validation scripts on pull requests targeting `main` and pushes to `main`; PR jobs explicitly check out and assert the PR head SHA, and main jobs assert the event commit. Actions are pinned to full commit SHAs, permissions are read-only, and tool versions are fixed. The workflow consumes no repository or organization secrets; checkout uses only the ephemeral read-only GitHub token and does not persist it. It uses no provider clients, private data, Docker, or artifact uploads. Do not report local results as a substitute for the matching head's GitHub checks.
+- Public workflows may build, test, lint, and scan only public source and synthetic fixtures. They must not read private repositories, credentials, private market archives, account data, or invoke any broker or trading operation.
 
 ## Provenance and licensing
 
