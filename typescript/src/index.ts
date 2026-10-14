@@ -25,4 +25,18 @@ export {
   ControlEventEnvelopeV1Schema,
   type ControlEventEnvelopeV1,
 } from "./gen/lqepoch/market/v1/market_pb.js";
+export {
+  BarCoverageGapV1Schema,
+  BarCoverageSegmentV1Schema,
+  BarRowV1Schema,
+  BarSourceProvenanceV1Schema,
+  BarsRequestV1Schema,
+  BarsResponseV1Schema,
+  type BarCoverageGapV1,
+  type BarCoverageSegmentV1,
+  type BarRowV1,
+  type BarSourceProvenanceV1,
+  type BarsRequestV1,
+  type BarsResponseV1,
+} from "./gen/lqepoch/market/v1/bars_pb.js";
 export { registerOpenApiUtf8ByteFormats } from "./contracts/openapi-formats.js";

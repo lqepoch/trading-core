@@ -1243,6 +1243,101 @@ export const TRUSTED_PARQUET_SCHEMA_REGISTRY = {
         "schema_version": 1
       },
       "sha256": "2df41366161a20007593a5f1dc908acb9e593c06f3d1d54b68a10a1baf7291fb"
+    },
+    {
+      "canonical_json": "{\"fields\":[{\"name\":\"schema_version\",\"nullable\":false,\"type\":\"uint32\"},{\"name\":\"symbol\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"asset_class\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"resolution\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"adjustment\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"bar_start_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"bar_end_exclusive_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"received_at_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"available_at_utc\",\"nullable\":false,\"type\":\"timestamp_ns_utc\"},{\"name\":\"open\",\"nullable\":false,\"type\":\"decimal_string\"},{\"name\":\"high\",\"nullable\":false,\"type\":\"decimal_string\"},{\"name\":\"low\",\"nullable\":false,\"type\":\"decimal_string\"},{\"name\":\"close\",\"nullable\":false,\"type\":\"decimal_string\"},{\"name\":\"volume\",\"nullable\":false,\"type\":\"decimal_string\"},{\"name\":\"provenance_id\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"session_instance_id\",\"nullable\":false,\"type\":\"utf8\"},{\"name\":\"validation_state\",\"nullable\":false,\"type\":\"utf8\"}],\"schema_id\":\"lqepoch.market_bars.v1\",\"schema_version\":1}",
+      "descriptor": {
+        "fields": [
+          {
+            "name": "schema_version",
+            "nullable": false,
+            "type": "uint32"
+          },
+          {
+            "name": "symbol",
+            "nullable": false,
+            "type": "utf8"
+          },
+          {
+            "name": "asset_class",
+            "nullable": false,
+            "type": "utf8"
+          },
+          {
+            "name": "resolution",
+            "nullable": false,
+            "type": "utf8"
+          },
+          {
+            "name": "adjustment",
+            "nullable": false,
+            "type": "utf8"
+          },
+          {
+            "name": "bar_start_utc",
+            "nullable": false,
+            "type": "timestamp_ns_utc"
+          },
+          {
+            "name": "bar_end_exclusive_utc",
+            "nullable": false,
+            "type": "timestamp_ns_utc"
+          },
+          {
+            "name": "received_at_utc",
+            "nullable": false,
+            "type": "timestamp_ns_utc"
+          },
+          {
+            "name": "available_at_utc",
+            "nullable": false,
+            "type": "timestamp_ns_utc"
+          },
+          {
+            "name": "open",
+            "nullable": false,
+            "type": "decimal_string"
+          },
+          {
+            "name": "high",
+            "nullable": false,
+            "type": "decimal_string"
+          },
+          {
+            "name": "low",
+            "nullable": false,
+            "type": "decimal_string"
+          },
+          {
+            "name": "close",
+            "nullable": false,
+            "type": "decimal_string"
+          },
+          {
+            "name": "volume",
+            "nullable": false,
+            "type": "decimal_string"
+          },
+          {
+            "name": "provenance_id",
+            "nullable": false,
+            "type": "utf8"
+          },
+          {
+            "name": "session_instance_id",
+            "nullable": false,
+            "type": "utf8"
+          },
+          {
+            "name": "validation_state",
+            "nullable": false,
+            "type": "utf8"
+          }
+        ],
+        "schema_id": "lqepoch.market_bars.v1",
+        "schema_version": 1
+      },
+      "sha256": "6534a31150d14121ba30c6abae707104479b6ea6750150769b1d5d6235faf180"
     }
   ]
 } as const;

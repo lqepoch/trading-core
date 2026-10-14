@@ -8,7 +8,7 @@ type FormatRegistry = { addFormat: (name: string, format: StringFormat) => unkno
  * do not replace domain, source, receipt or provider-authority validation.
  */
 export function registerOpenApiUtf8ByteFormats(registry: FormatRegistry): void {
-  for (const maximum of [128, 256, 512]) {
+  for (const maximum of [128, 256, 512, 2048]) {
     registry.addFormat(`utf8-bytes-${maximum}`, {
       type: "string",
       validate: (value: string) => value.length <= maximum &&

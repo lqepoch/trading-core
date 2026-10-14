@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package lqepoch.market.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lqepoch.market.v1";
+
+// Shared DTOs for the read-only GET /v1/market/bars HTTP JSON contract.
+// All json_name values are explicit because this HTTP surface uses snake_case JSON fields.
+// Provider selection, fetching, entitlement verification, caching and publication belong to
+// consuming services; these messages only define the versioned request and evidence shape.
+message BarsRequestV1 {
+  string symbol = 1 [json_name = "symbol"];
+  string asset_class = 2 [json_name = "asset_class"];
+  google.protobuf.Timestamp start = 3 [json_name = "start"];
+  google.protobuf.Timestamp end = 4 [json_name = "end"];
+  string resolution = 5 [json_name = "resolution"];
+  string session_scope = 6 [json_name = "session_scope"];
+  string adjustment = 7 [json_name = "adjustment"];
+  string provider_mode = 8 [json_name = "provider_mode"];
+  bool allow_daily_downgrade = 9 [json_name = "allow_daily_downgrade"];
+  uint32 limit = 10 [json_name = "limit"];
+  optional string cursor = 11 [json_name = "cursor"];
+}
+
+// Actual source provenance. The top-level provider/feed response values are summaries only.
+message BarSourceProvenanceV1 {
+  string provenance_id = 1 [json_name = "provenance_id"];
+  string provider = 2 [json_name = "provider"];
+  string feed = 3 [json_name = "feed"];
+  string entitlement_status = 4 [json_name = "entitlement_status"];
+  string numeric_encoding = 5 [json_name = "numeric_encoding"];
+  string source = 6 [json_name = "source"];
+}
+
+// Source-backed interval with an explicit market-calendar session instance.
+message BarCoverageSegmentV1 {
+  google.protobuf.Timestamp start_utc = 1 [json_name = "start_utc"];
+  google.protobuf.Timestamp end_exclusive_utc = 2 [json_name = "end_exclusive_utc"];
+  string coverage_status = 3 [json_name = "coverage_status"];
+  optional string provenance_id = 4 [json_name = "provenance_id"];
+  string session_instance_id = 5 [json_name = "session_instance_id"];
+}
+
+// Missing interval and machine-readable reason.
+message BarCoverageGapV1 {
+  google.protobuf.Timestamp start_utc = 1 [json_name = "start_utc"];
+  google.protobuf.Timestamp end_exclusive_utc = 2 [json_name = "end_exclusive_utc"];
+  string reason_code = 3 [json_name = "reason_code"];
+}
+
+// One exact OHLCV row. Decimal values are strings to preserve their exact decimal tokens.
+message BarRowV1 {
+  string symbol = 1 [json_name = "symbol"];
+  string asset_class = 2 [json_name = "asset_class"];
+  string resolution = 3 [json_name = "resolution"];
+  google.protobuf.Timestamp bar_start_utc = 4 [json_name = "bar_start_utc"];
+  google.protobuf.Timestamp bar_end_exclusive_utc = 5 [json_name = "bar_end_exclusive_utc"];
+  google.protobuf.Timestamp received_at_utc = 6 [json_name = "received_at_utc"];
+  google.protobuf.Timestamp available_at_utc = 7 [json_name = "available_at_utc"];
+  string open = 8 [json_name = "open"];
+  string high = 9 [json_name = "high"];
+  string low = 10 [json_name = "low"];
+  string close = 11 [json_name = "close"];
+  string volume = 12 [json_name = "volume"];
+  string provenance_id = 13 [json_name = "provenance_id"];
+  string session_instance_id = 14 [json_name = "session_instance_id"];
+  string validation_state = 15 [json_name = "validation_state"];
+  string adjustment = 16 [json_name = "adjustment"];
+}
+
+// Read-only response with explicit coverage, paging, calendar, and source evidence.
+message BarsResponseV1 {
+  uint32 schema_version = 1 [json_name = "schema_version"];
+  string provider = 2 [json_name = "provider"];
+  string feed = 3 [json_name = "feed"];
+  string entitlement_status = 4 [json_name = "entitlement_status"];
+  string requested_resolution = 5 [json_name = "requested_resolution"];
+  string effective_resolution = 6 [json_name = "effective_resolution"];
+  repeated BarRowV1 rows = 7 [json_name = "rows"];
+  string coverage_status = 8 [json_name = "coverage_status"];
+  repeated BarCoverageSegmentV1 segments = 9 [json_name = "segments"];
+  repeated BarCoverageGapV1 gaps = 10 [json_name = "gaps"];
+  repeated BarSourceProvenanceV1 source_provenance = 11 [json_name = "source_provenance"];
+  google.protobuf.Timestamp as_of = 12 [json_name = "as_of"];
+  google.protobuf.Timestamp fetched_at = 13 [json_name = "fetched_at"];
+  optional google.protobuf.Timestamp verified_at = 14 [json_name = "verified_at"];
+  string cache_status = 15 [json_name = "cache_status"];
+  optional string market_calendar_version = 16 [json_name = "market_calendar_version"];
+  optional string continuation_cursor = 17 [json_name = "continuation_cursor"];
+  bool truncated = 18 [json_name = "truncated"];
+  string adjustment = 19 [json_name = "adjustment"];
+}

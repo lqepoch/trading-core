@@ -22,6 +22,8 @@ pub const MARKET_EVENT_PARQUET_SCHEMA_ID: &str = "lqepoch.market_event.v1";
 pub const US_EQUITY_TRADE_BAR_1M_SCHEMA_ID: &str = "lqepoch.us_equity_trade_bar_1m.v1";
 /// Trusted schema ID for one-minute US equity trade bars bound to manifest completion evidence.
 pub const US_EQUITY_TRADE_BAR_1M_V2_SCHEMA_ID: &str = "lqepoch.us_equity_trade_bar_1m.v2";
+/// Trusted schema ID for canonical exact-decimal market bars returned by BarsResponseV1.
+pub const MARKET_BARS_PARQUET_SCHEMA_V1_ID: &str = "lqepoch.market_bars.v1";
 /// Trusted schema ID for byte-exact provider MessagePack frames.
 pub const MARKET_RAW_FRAME_PARQUET_SCHEMA_ID: &str = "lqepoch.market_raw_frame.v1";
 /// Trusted schema ID for byte-exact provider JSON frames.
@@ -332,6 +334,17 @@ mod tests {
         for golden in fixture.schemas {
             verify_golden(golden, true);
         }
+        let bars = trusted_parquet_schema(super::MARKET_BARS_PARQUET_SCHEMA_V1_ID).unwrap();
+        assert_eq!(
+            trusted_schema_fingerprint(super::MARKET_BARS_PARQUET_SCHEMA_V1_ID).unwrap(),
+            "6534a31150d14121ba30c6abae707104479b6ea6750150769b1d5d6235faf180"
+        );
+        assert!(bars.fields.iter().any(|field| field.name == "adjustment"));
+        assert!(
+            bars.fields
+                .iter()
+                .any(|field| field.name == "provenance_id")
+        );
     }
 
     fn verify_golden(golden: GoldenSchema, trusted: bool) {
