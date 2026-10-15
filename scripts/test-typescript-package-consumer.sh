@@ -71,6 +71,20 @@ import {
   type PredictionEnvelopeV1,
   type SyntheticOfflinePreviewV1,
 } from "@lqepoch/trading-core-contracts";
+import {
+  BarCoverageGapV1Schema,
+  BarCoverageSegmentV1Schema,
+  BarRowV1Schema,
+  BarSourceProvenanceV1Schema,
+  BarsRequestV1Schema,
+  BarsResponseV1Schema,
+  type BarCoverageGapV1,
+  type BarCoverageSegmentV1,
+  type BarRowV1,
+  type BarSourceProvenanceV1,
+  type BarsRequestV1,
+  type BarsResponseV1,
+} from "@lqepoch/trading-core-contracts/bars";
 import { fromJson, type JsonValue } from "@bufbuild/protobuf";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -143,6 +157,22 @@ const expectedManifestBytes = readFileSync(
 );
 assert(Buffer.from(manifestBytes).equals(expectedManifestBytes), "manifest ProtoJSON package export changed shared bytes");
 
+assert(BarsRequestV1Schema.typeName === "lqepoch.market.v1.BarsRequestV1", "Bars V1 request schema export changed");
+assert(BarSourceProvenanceV1Schema.typeName === "lqepoch.market.v1.BarSourceProvenanceV1", "Bars V1 provenance schema export changed");
+assert(BarCoverageSegmentV1Schema.typeName === "lqepoch.market.v1.BarCoverageSegmentV1", "Bars V1 coverage schema export changed");
+assert(BarCoverageGapV1Schema.typeName === "lqepoch.market.v1.BarCoverageGapV1", "Bars V1 gap schema export changed");
+assert(BarRowV1Schema.typeName === "lqepoch.market.v1.BarRowV1", "Bars V1 row schema export changed");
+assert(BarsResponseV1Schema.typeName === "lqepoch.market.v1.BarsResponseV1", "Bars V1 response schema export changed");
+type BarsV1MessageSurface =
+  | BarsRequestV1
+  | BarSourceProvenanceV1
+  | BarCoverageSegmentV1
+  | BarCoverageGapV1
+  | BarRowV1
+  | BarsResponseV1;
+const barsV1TypesCompile: BarsV1MessageSurface | undefined = undefined;
+void barsV1TypesCompile;
+
 function rejectsRawText(text: string, message: string): void {
   let rejected = false;
   try {
@@ -204,4 +234,8 @@ if (typeof resolved !== "string" || !resolved.endsWith(`#${expectedRevision}`)) 
 console.log(`consumer lockfile pins trading-core ${expectedRevision}`);
 NODE
 (cd "$temporary_consumer" && npm prune --omit=dev --no-audit --no-fund)
+cp "$repo_root/scripts/check-typescript-browser-entry.mjs" \
+  "$temporary_consumer/check-typescript-browser-entry.mjs"
+node --conditions=browser "$temporary_consumer/check-typescript-browser-entry.mjs" \
+  "$temporary_consumer/node_modules/@lqepoch/trading-core-contracts"
 (cd "$temporary_consumer" && npm test)

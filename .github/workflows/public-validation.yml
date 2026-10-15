@@ -87,3 +87,9 @@ jobs:
 
       - name: Run schema and generated-consumer validation
         run: scripts/validate-schemas.sh
+
+      - name: Verify installed TypeScript package and browser entry
+        env:
+          CORE_CONTRACTS_GIT_URL: git+file://${{ github.workspace }}
+          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: scripts/test-typescript-package-consumer.sh "$EXPECTED_SOURCE_SHA"

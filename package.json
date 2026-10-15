@@ -15,6 +15,7 @@
   "files": [
     "typescript/dist/contracts/**",
     "typescript/dist/gen/**",
+    "typescript/dist/bars.*",
     "typescript/dist/index.*",
     "LICENSE-MIT",
     "LICENSE-APACHE",
@@ -25,6 +26,10 @@
     ".": {
       "types": "./typescript/dist/index.d.ts",
       "import": "./typescript/dist/index.js"
+    },
+    "./bars": {
+      "types": "./typescript/dist/bars.d.ts",
+      "import": "./typescript/dist/bars.js"
     }
   },
   "dependencies": {
