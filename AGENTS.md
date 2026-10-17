@@ -9,7 +9,7 @@ This repository owns provider-neutral financial values, deterministic models, an
 - market-contracts owns serializable market DTOs, legacy compatibility exports, and the trusted Parquet logical-schema registry. Protobuf, OpenAPI, and Parquet registry resources under proto/ and schemas/ are versioned here; raw-frame DTOs describe storage rows but do not implement transport or persistence.
 - Broker SDKs, provider adapters, account-authority coordinators, request schedulers, OMS, persistence, and order dispatch belong to their owning repositories. Do not create dependencies on them here.
 
-The nine-repository map is a [governance candidate in Draft PR #20](https://github.com/lqepoch/platform-ops/blob/codex/chg-2026-001-workspace-layout/docs/NINE-REPOSITORY-ARCHITECTURE.md), not yet the `main` authority. Until it is merged, use this repository's source, manifests, locks, and local documentation as current behavior evidence.
+The [nine-repository target architecture](https://github.com/lqepoch/platform-ops/blob/main/docs/NINE-REPOSITORY-ARCHITECTURE.md) was published on `platform-ops/main` on 2026-10-17. It governs target responsibilities and migration gates; implemented authority and readiness still require source, exact dependency locks and head-bound acceptance evidence.
 
 ## Safety
 
